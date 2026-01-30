@@ -1,0 +1,178 @@
+// number of threads
+const DO_IN_NUM_PARTS = 5
+
+// # raycasting
+// setting this higher than 1 skips pixels to test
+const PIXEL_JUMP = 3
+// const PIXEL_JUMP = 1
+// the number of rows to cast (in a circle) from each pixel
+// for images with large areas setting this to a small value may mean that gaps are missed and circles will not fit correctly
+const RAYCAST_NUM = 128
+// const RAYCAST_NUM = 256
+// the testing ray jumps by this amount - it should be small enough not to "jump over" gaps
+// 5 to 10 is good here
+const RAYCAST_JUMP = 5
+// const RAYCAST_JUMP = 1
+// once a ray has gone outside an image, rewind by this amount (per step) until it's inside again
+// 1 or lower is a good idea
+const RAYCAST_REVERSE_AMOUNT = 0.01
+// below this number is counted as outside the image
+const ALPHA_HIT = 1
+
+// # post processing
+// the minimum size of circle to keep
+const MIN_CIRCLE_SIZE = 2
+// if it is lower than 1 then circles can be closer
+const RADIUS_TO_KEEP_CIRCLES = 1 
+
+let bestCircles = null
+
+// output an array of circles with #s as %s of largest dimension
+// coords -0.5 => 0.5 so center of image 0,0
+const normalizeCircles = function(arr, img) {
+	const lDim = max(img.width, img.height);
+	return arr.map(c => [
+		parseFloat(((c[0]-img.width/2)/lDim).toFixed(3)),
+		parseFloat(((c[1]-img.height/2)/lDim).toFixed(3)),
+		Math.round(c[2]/lDim*1000)/1000
+	])
+}
+
+function preload() {
+	img = loadImage('elephant-min.png');
+	// img = loadImage('pineapple.webp');
+}
+
+function setup() {
+	createCanvas(img.width, img.height);
+	angleMode(RADIANS)
+	
+	background(150);
+	image(img, 0, 0)
+	
+	allCircles = []
+	
+	currentX = 0
+	currentY = 0
+	
+	startTime = Date.now()
+	
+	img.loadPixels()
+	fImg = Uint8ClampedArray.from(img.pixels.filter((_, idx) => idx % 4 === 3))
+}
+
+function draw() {	
+	noLoop()
+	
+	function postProcess(circles) {
+		const allCircles = circles
+	
+		console.log(`Generating Time: ${(Date.now()-startTime)/1000}s`)
+		startTime = Date.now()
+		console.log(`# Circles Added: ${allCircles.length}`)
+
+		allCircles.sort((a, b) => b[2] - a[2])
+
+		let processed = [].concat(allCircles)
+		bestCircles = []
+		// bestCircles = processed
+		while (processed.length > 0) {
+			const fc = processed.shift() // => [2, 3, 4, 5]
+			bestCircles.push(fc)
+			processed = processed.filter(cc => {
+				let distX = fc[0] - cc[0]
+				let distY = fc[1] - cc[1]
+				let distPointToPoint = Math.sqrt(distX * distX + distY * distY)
+				return distPointToPoint > fc[2] / RADIUS_TO_KEEP_CIRCLES
+			}) // => [3, 5]
+		}
+
+		console.log(`Processing Time: ${(Date.now()-startTime)/1000}s`)
+		console.log(`# Kept Circles: ${bestCircles.length}`)
+
+		background(150);
+		image(img, 0, 0)
+		noFill()
+		
+		stroke('red')
+
+		// draw circles
+		bestCircles.forEach(c => circle(c[0], c[1], c[2]*2))
+
+		console.log('\n', normalizeCircles(bestCircles, img))
+	}
+	
+	const allParts = []
+	let completeParts = 0
+	let percentDone = 0
+	
+	function partComplete(partCircles) {
+		allParts.push(...partCircles)
+		completeParts++
+		if (completeParts === DO_IN_NUM_PARTS) {
+			setTimeout(()=> { postProcess(allParts) }, 100)
+		}
+	}
+	
+	let startTime = Date.now()
+	
+	for (let i=1; i<=DO_IN_NUM_PARTS; i++) {
+		const myWorker = new Worker('worker.js');
+		
+		myWorker.onmessage = function(e) {
+			if (e.data.complete) {
+				partComplete(e.data.circles)
+			} else if (e.data.progress) {
+				const p = e.data.progress
+				if (p % 5 === 0) {
+					fill(255, 255, 255, 128)
+					noStroke()
+					rect(0, img.height/100*(p-5), img.width, img.height/20)
+					// percentDone += p / 10
+					// console.log(`${percentDone}% complete`)
+				}
+			}
+		}
+		
+		myWorker.postMessage({
+			img: fImg,
+			width: img.width,
+			height: img.height,
+			part: [i, DO_IN_NUM_PARTS],
+			// options
+			minCircleSize: MIN_CIRCLE_SIZE,
+			pixelJump: PIXEL_JUMP,
+			raycastJump: RAYCAST_JUMP,
+			raycastReverseAmount: RAYCAST_REVERSE_AMOUNT,
+			raycastNum: RAYCAST_NUM,
+			alphaHit: ALPHA_HIT,
+		})		
+	}
+}
+
+let lastManuallyAddedCircle
+
+function mousePressed() {
+	if (bestCircles) {
+		const newCircle = [mouseX, mouseY, 2]
+		
+		if (lastManuallyAddedCircle && keyIsDown(SHIFT)) {
+			const d = dist(mouseX, mouseY, lastManuallyAddedCircle[0], lastManuallyAddedCircle[1])
+			const numNew = floor(d / (MIN_CIRCLE_SIZE * 2.5))
+			let cx = lastManuallyAddedCircle[0]
+			let cy = lastManuallyAddedCircle[1]
+			for (let i=0; i<numNew; i++) {
+				cx += (mouseX - lastManuallyAddedCircle[0]) / numNew
+				cy += (mouseY - lastManuallyAddedCircle[1]) / numNew
+				circle(cx, cy, 4)
+				bestCircles.push([cx, cy, 4])
+			}
+		} else {
+			circle(newCircle[0], newCircle[1], newCircle[2]*2)
+			bestCircles.push(newCircle)
+		}
+		
+		lastManuallyAddedCircle = newCircle
+		console.log('\n', normalizeCircles(bestCircles, img))
+	}
+}

@@ -1,0 +1,841 @@
+Computational Geometry 25 (2003) 233–256
+www.elsevier.com/locate/comgeo
+A circle packing algorithm
+Charles R. Collins ∗
+, Kenneth Stephenson 1
+Department of Mathematics, University of Tennessee, 37996-1300 Knoxville, TN, USA
+Received 24 August 2001; received in revised form 18 February 2002
+Communicated by P. Agarwal
+Abstract
+A circle packing is a configuration P of circles realizing a specified pattern of tangencies. Radii of packings in
+the euclidean and hyperbolic planes may be computed using an iterative process suggested by William Thurston.
+We describe an efficient implementation, discuss its performance, and illustrate recent applications. A central role
+is played by new and subtle monotonicity results for “flowers” of circles.
+ 2003 Elsevier Science B.V. All rights reserved.
+Keywords: Circle packing; Conformal geometry; Discrete Dirichlet problem
+Introduction
+A circle packing is a configuration P of circles realizing a specified pattern of tangencies. As such,
+it enjoys dual natures—combinatoric in the pattern of tangencies, encoded in an abstract “complex” K,
+and geometric in the radii of the circles, represented by a radius “label” R. As an early example, Fig. 1
+displays a simple complex K and a circle packing having its combinatorics. More substantial packings
+involve several hundred thousand circles.
+Our problem. Given a complex K and appropriate “boundary conditions”, compute the radii of the
+corresponding circle packing for K.
+* Corresponding author.
+E-mail addresses: ccollins@math.utk.edu (C.R. Collins), kens@math.utk.edu (K. Stephenson).
+1 The author gratefully acknowledges the support of the National Science Foundation and the Tennessee Science Alliance.
+0925-7721/03/$ – see front matter  2003 Elsevier Science B.V. All rights reserved.
+doi:10.1016/S0925-7721(02)00099-8
+234 C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256
+Fig. 1. A simple packing example.
+There now exists a rather complete theory covering the existence and uniqueness of these radii. In this
+paper we describe an efficient algorithm for numerically approximating them in euclidean and hyperbolic
+geometry.
+Though circle packings appear first with Koebe [23], they were rediscovered by William Thurston
+in [34]. (Important note: our circle packings are NOT those in the extensive “sphere packing” literature.)
+Thurston conjectured in 1985 [35] that maps between circle packings could be used in the approximation
+of classical conformal (analytic) mappings. His conjecture was confirmed by Rodin and Sullivan [29].
+Since then, many additional uses of circle packings, both practical and theoretical have emerged: discrete
+conformal mapping [16–19,33], analytic function theory [13–15,27,28,31], graph embedding [24,25],
+discrete potential theory [4,32], conformal tilings [9], and Riemann surface theory [1,6,7,10,37,38]. There
+is a significant experimental component to circle packing, so both theory and applications benefit from
+an efficient implementation.
+In computing packing labels R, one faces large, highly nonlinear, nonstructured, heterogeneous
+systems of equations. The underlying geometry plays a central role, with a mixture of local and global
+considerations which reflects the “discrete conformal” nature of circle packings; in particular, the system
+displays certain characteristics of classical discrete Laplace equations, including conserved geometric
+quantities. The global strategy in our packing algorithm, akin to “relaxation”, was suggested by Thurston.
+Alternate approaches involving energy minimization and convexity [11] and random walks [32] have
+been suggested, but to our knowledge, not implemented on a significant scale.
+The key implementation issues in our iterative approach are local in nature, depending heavily on the
+special properties of circles, and in particular, on a new “monotonicity” result of independent geometrical
+interest. We describe our algorithm in the context of the simplest Dirichlet-type problem; however, the
+implementation handles much more general situations and is now incorporated in the software package
+CirclePack developed by the second author.
+In the next section we start with definitions and notation and describe the basic Dirichlet problem.
+In Section 2 we give the monotonicity properties of local circle patterns which are key both in theory
+and practice. The global iterative strategy is described in Section 3, with emphasis on the local/global
+interaction. In Section 4 we lay out our implementation and discuss rates of convergence, stability,
+and speed, and provide sample run data. The final section concerns more general circle packings, open
+questions, and selected applications.
+C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256 235
+1. Definitions and notation
+The principal objects of concern are circle packings P, their complexes K, and their associated
+labels (putative radii) R. In fact, the numerical manipulations involve only K and R: one solves for
+the label R satisfying desired boundary conditions and meeting numerical “packing” conditions which
+reflect local geometric compatibility. The circle packing itself results from a simple laying-out process
+and in particular, circle centers play a purely secondary role.
+Geometries. Our algorithm applies in both the euclidean and hyperbolic settings. The euclidean plane is
+the familiar complex plane C. The hyperbolic plane will be represented in the Poincarè disc model: that is,
+it consists of the open unit disc D = {|z| < 1} equipped with the Riemannian metric of constant curvature
+−1 having length element 2|dz|
+(1−|z|
+2)
+. Note that hyperbolic circles in D are also euclidean circles, though with
+hyperbolic centers and radii. Horocycles, circles internally tangent to ∂D, may be consistently treated as
+circles of infinite hyperbolic radius with centers at their points of tangency.
+Complexes. Packing combinatorics are encoded in abstract simplicial 2-complexes K which triangulate
+oriented topological surfaces. We restrict to the case in which K is a finite triangulation of a closed
+topological disc, so we have a finite number of vertices (0-simplices), edges (1-simplices), and faces
+(oriented 2-simplices). (See the concluding section for comments on the more general cases.)
+The vertices of K are of two types, interior and boundary. If u and v are neighboring vertices (i.e.,
+u, v is an edge of K) we write u ∼ v. A vertex v and its neighbors form a (combinatorial) flower,
+Fv = {v; v1,...,vk}: the petals vj are listed in counterclockwise order about v with vj+1 ∼ vj ; k is the
+degree of v, deg(v). When v is interior, the list of petals is closed; writing vk+1 = v1, v belongs to the k
+faces {v,vj , vj+1: j = 1,...,k}. To avoid minor pathologies, we assume that the set of interior vertices
+of K is edge-connected and that every boundary vertex has an interior neighbor.
+Packings. A configuration P of circles in the (euclidean or hyperbolic) plane is a circle packing for K
+if it has a circle cv associated with each vertex v of K so that the following conditions hold: (1) if u, v
+is an edge of K, then cu and cv are (externally) tangent, and (2) if u, v, w is a positively oriented face
+of K, then cu, cv, cw is a positively oriented triple of mutually tangent circles.
+We emphasize that there is no univalence condition (as occurs in certain parts of the circle packing
+literature); that is, when vertices v and u are not neighbors, then there is no guarantee that their circles cv
+and cu have mutually disjoint interiors.
+Labels. A label for K is a function R :K(0) → (0,∞] assigning an (extended) positive value to each
+vertex of K; write K(R) for the labeled complex. The archetype, of course, is the “radius label” taken
+from a packing P for K, wherein R(v) = radius(cv). In this case we write K(R) ↔ P to indicate
+the association. (Note that the label ∞ is permitted only in the hyperbolic setting, and then only for
+boundary vertices.) The collection of all labels R for K will be denoted R. Of course, in general a label
+represents only putative radii; it could not be associated with a coherent configuration of circles unless
+rigid compatibility conditions were satisfied.
+236 C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256
+Fig. 2. Triples in the euclidean and hyperbolic planes.
+Angle sums. Those all-important compatibility conditions on labels are entirely local in our setting.
+Local compatibility at a vertex v involves the labels of the flower Fv and is expressed in terms of an
+angle sum θ.
+We describe the euclidean case first. Given labels x,y,z ∈ (0,∞), lay out a mutually tangent triple
+cx , cy, cz of circles in the plane with radii x,y,z and connect the circle centers with geodesic segments
+to form a triangle T , as in Fig. 2(a). The triangle T is unique up to rigid motions and the angle of T at
+the center of cx , denoted by α(x; y, z), can be computed from the labels using the law of cosines:
+α(x; y, z) = arccos
+(x + y)2 + (x + z)2 − (y + z)2
+2(x + y)(x + z)
+. (1.1)
+Consider a vertex v and its flower Fv = {v; v1,...,vk} in K. The sum of angles associated with v in the
+various faces v, u, w ∈ K is termed the angle sum at v for label R, denoted
+θ (v;R) =
+v,u,w
+α
+
+R(v);R(u), R(w)
+,
+where the sum is over faces v, u, w ∈ K. If {r;r1,...,rk} denotes the labels from R for Fv , then
+the angle sum depends only on these labels. Assuming v is interior, it belongs to k faces and, abusing
+notation, we write θ (v;R) = θ (r;r1,...,rk) = k
+j=1 α(r;rj , rj+1).
+An elementary but crucial observation: A set of circles cv, cv1 ,...,cvk with the labels from R as radii
+will fit together coherently in the plane if and only if θ (v;R) = 2πn for some integer n  1. In this case,
+the petal circles will wrap precisely n times around cv . A nine-petal flower is shown in Fig. 3: in (a)
+the petals wrap once, n = 1; in (b), petals of the same radii wrap twice around the smaller center circle,
+n = 2. Angle sums are defined similarly at boundary vertices v, but since their petals are not required to
+form a closed chain, a coherent open flower exists irrespective of the angle sum.
+The totality of angle sums for the vertices of a labeled complex K(R) may be treated as a point in
+angle space A. Thus θ is a map from label space to angle space, θ :R → A.
+Moving to hyperbolic geometry, similar local considerations apply; recall that in our disc model,
+hyperbolic geodesics are arcs of euclidean circles which intersect ∂D at right angles. See Fig. 2(b) and
+C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256 237
+Fig. 3. Nine-petal flowers.
+(c) for sample triples, the latter having a vertex at the ideal boundary. As in the euclidean case, any
+triple of labels x,y,z ∈ (0,∞] determines a geodesic triangle T in the hyperbolic plane, unique up to
+rigid motions (i.e., Möbius transformations of D), and it determines an angle α(x; y, z) at the center of
+the circle of radius x. The formula for α, to be given later, involves now the hyperbolic cosine law and
+must accommodate infinite radii. The angle sum θ (·;R) is defined as before and has the same geometric
+implications.
+Now for the result which motivates our computational effort:
+Definition 1.1. Given a complex K, a label R is said to satisfy the packing condition at an interior vertex
+v ∈ R if θ (v;R) = 2πn for some integer n  1. The label R is said to be a packing label if the packing
+condition is satisfied at every interior vertex.
+The next theorem says that under our assumption that K triangulates a closed topological disc, the
+local compatibility conditions are enough to ensure a circle packing. For the proof of the theorem see [3].
+(In more general multiply-connected cases, global compatibility conditions also enter.)
+Theorem 1.2. Given a labeled complex K(R), a necessary and sufficient condition for existence of a
+circle packing P with P ↔ K(R) is that R be a packing label. In this case, P is uniquely determined up
+to rigid motions (isometries) of the euclidean or hyperbolic plane, as appropriate.
+The angle sum map θ is nonnegative (positive in the euclidean case) and its value at a vertex v is
+bounded by π deg(v). If v is interior, θ (v;R) = 2πn, and n  2, then the label is said to have a branch
+point of order n − 1 at v; a packing label with one or more branch points is called a branched packing
+label. In computing packing labels, the branch structure (branch points and their orders) is specified in
+advance.
+Definition 1.3. Given the complex K, an angle sum target function A assigns to each interior vertex v
+a value A(v) = 2πn, where n − 1 is the desired order of branching at vertex v. The default target is no
+branching, n ≡ 1.
+238 C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256
+References to the target angle sums will generally be suppressed until they arise in actual
+computations. Dubejko [12] has established the following necessary and sufficient conditions for A:
+The function A can be the target function for a circle packing of K if and only if, for any simple closed
+edge-path γ in K,
+
+v∈γ ◦
+(A(v) − 2π )  (k − 3)π
+where the sum is over vertices v interior to γ and k is the number of edges in γ . We assume henceforth
+that A satisfies these (purely combinatorial) conditions. Nothing will be lost if the reader assumes the
+default target, which is always legal.
+The packings we intend to compute are guaranteed by the following fundamental existence and
+uniqueness result:
+Theorem 1.4 (The Dirichlet Problem). Let K be a complex triangulating a closed topological disc, let
+A be an angle sum target function of K, and assume that g : ∂K(0) → (0,∞) (respectively (0,∞]) is
+a function defined on the boundary vertices of K. Then there exists a unique euclidean (respectively
+hyperbolic) packing label R for K with the property that R(wj ) = g(wj ) for each boundary vertex wj .
+More explicitly, the solution R satisfies the following nonlinear system of N equations, one for each
+interior vertex uj .
+
+uj ,v,w
+α
+
+R(uj );R(v), R(w)
+= A(uj ): j = 1,...,N
+.
+We say that the solution label R “solves the Dirichlet problem”, since the theorem statement and proof
+both parallel the classical Dirichlet problem for harmonic functions.
+2. Local geometry
+Circles have been objects of study for well over two thousand years. The dynamics associated with
+small configurations of circles—triples and flowers—underly both the theoretical and practical solution
+of the Dirichlet problem. We refer to these lemmas collectively as “monotonicity” results.
+Lemma 2.1. Let x,y,z denote euclidean or hyperbolic radii in the configurations of Fig. 2. The angles
+α, β, and γ and Area(T ) are differentiable functions of x for 0 <x< ∞. Moreover,
+(a) α is decreasing in x,
+(b) β and γ are increasing in x,
+(c) Area(T ) is increasing in x,
+(d) limx→0 α(x; y, z) = π, and
+(e) limx→∞ α(x; y, z) = 0.
+Monotonicity is strict (except for the hyperbolic case of (b) when y (respectively z) is infinite).
+C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256 239
+Lemma 2.2. Let Fv = {v; v1,...,vk} denote a closed flower, {r;r1,...,rk} the corresponding euclidean
+or hyperbolic labels, and θ (r;r1,...,rk) the angle sum for v. Then θ is a differentiable function of its
+(finite) labels. Moreover,
+(a) θ is strictly decreasing in r,
+(b) θ is strictly increasing in rj , j = 1,...,k,
+(c) limr→0 θ = kπ, and
+(d) limr→∞ θ = 0.
+In particular, given a with 0 < a < kπ, there exists a unique label r = r0 so that θ (r0;r1,...,rk) = a.
+The previous results are standard in the circle packing literature (see [3]) and as we see in the next
+section, suggest the numerical approach to solving the Dirichlet problem. Later, Lemma 3.1 introduces a
+new, more subtle monotonicity, which largely accounts for the efficiency of our implementation.
+3. The packing algorithm
+3.1. The Perron method
+The basis for packing algorithms lies with the Perron method; we describe the hyperbolic, “upper”
+version of Bowers [5]. We will say that a label R for K is a superpacking label for the boundary value
+problem in Theorem 1.4 if two conditions hold: (1) R(w)  g(w) for every boundary vertex w, and (2)
+θ (v;R)  A(v), the target angle sum, for every interior vertex v. Together, these imply that the label R
+is too large.
+The collection Φ ⊂ R of all superpacking labels forms what is known as a Perron family. In particular,
+Φ is nonempty, since in hyperbolic geometry a label R0 satisfying (1) and having sufficiently large
+interior labels will have small interior angle sums. By monotonicity, R1, R2 ∈ Φ ⇒ min{R1, R2} ∈ Φ.
+This suggests consideration of R
+	= infΦ{R}. If R
+	 is nonvanishing, continuity of angle sums with respect
+to their labels easily implies that R
+	 will lie in Φ. Monotonicity tells us that it must be a solution and
+elementary hyperbolic area computations give uniqueness. The argument that R
+	does not vanish requires
+a little more work, using hyperbolic areas, the Gauss–Bonet Theorem, the Euler characteristic of K, and
+the necessary conditions on the target function A. (The solution of euclidean boundary value problems
+may be inferred from the hyperbolic case because hyperbolic quantities are infinitesimally euclidean.)
+3.2. The Uniform Neighbor Model (UNM)
+One could implement the Perron method numerically. In fact, however, the geometric stability is such
+that more direct relaxation methods suffice. We now describe the basic model we use in our calculations.
+Focusing on the flower for v, we treat the label r as a variable, and the petal labels r1,...,rk as fixed
+parameters. For a given value r = r0, the associated “reference” label is the number rˆ for which the
+following equality holds:
+θ (r0;r1,...,rk) = θ (r0;
+k 
+  
+r,..., ˆ r)ˆ =: θ (r ˆ 0; ˆr). (3.1)
+240 C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256
+In other words, laying out a flower with petal circles of the uniform radius rˆ would yield the same angle
+sum as with the original petal radii r1,...,rk when the center circle has radius r0.
+Lemma 3.1. Let θ (r) = θ (r;r1,...,rk) and θ (r) ˆ = θ (r ˆ ; ˆr) = θ (r; ˆr,...,r)ˆ , as above, with rˆ chosen so
+that θ (r0) = θ (r ˆ 0) for some r0 > 0. Assuming the labels r1,...,rk are not all equal, then
+dθˆ
+dr
+(r0) <
+dθ
+dr
+(r0), (3.2)
+Moreover, θ (r) < θ (r) ˆ for 0 <r<r0 and θ (r) > θ (r) ˆ for r>r0.
+Proof. The last inequalities follow easily from (3.2), since θ and θˆ intersect at the reference label r0 by
+definition.
+The proof of (3.2) is complicated first by the presence of k parameters, but more subtly by the
+dependence of θˆ on r1,...,rk through rˆ, which is suppressed in the notation. Our strategy is to adjust
+the petal labels in pairs, moving the largest and smallest towards one another in such a way that the
+reference label rˆ does not change, and watching the derivative of θ. We work in the euclidean setting.
+Circles in the Poincarè disc model of the hyperbolic plane are also euclidean circles; a hyperbolic flower
+with central circle at the origin is simultaneously a euclidean flower with the same angle sum, and the
+euclidean radii are monotone increasing in hyperbolic radii. In other words, the hyperbolic result follows
+from the euclidean.
+Suppose that S<L, where S denotes the smallest of the petal labels r1,...,rk while L denotes the
+largest. By monotonicity S < r<L ˆ . Fixing all remaining petal labels, θ is a function of L and S,
+θ = θ (r;L,S). The condition that rˆ remain fixed is expressed by
+θ (r0,L,S) = θ (r ˆ 0), (3.3)
+and this defines S as a function of L by the implicit function theorem. The slope of θ at r0 becomes a
+function of L, and we will show that it is increasing; that is,
+∂2θ
+∂r∂L(r0,L,S) > 0. (3.4)
+This means, of course, that decreasing L towards rˆ (and hence increasing S towards rˆ) makes the slope
+of θ smaller (i.e., more negative). Strict inequality in (3.4) means that the current L and S may be adjusted
+until a new pair of parameters qualifies as largest and smallest, at which point one can shift to adjusting
+them in turn. It is an easy argument to show that (3.2) follows.
+The verification of (3.4) is rather messy; we sketch the euclidean case and leave details to the interested
+reader. Since we adjust only L and S, we need only consider the contributions to the full angle sum of
+either three or four of the faces in the flower. Suppose, for instance, that x,y are the labels of the neighbors
+of L and z, w are the labels of the neighbors of S. Eq. (3.3) reduces (see (1.1)) to
+α(r0;L, x) + α(r0;L, y) + α(r0; S,w) + α(r0; S, z) = constant. (3.5)
+For notational convenience define the mixed partial derivative
+α1,2(x, y, z) = ∂2α(x; y, z)
+∂x∂y . (3.6)
+C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256 241
+Inequality (3.4) is equivalent to
+α1,2(r0,L, x) + α1,2(r0,L, y) + α1,2(r0,S,w)
+dS
+dL + α1,2(r0, S, z)
+dS
+dL
+> 0. (3.7)
+The computations are messy, but the results are all rational expressions; Eq. (3.5) permits computation
+of dS
+dL. After simplification, reorganization, and cancellation of clearly positive factors, one can identify a
+recurring subexpression in the left side of (3.7). In particular, define the auxiliary functions
+f (r, a, b) :=
+(a − r)(a + b) − 2r2
+(r + a)(r + a + b)
+and F (r, a, b, c, d) := f (r, a, b) − f (r, d, c).
+A simple calculation confirms the following fact:
+If a>d> 0, r> 0, and b, c ∈ [d,a], then F (r, a, b, c, d) > 0. (3.8)
+Inequality (3.7) is equivalent, after further simplification and judicious pairing of subexpressions, to a
+linear combination with nonnegative coefficients of the following four expressions:
+F (r0, L, y, w, S), F (r0, L, y, z, S), F (r0, L, x, w, S), F (r0, L, x, z, S).
+The positivity of (3.8) implies inequality (3.7).
+There are two other situations. If L and S share a common neighbor, then simply take y = w (and/or
+x = z) in the above. On the other hand, if L and S are themselves neighbors, say x,L,S,z is the order of
+petals, then the expressions in (3.5) and (3.7) must be adjusted accordingly. The simplifications become
+slightly more involved, but the subexpression f recurs and the result is a nonnegative combination of
+these four expressions,
+F (r0, L, x, L, S), F (r0, L, x, z, S), F (r0, L, S, L, S), F (r0, L, S, z, S).
+Positivity again follows from (3.8). This covers all possibilities and completes the proof. ✷
+See Fig. 4 for a plot of θ and θˆ as functions of r for a sample 6-flower.
+3.3. The numerical algorithm
+Using the Uniform Neighbor Model, our basic algorithm generates a sequence of labels {Rj } as
+follows:
+1. Pick any initial label R0, only requiring that R(w) = g(w) for every w ∈ ∂K.
+2. Given a label Rn, cycle through the list of interior vertices.
+3. Given an interior vertex v, adjust Rn(v) using the UNM by choosing Rn(v) so that θˆ
+
+Rn(v)
+= A(v).
+4. Denote the adjusted label by Rn+1; return to (2) until a prescribed accuracy in the angle sums is
+achieved.
+Geometric facts about angle “flow” explain why this sequence of corrected labels converges so well
+to the packing label. Consider the euclidean setting. For label R, define “excess” e at an interior vertex v
+and the “total error” E by
+e(v) = θ (v;R) − A(v), E = E(R) =
+v interior
+|e(v)|.
+242 C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256
+Fig. 4. Angle sums of the original and reference flowers.
+Claim. E is monotone decreasing with our label corrections.
+Let F denote the number of faces of K. Each has three angles which sum to π; reorganizing these by
+vertex, the total angle is 
+v∈K θ (v;R) = Fπ, independent of R. Thus total angle is a conserved quantity;
+any adjustment of a label simply causes a redistribution of that angle among the vertices. Suppose, for
+instance, that θ (v;R) is too large at some interior v, so e(v) > 0; by Lemma 2.2 one can increase the
+label R(v) until e(v) = 0. The excess angle at v is pushed to its immediate neighbors. At worst, E
+remains unchanged. However, if u ∼ v is an interior with angle sum too small or is a boundary vertex
+(whose angle sum doesn’t count in E), then the correction to R(v) simultaneously reduces |e(v)| and
+|e(u)|, and E decreases. Similar arguments apply when e(v) < 0. In any case, as long as the change made
+to R(v) does not cause the angle sum at v to overshoot A(v), E cannot increase. Since by Lemma 3.1
+corrections obtained from the UNM are conservative—they do not overshoot—the Claim is established.
+Considerations are slightly altered in the hyperbolic setting because area and angle are equivalent; this
+actually tends to improve the performance of the algorithm. (See [32] for the hyperbolic dynamics.)
+Observations. The geometry of circle configurations makes the adjustment process so stable that
+almost any iterative procedure will succeed. This is tempered by the essentially arbitrary combinatorics
+permitted in K; the local geometry is variable and there is almost no a priori information on the global
+solution. Here are some observations regarding implementation:
+C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256 243
+• The process is insensitive to the initial label: one can generally set its values (for interior vertices)
+arbitrarily.
+• There is no advantage in careful local computation, since results will be made obsolete by subsequent
+adjustments.
+• The process is insensitive to the order in which local adjustments are made.
+• Combinatorial variability (variable degrees, lack of symmetry, etc.) complicates data manipulation,
+storage, and vectorization.
+4. Details of the implementation
+Given complex K, boundary function g, and angle sum target A, our task is to compute the associated
+packing label R, as guaranteed by Theorem 1.4. Index the vertices of K by {w1,...,wM;u1,...,uN },
+with wi denoting boundary vertices and ui, interior vertices. The label entries which are subject to
+adjustment will be termed free; for the Dirichlet problem, these are the N interior labels.
+Problem. Find values {r1,...,rN } so that the label vector R satisfies the system G(R) = 0, where
+R = {g(w1), . . . , g(wM);r1,...,rN } and
+
+Gj (R) = θ (uj ;R) − A(uj ), j = 1,...,N
+. (4.1)
+Some abuse of notation and label transformations will be highly advantageous in describing the
+algorithm.
+Notational convention. The same letter to be used to denote both a vertex and its current label. Moreover,
+in hyperbolic geometry we use transformed labels; in all calculations (and without further comment),
+each hyperbolic label h ∈ (0,∞] will be replaced by the more convenient label s = exp{−2h}∈[0, 1).
+Keeping these conventions in mind, the angle calculation associated with vertex v for face v, u, w
+(1.1) can be rewritten in a more efficient form as
+Euclidean: α(v;u, w) = 2 sin−1
+ u
+v + u · w
+v + w
+
+, (4.2)
+Hyperbolic: α(v;u, w) = 2 sin−1
+
+v · 1 − u
+1 − vu · 1 − w
+1 − vw 
+. (4.3)
+In computing the angle sum θ (v;R), only the labels for v and its petals are involved, so all our packing
+computations are “local”. We will write θ (v;R) = θ (v; {vj }), where {vj } is shorthand for the list of petal
+labels. The context should make our index usage clear.
+4.1. Uniform neighbor calculation
+Using the UNM requires two steps. First, given a value for v, determine vˆ so that θ (v ˆ ; ˆv) = θ (v; {vj }).
+Second, solve for a new value for v (call it u) so that θ (u ˆ ; ˆv) = A(v). The advantage of the UNM is that
+these equations can be solved explicitly as follows.
+244 C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256
+Let θ = θ (v; {vj }) and A = A(v). From these values, compute β = sin( θ
+2k ) and δ = sin( A
+2k ). For the
+euclidean case, we have θ (v) ˆ = kα(v, v,ˆ v)ˆ = θ. Using the formula for α (4.2), we get vˆ = β
+1−β v. Then,
+solving θˆ = A, we get u = 1−δ
+δ vˆ. Note that since 0  θ < kπ then 0  β < 1 and so since v > 0 then
+u > 0.
+For the hyperbolic case, the computations are slightly more complicated but proceed in a similar
+fashion. We get vˆ = β−√v
+βv−√v . If v <ˆ 0 we take vˆ = 0. Also 1 − ˆv = β(1−v)
+√v (1−β
+√v), thus since β < 1 and v < 1,
+v <ˆ 1. We compute u from u = t
+2 where
+t = 2δ
+
+(1 − ˆv)2 + 4δ2vˆ + (1 − ˆv).
+It is clear that t > 0. To see that t < 1, start with δ < 1 to get (1 − ˆv)2 + 4δ2 < (2δ − (1 − ˆv))2. Thus
+t <
+2δ
+|2δ − (1 − ˆv)| + (1 − ˆv).
+If 2δ>(1 − ˆv) this last equation reduces to t < 2δ
+2δ = 1. If, on the other hand, 2δ < 1 − ˆv, then it reduces
+to
+t <
+2δ
+2(1 − ˆv) − 2δ
+<
+2δ
+4δ − 2δ = 1.
+In any event, in the hyperbolic case 0 <u< 1, as desired.
+Let this process, in either geometry, be represented by u = M(v,{vj }, A). Then one iteration of our
+algorithm loops through the N free labels and updates them by
+ui = M
+ui,{uj }, A(ui)
+
+, i = 1,...,N.
+Note that since the values of adjacent labels may change during the iteration, later updates will effect
+the angle sums for prior circles—one expects this to be an iterative process. As we will soon show,
+this algorithm is locally linearly convergent. We will improve convergence overall by using this local
+convergence to create heuristics for global over-relaxation procedures (see Section 4.3).
+4.2. Local linear convergence
+Given petal labels {vj }, let v denote the quantity of real interest; namely, the solution of θ (r; {vj }) = A.
+Lemma 3.1 implies that the computed value u lies between the current value v and v:
+v  u  v or v  u  v.
+Thus, replacing label v by u is always a conservative improvement. We would like to see how much
+better u = u(v) is than v, so we look at the ratio
+u(v) − v
+v − v .
+In particular we are interested in the maximum value of this ratio over the admissible range for v and
+also the value as v approaches v. From some simple calculations, we see that for the euclidean case, the
+maximum occurs at v = 0, and for the hyperbolic case, at v = 1 (hyperbolic radius = 0).
+C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256 245
+To understand the behavior of this ratio in the euclidean case, we need some information about the
+angle sum function. Consider θ as a function of v alone, with petal labels {vj } as fixed parameters. Then,
+for v near 0, we have
+θ (v) ≈ kπ − 2
+√v S, where S =
+k
+j=1
+
+1
+vj
++
+1
+vj+1
+.
+Also, θ
+(v) ≈ − √
+1
+v S. Next,
+lim
+v→0
+u(v) = 1 − δ
+δ
+lim
+v→0
+βv
+1 − β = − 1 − δ
+δ
+lim
+v→0
+1
+dβ
+dv
+using L’Hôpital’s rule (since βv=0 = 1). To evaluate this, we have
+dβ
+dv = 1
+2k
+cos θ
+2k
+
+θ
+(v).
+Thus for v near 0, we have
+dβ
+dv
+≈ −
+1
+2k ·
+1
+k
+√v S · 1
+√v
+S = − S2
+2k2 ⇒ lim
+v→0
+u(v) = 1 − δ
+δ
+2k2
+S2 = u0.
+And thus we have
+sup
+v>0
+u(v) − v
+v − v = lim
+v→0+
+u(v) − v
+v − v = 1 − u0
+v¯ < 1.
+This follows from the above calculations and the fact that 0 < u0 < v.
+For the hyperbolic case, the results are similar in that there is an explicit expression for the maximum
+of this ratio in terms of {vj } and v and it is clearly less than 1. These results show that locally the
+convergence is at worst linear.
+4.3. Acceleration and final algorithm
+Let R¯ be the exact solution and let Rl and Rl+1 be consecutive approximations. For large l
+computational experiments have shown that the local linear convergence discussed in the previous section
+is uniform, i.e.
+Rl+1 − R¯ ≈ λ(Rl − R), ¯
+holds element-by-element for some λ < 1. Assuming this result holds exactly, we get two heuristics for
+accelerating the convergence of this process. Taking this result for l and l + 1, we can solve for Rl+2 and
+R¯ to get
+Rl+2 = Rl+1 + λ(Rl+1 − Rl) (4.4)
+and
+R¯ = Rl+1 +
+λ
+1 − λ
+(Rl+1 − Rl). (4.5)
+When we use the equation for Rl+2 (4.4) to replace Rl+1 we call it simple acceleration. When we use the
+formula for R¯ (4.5) to replace Rl+1 we call it super acceleration.
+246 C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256
+Table 1
+Circle packing algorithm
+Given:
+• complex K
+• boundary function g
+• legal target function A
+• initial label R
+• tolerances ε > 0 and δ > 0.
+Algorithm:
+1. Set the boundary labels of R to their g values.
+2. Initialize: c = ε + 1, λ = −1, flag = 0
+3. While (c>ε) do
+(a) c0 = c, λ0 = λ, flag0 = flag, R0 = R
+(b) For each free node uj
+i. Calculate the angle sum θj
+ii. Update uj = M(uj ,{ui}, Aj )
+iii. Accumulate error estimate c = c + (θj − Aj )2
+(c) c = √c, λ = c/c0, flag = 1
+(d) If (flag0 = 1) and λ < 1 then perform super acceleration
+i. c = λc
+ii. If |λ − λ0| < δ then λ = λ/(1 − λ)
+iii. Determine largest λ∗ s.t. R + λ∗(R − R0) in range
+iv. λ = min(λ, 0.5λ∗)
+v. R = R + λ(R − R0)
+vi. flag = 0
+To use these acceleration schemes we need an estimate of the error reduction factor λ. In practice, we
+use a ratio of values cl+1/cl where cl is an approximation of G(Rl)2. In addition, since we are using
+an estimate, we choose between the two different acceleration steps based on whether or not the ratio
+cl+1/cl is converging to a constant value. We also modify the size of the acceleration factor in order to
+assure that the new value is in a valid range for radius labels (vi > 0 for euclidean and 0 < vi < 1 for
+hyperbolic). For this, we determine the largest λM for which all components of
+Rl+1 + λM(Rl+1 − Rl)
+remain valid. We use 1
+2λM as an upper bound for the acceleration factor. Thus we are assured that we
+always stay in the proper range and when the situation presents itself, the iterates converge as quickly as
+possible. These modifications for acceleration and other features are incorporated into the Circle Packing
+Algorithm given in Table 1.
+4.4. Results
+Having considered certain theoretical properties of our algorithm, let us examine some numerical
+results.
+Acceleration. First, consider the effect of using the acceleration. In Table 2 we show the performance
+for sample runs with no acceleration, simple acceleration, and super-step acceleration. (Super-stepping
+C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256 247
+Table 2
+Tests of acceleration
+Data file eucl/hyp N Acceleration Iters Flops Error
+spiral78 eucl 50 none 16 48,040 2.8549E−5
+spiral78 eucl 50 simple 14 43,590 2.4398E−5
+spiral78 eucl 50 super 12 37,370 2.7130E−5
+data237 eucl 223 none 297 3,924,600 4.6165E−5
+data237 eucl 223 simple 199 2,740,200 4.5294E−5
+data237 eucl 223 super 46 632,900 2.8921E−5
+data237 hyp 223 none 220 4,919,200 4.4722E−5
+data237 hyp 223 simple 147 3,377,400 4.5010E−5
+data237 hyp 223 super 36 808,700 3.2906E−5
+occurs if the tests for step 3(d)(ii) in the meta-code given in the box are satisfied.) We report the number
+of iterations, the flop count (an estimate of the number of floating point operations), and the error of the
+final value. The error is computed as G(R)1
+3N , G as defined in (4.1).
+Size. The data suggest a clear advantage using acceleration, one which grows with size. Therefore, we
+next look at how the algorithm performs as N increases. We used a simple family of complexes which
+are built by spiraling out from the center point to include the desired number of interior circles. In the
+hyperbolic runs, we set the boundary labels to infinity and started the interior labels with small (< 0.1)
+values. Fig. 5 is a graph of the asymptotic error reduction factor λ (without acceleration) plotted against
+the number of interior vertices N. This curve is approximately λ = N
+N+C , for C ≈ 30. Thus for large N
+the basic iteration converges slowly. However, with this same setup, we have compared the number of
+iterations needed to reach a tolerance of 10−8 using only the simple acceleration versus using the super
+acceleration.
+Ordering. To test the effect of the order in which free vertices {uj } are adjusted, we ran trials with
+a fixed hexagonal complex with 100 interior vertices. We set boundary labels to 2 and initial interior
+labels to 1; in the exact solution, all labels are 2. We randomized the indexing, recorded the number I of
+iterations it took to converge, noted the final error, and computed the approximate convergence factor λ
+by λI = (Error). In 41 random trials λ ranged from 0.5462 to 0.6094, I from 18 to 21. This was a
+limited test, but is in line with our experience that the ordering of vertices has a limited impact on the
+computations.
+Initial label. To test the effects of the initial label on performance, we ran trials with the same
+complex, but in the hyperbolic setting. Boundary labels were random but fixed, ending up in the range
+[0.68, 0.86]. Table 3 summarizes the results for various initial values for the interior labels. λ is the
+effective convergence rate, computed so that (Starting Error)(λ)I = (Final Error), where I is the number
+of iterations. (Here U (a, b) indicates uniformly random variables in the ranges (a, b) and R is the exact
+solution.) Note that even though the local method is conservative (i.e., always produces values on the
+same side of the correct answer as this initial guess), the super-step acceleration corrupts this property.
+248 C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256
+Fig. 5. Experimental estimates of λ.
+Table 3
+Effects of starting labels
+Initialization Iters Starting error Final error λ
+U (0, 1) 35 39.601 1.7274E−6 0.6162
+U (0, 0.5) 32 43.520 6.8814E−7 0.5705
+U (0.5, 1) 35 27.540 1.6074E−6 0.6213
+≈ R 35 8.4378 1.2559E−6 0.6381
+> R 29 5.9513 2.5086E−6 0.6028
+< R 31 4.3359 1.6615E−6 0.6209
+0.86 34 10.094 2.1669E−6 0.6366
+0.68 31 5.9867 2.6891E−6 0.6241
+5. General packing problems
+We have described our algorithm for the simplest Dirichlet problem on simply connected complexes,
+but it applies much more broadly. Here we discuss more general settings, open questions, computationally
+intensive applications, and software.
+Combinatorics. In fact, the only requirement on the complex K is that it triangulate an oriented
+topological surface. Thus, it may be finite or infinite, with or without boundary, planar or nonplanar, and
+C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256 249
+Fig. 6. Effects of acceleration.
+simply or multiply-connected—we are guaranteed that there exists one or more circle packings for K.
+Paraphrasing the central existence result (see [2]):
+Fact. Given K, there exists a Riemann surface S and a univalent circle packing PK in S with the
+combinatorics of K; S and PK are unique up to conformal isometries.
+The packing PK satisfies certain extremal conditions and is called the maximal packing for K.
+Note that K “chooses” the geometry in which its maximal packing must live. Fig. 7 illustrates several
+examples. In computational terms:
+(a) When K is a closed topological disc, the maximal packing lies in D and is computed by solving
+the Dirichlet problem (Theorem 1.4) with infinite boundary labels (and default target). The maximal
+packing for the complex of Fig. 1(a) is shown in Fig. 7(a).
+(b) When K is the Riemann sphere, S2 (the unit sphere in R3), then one vertex is removed, the reduced
+complex is packed in D as in (a), the missing vertex is identified with the exterior of D, and the results
+are projected back to S2, where a normalizing Möbius transformation may be applied. Fig. 7(b) is an
+example with combinatorics dual to Buchminsterfullerene.
+(c) Suppose K triangulates a compact surface (hence is finite with no boundary) of positive genus g.
+Starting with any initial label, our algorithm generates labels converging (generally, quite rapidly) to
+a maximal packing label. When g = 1, the computations are necessarily euclidean and the result
+is unique up to scaling; when g > 1 the computations are hyperbolic and the result is unique.
+250 C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256
+Fig. 7. Maximal packings.
+A fundamental domain for a covering of the packing can be displayed in C or D, respectively.
+Fig. 7(c) is a 1-torus and Fig. 7(d) is a 2-torus; edges have been marked to show edge identifications.
+(d) Suppose K is infinite and simply connected. Either K is parabolic, meaning PK packs C, as
+with the hexagonal “penny” packing of Fig. 7(e), or K is hyperbolic, meaning PK packs D,
+as with the constant 7-degree packing of Fig. 7(f). Computationally, these are approximated by
+appropriately normalized solutions of Dirichlet problems for finite, simply connected sub-complexes
+exhausting K. When given a nonsimply connected K, one works instead with its universal covering
+complex K, which is infinite and simply connected.
+C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256 251
+Geometry. An important feature of circle packing is that the combinatorics of K largely determine
+the geometry in which its packings live. The fundamental dichotomy expressed in (d) above provides a
+striking example, since it can be shown that a parabolic complex has no packing in D (the Discrete
+Liouville Theorem, [15]). When K is multiply connected, the topology determines the appropriate
+geometry; namely, the intrinsic spherical, euclidean, or hyperbolic metric inherited from the universal
+covering surface. (Note in particular that all numerical computations involve the familiar metric
+quantities.) Thus, in (c) above, if genus(K) = 1, then the appropriate geometry is euclidean—the
+hyperbolic packing algorithm will diverge to zero. Conversely, when genus(K) > 1, hyperbolic geometry
+applies and the euclidean packing algorithm will fail.
+The only influence one has on the geometry of a circle packing is through choice of boundary
+conditions (if there is a boundary) and through branching, which is tightly mediated by Gauss–Bonet,
+Riemann–Hurwitz, Euler characteristic, and other classical relations. In our experience, the packing
+algorithm always degenerates if the geometry being used is theoretically incompatible with the given
+complex K or with the boundary and branching conditions prescribed for K.
+Boundary angle sums. Boundary angle sums can be specified in place of boundary labels. Tight
+compatibility conditions (involving geometry, combinatorics, and branching) have not yet been
+formulated, but our packing algorithm appears to work without change for legal prescriptions—simply
+set boundary angle sum targets, declare boundary labels as free, and run the algorithm. Fig. 8(a) illustrates
+a mixed problem: some boundary vertices were given specified labels, while others were given specified
+angle sum targets.
+Overlap packings. The fundamental existence result for circle packings (see the Andreev–Thurston
+Theorem of [26]) actually applies to overlapping packings, of which our tangency patterns are a special
+case. One is allowed to specify an overlap angle φ(u, v) ∈ [0,π/2] for each edge u, v of K; in the
+associated packing P, the circles cu and cv will overlap (i.e., intersect) with angle φ(u, v) (φ(u, v) = 0
+means tangency).
+Our algorithm requires only an adjustment in the computation of α. To illustrate in the euclidean case,
+suppose triangle T has labels x,y,z and overlaps φx , φy , φz (for opposite edges). Defining parameters
+ηx , ηy , ηz ∈ [0, 1], where η· = cos(φ·), formula (1.1) becomes
+α(v;u, w, ηv, ηu, ηw)
+= arccos(x2 + y2 + 2xyηz) + (x2 + z2 + 2xzηy ) − (y2 + z2 + 2yzηx )
+2
+
+x2 + y2 + 2xyηz
+x2 + z2 + 2xzηy
+
+. (5.1)
+The monotonicity results of Section 2 continue to hold (see, e.g., [36]), so Thurston’s iterative algorithm
+yields packing labels as in the tangency case. In fact, the process is sufficiently robust that the uniform
+neighbor model works despite the fact that it is no longer strictly applicable.
+Yet more general overlap situations are of theoretical and practical interest, but open the door to
+incompatibilities. See [20] for the most general existence and uniqueness statement for overlaps up
+to angle π. In another direction, “imaginary” values for overlap angles correspond geometrically to
+inversive distances, a classical, conformally invariant way to measure the “distance” between pairs of
+separated circles. The continuum of situations—from overlaps of angle π/2, through tangency, out to
+inversive distances approaching infinity—is accommodated in formula (5.1) by letting the η-parameters
+252 C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256
+Fig. 8. Mixed boundary value, overlap, and inversive distance examples.
+vary over [0,∞). The four packings of Fig. 8 satisfy the same mixed boundary label/angle sum conditions
+but show a variety of “overlap” prescriptions. Fig. 8(a) is the familiar tangency case; Fig. 8(b) has constant
+inversive distances, all η set to 2.0; Fig. 8(c) has all overlaps set to π/3; and Fig. 8(d) involves a mixture
+of overlaps and inversive distances. There is yet little theoretical work on inversive distance packings, but
+our algorithm handled these without complaint. Improper specifications tend to show up in labels that
+degenerate during repacking.
+Spherical geometry. The sphere is the most rigid and difficult classical setting. To the authors’
+knowledge, no packing algorithm intrinsic to the geometry has been found; spherical packings are
+typically obtained by stereographically projecting from the disc. However, fundamental existence and
+uniqueness results for branched packings (i.e., discrete rational functions, see [8]) and even simple
+Dirichlet problems cannot be handled by projection and remain open.
+Applications. In the numerical conformal mapping of plane regions, it is unlikely that circle packing
+can ever compete in speed or accuracy with classical numerical methods such as Schwarz–Christoffel.
+However, circle packing techniques are finding new applications in a number of more general conformal
+situations; see the survey [33]. We illustrate three for which no other methods are known. These are
+computationally intensive and happen to be of interest to mathematicians, physicists, and neuroscientists;
+they provided much of the motivation for our algorithm improvements. We do not mention other
+potentially valuable applications, such as graph embedding.
+Tilings. Fig. 9(a) approximates a (finite piece of) a “conformal” tiling of C. In this theory, the tile
+shapes are determined purely by the abstract adjacency graph of the global pattern. Such a graph can be
+C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256 253
+Fig. 9. A sample conformal tiling.
+augmented to give a complex K which is then circle packed to provide approximations of the tiling; a
+refinement process and associated packings lead to more accurate shapes. We refer the reader to Bowers
+and Stephenson [6] for details. The circle pattern underlying the tiling is Fig. 9(b). This example (indeed,
+this whole topic) was motivated by work of Cannon, Floyd and Parry; see [22]. Our thanks to Bill Floyd,
+whose software created the underlying complex as input for our packing routine.
+Dessins. In the theory of dessins d’enfants of Grothendieck, drawings on surfaces lead to algebraic
+number fields via triangulations and associated conformal structures (see [30]). In [6], Bowers and
+254 C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256
+Fig. 10. A stage-3, genus 2 dessin.
+Stephenson develop circle packings techniques to provide both discrete parallels and approximations
+to these conformal structures. Fig. 7(d) comes from a genus 2 dessin at a “coarse” stage. Fig. 10 is a
+more accurate stage-3 refinement for the same dessin obtained with a “hex” refinement process. Each
+refinement stage roughly triples the number of vertices, so the ability to handle large packings becomes
+important quickly. In this setting of triangulated surfaces, particularly, there appears to be a potential for
+significant vectorization and parallelization of our algorithm.
+Brain-mapping. A use for circle packings which is just emerging and placing new demands for
+speed and flexibility concerns the “flattening” of images of the human brain for use in neuroscience
+research. The cortical surfaces of the brain, the cerebellum and the hemispheres of the cerebrum, are
+essentially highly convoluted topological 2-spheres embedded in 3-space. Flat representations are needed
+in structural and functional studies of the cortex for purposes such as registration, visualization and
+statistical data collection; conformal flattening is emerging as the preferred method because it preserves
+valuable geometric information. Various medical imaging technologies, such as PET, MRI and fMRI,
+provide 3-dimensional representations from which the cortical surfaces can be extracted as triangulated
+topological spheres or discs. Circle packing is then a means for approximating the conformal maps of
+these surfaces and manipulating the resulting images. See [21] and references therein; our thanks to the
+authors for the examples shown in Figs. 11 and 12. These are grayscale images of color coded flat maps
+in the hyperbolic and spherical settings. These circle packings each involve roughly 50,000 circles; the
+spherical packing is computed in hyperbolic geometry and projected stereographically to the sphere.
+C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256 255
+Fig. 11. A hyperbolic flat map. Fig. 12. A spherical flat map.
+Software. Our circle packing algorithm is implemented in C in the standalone program RePack and as
+the compute engine behind the second author’s graphical software package CirclePack. The software
+is available at www.math.utk.edu/∼kens. With CirclePack the user can create, manipulate, display
+and print circle packings. Functionality is provided for all the operations we have discussed—Dirichlet,
+boundary angle sums, overlaps, compact complexes—plus many more.
+References
+[1] R. Barnard, G.B. Williams, Combinatorial excursions in moduli space, Pacific J. Math., to appear.
+[2] A.F. Beardon, K. Stephenson, The uniformization theorem for circle packings, Indiana Univ. Math. J. 39 (1990) 1383–
+1425.
+[3] A.F. Beardon, K. Stephenson, The Schwarz–Pick lemma for circle packings, Illinois, J. Math. 35 (1991) 577–606.
+[4] I. Benjamini, O. Schramm, Harmonic functions on planar and almost planar graphs and manifolds, via circle packings,
+Invent. Math. 126 (1996) 565–587.
+[5] P.L. Bowers, The upper Perron method for labelled complexes with applications to circle packings, Proc. Cambridge Phil.
+Soc. 114 (1993) 321–345.
+[6] P.L. Bowers, K. Stephenson, Uniformizing dessins and Bely˘ı maps via circle packing, Preprint.
+[7] P.L. Bowers, K. Stephenson, Circle packings in surfaces of finite type: An in situ approach with applications to moduli,
+Topology 32 (1993) 157–183.
+[8] P.L. Bowers, K. Stephenson, A branched Andreev–Thurston theorem for circle packings of the sphere, Proc. London Math.
+Soc. (3) 73 (1996) 185–215.
+[9] P.L. Bowers, K. Stephenson, A “regular” pentagonal tiling of the plane, Conformal Geometry and Dynamics 1 (1997)
+58–86.
+[10] R. Brooks, Circle packings and co-compact extensions of Kleinian groups, Invent. Math. 86 (1986) 461–469.
+[11] Y.C. de Verdière, Une principe variationnel pour les empilements de cercles, Invent. Math. 104 (1991) 655–669.
+[12] T. Dubejko, Branched circle packings, discrete complex polynomials, and the approximation of analytic functions, PhD
+thesis, University of Tennessee (advisor: Ken Stephenson), 1993.
+[13] T. Dubejko, Branched circle packings and discrete Blaschke products, Trans. Amer. Math. Soc. 347 (1995) 4073–4103.
+256 C.R. Collins, K. Stephenson / Computational Geometry 25 (2003) 233–256
+[14] T. Dubejko, K. Stephenson, The branched Schwarz lemma: A classical result via circle packing, Michigan Math. J. 42
+(1995) 211–234.
+[15] T. Dubejko, K. Stephenson, Circle packing: Experiments in discrete analytic function theory, Experimental Math. 4 (1995)
+307–348.
+[16] Z.-X. He, B. Rodin, Convergence of circle packings of finite valence to Riemann mappings, Comm. Anal. Geom. 1 (1993)
+31–41.
+[17] Z.-X. He, O. Schramm, Inverse Riemann mapping theorem for relative circle domains, Pacific J. Math. 171 (1995) 157–
+165.
+[18] Z.-X. He, O. Schramm, On the convergence of circle packings to the Riemann map, Invent. Math. 125 (1996) 285–305.
+[19] Z.-X. He, O. Schramm, The c∞-convergence of hexagonal disk packings to the Riemann map, Acta Math. 180 (1998)
+219–245.
+[20] C.D. Hodgson, I. Rivin, A characterization of compact convex polyhedra in hyperbolic 3-space, Invent. Math. 111 (1993)
+77–111.
+[21] M.K. Hurdal, P.L. Bowers, K. Stephenson, D.W.L. Sumners, K. Rehm, K. Schaper, D.A. Rottenberg, Quasi-conformally
+flat mapping the human cerebellum, in: C. Taylor, A. Colchester (Eds.), Medical Image Computing and Computer-Assisted
+Intervention—MICCAI’99, Vol. 1679, Springer, Berlin, 1999, pp. 279–286.
+[22] J.W. Cannon, W.J. Floyd, W. Parry, Finite subdivision rules, Conformal Geometry and Dynamics 5 (2001) 153–196.
+[23] Koebe, Kontaktprobleme der Konformen Abbildung, Ber. Sächs. Akad. Wiss. Leipzig, Math.-Phys. Kl. 88 (1936) 141–164.
+[24] G.L. Miller, W. Thurston, Separators in two and three dimensions, in: Proceedings of the 22nd Annual ACM Symposium
+on Theory of Computing, ACM, Baltimore, 1990, pp. 300–309.
+[25] B. Mohar, A polynomial time circle packing algorithm, Discrete Math. 117 (1993) 257–263.
+[26] W. Morgan, On Thurston’s uniformization theorem for three-dimensional manifolds, in: H. Bass, J.W. Morgan (Eds.), The
+Smith Conjecture, Academic Press, New York, 1984, pp. 37–126.
+[27] B. Rodin, Schwarz’s lemma for circle packings, Invent. Math. 89 (1987) 271–289.
+[28] B. Rodin, Schwarz’s lemma for circle packings II, J. Differential Geom. 30 (1989) 539–554.
+[29] B. Rodin, D. Sullivan, The convergence of circle packings to the Riemann mapping, J. Differential Geom. 26 (1987)
+349–360.
+[30] L. Schneps (Ed.), The Grothendieck Theory of Dessins d’Enfants, London Math. Soc. Lecture Note Series, Vol. 200,
+Cambridge Univ. Press, Cambridge, 1994.
+[31] K. Stephenson, Circle packing and discrete analytic function theory, in: R. Kühnau (Ed.), Handbook of Complex Analysis,
+Vol. 1, Elsevier, Amsterdam, to appear.
+[32] K. Stephenson, A probabilistic proof of Thurston’s conjecture on circle packings, Rendiconti del Seminario Mate. e Fisico
+di Milano LXVI (1996) 201–291.
+[33] K. Stephenson, Approximation of conformal structures via circle packing, in: Computational Methods and Function
+Theory 1997, in: N. Papamichael, S. Ruscheweyh, E.B. Saff (Eds.), Proceedings of the Third CMFT Conference, Vol. 11,
+World Scientific, 1999, pp. 551–582.
+[34] W. Thurston, The Geometry and Topology of 3-Manifolds, Princeton University Notes, Preprint.
+[35] W. Thurston, The finite Riemann mapping theorem, 1985. Invited talk, An International Symposium at Purdue University
+on the occasion of the proof of the Bieberbach conjecture, March 1985.
+[36] J. van Eeuwen, The discrete Schwarz–Pick lemma for overlapping circles, PAMS 121 (1994) 1087–1091.
+[37] G.B. Williams, Discrete conformal welding, PhD thesis, University of Tennessee, Knoxville 1999 (advisor: Ken
+Stephenson).
+[38] G.B. Williams, Earthquakes and circle packings, J. Anal. Math. 85 (2001) 371–396.

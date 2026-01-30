@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>RPI Logo</title>
+    <link href="style.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+  </head>
+  <body>
+    <!-- Control Panel Toggle (outside panel so it stays visible) -->
+    <button id="control-toggle" class="control-toggle">
+      <span id="toggle-text">CONTROLS</span>
+    </button>
+
+    <!-- Control Panel -->
+    <div id="control-panel" class="control-panel hidden">
+      <div class="control-group">
+        <div class="control">
+          <label for="style-select" class="control-label">STYLE</label>
+          <select id="style-select" class="control-select">
+            <option value="solid">SOLID</option>
+            <option value="ruler">RULER</option>
+            <option value="ticker">TICKER</option>
+            <option value="binary">BINARY</option>
+            <option value="waveform">WAVEFORM</option>
+            <option value="circles">CIRCLES</option>
+            <option value="numeric">NUMERIC</option>
+          </select>
+        </div>
+
+        <div class="control">
+          <label for="color-mode-select" class="control-label">COLOR MODE</label>
+          <select id="color-mode-select" class="control-select">
+            <option value="black-on-white">BLACK ON WHITE</option>
+            <option value="white-on-black">WHITE ON BLACK</option>
+            <option value="white-on-red">WHITE ON RED</option>
+            <option value="red-on-white">RED ON WHITE</option>
+          </select>
+        </div>
+      </div>
+
+
+
+      <div id="ruler-group" class="control-group" style="display: none;">
+        <div class="control slider-control">
+          <label for="ruler-repeats-slider" class="control-label">REPEATS <span id="ruler-repeats-display">10</span></label>
+          <input type="range" id="ruler-repeats-slider" min="4" max="20" value="10" class="control-slider">
+          <div class="slider-labels">
+            <span>4</span>
+            <span>20</span>
+          </div>
+        </div>
+
+        <div class="control slider-control">
+          <label for="ruler-units-slider" class="control-label">UNITS <span id="ruler-units-display">4</span></label>
+          <input type="range" id="ruler-units-slider" min="2" max="10" step="2" value="4" class="control-slider">
+          <div class="slider-labels">
+            <span>2</span>
+            <span>10</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="binary-group" class="control-group" style="display: none;">
+        <div class="control">
+          <label for="binary-input" class="control-label">TRANSLATE BINARY</label>
+          <input type="text" id="binary-input" placeholder="Enter Text..." class="control-input">
+        </div>
+      </div>
+
+      <div id="ticker-group" class="control-group" style="display: none;">
+        <div class="control slider-control">
+          <label for="ticker-slider" class="control-label">REPEATS <span id="ticker-display">34</span></label>
+          <input type="range" id="ticker-slider" min="5" max="40" value="34" class="control-slider">
+          <div class="slider-labels">
+            <span>5</span>
+            <span>40</span>
+          </div>
+        </div>
+
+        <div class="control slider-control">
+          <label for="ticker-ratio-slider" class="control-label">COUNT RATIO <span id="ticker-ratio-display">2:1</span></label>
+          <input type="range" id="ticker-ratio-slider" min="1" max="5" value="2" class="control-slider">
+          <div class="slider-labels">
+            <span>1:1</span>
+            <span>5:1</span>
+          </div>
+        </div>
+
+        <div class="control slider-control">
+          <label for="ticker-width-ratio-slider" class="control-label">WIDTH RATIO <span id="ticker-width-ratio-display">1:2</span></label>
+          <input type="range" id="ticker-width-ratio-slider" min="1" max="5" value="2" class="control-slider">
+          <div class="slider-labels">
+            <span>1:1</span>
+            <span>1:5</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="waveform-group" class="control-group" style="display: none;">
+        <div class="control slider-control">
+          <label for="waveform-type-slider" class="control-label">WAVE TYPE <span id="waveform-type-display">SINE</span></label>
+          <input type="range" id="waveform-type-slider" min="0" max="3" step="0.01" value="0" class="control-slider">
+          <div class="slider-labels">
+            <span>SINE</span>
+            <span>PULSE</span>
+          </div>
+        </div>
+
+        <div class="control slider-control">
+          <label for="waveform-frequency-slider" class="control-label">FREQUENCY <span id="waveform-frequency-display">24</span></label>
+          <input type="range" id="waveform-frequency-slider" min="10" max="100" value="24" class="control-slider">
+          <div class="slider-labels">
+            <span>10</span>
+            <span>100</span>
+          </div>
+        </div>
+
+        <div class="control slider-control">
+          <label for="waveform-speed-slider" class="control-label">SPEED <span id="waveform-speed-display">0.7</span></label>
+          <input type="range" id="waveform-speed-slider" min="0" max="5" step="0.1" value="0.7" class="control-slider">
+          <div class="slider-labels">
+            <span>0</span>
+            <span>5</span>
+          </div>
+        </div>
+
+        <div class="control">
+          <label class="control-label">PRESS SPACEBAR TO PLAY</label>
+        </div>
+      </div>
+
+      <div id="circles-group" class="control-group" style="display: none;">
+        <div class="control">
+          <label for="circles-mode-select" class="control-label">MODE</label>
+          <select id="circles-mode-select" class="control-select">
+            <option value="packing">PACKING</option>
+            <option value="grid">GRID</option>
+          </select>
+        </div>
+
+        <!-- Packing Mode Controls -->
+        <div id="circles-packing-controls" class="control">
+          <div class="control slider-control">
+            <label for="circles-density-slider" class="control-label">DENSITY <span id="circles-density-display">50</span>%</label>
+            <input type="range" id="circles-density-slider" min="10" max="100" value="50" class="control-slider">
+            <div class="slider-labels">
+              <span>10%</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <div class="control slider-control">
+            <label for="circles-size-variation-slider" class="control-label">SIZE VARIATION <span id="circles-size-variation-display">0</span>%</label>
+            <input type="range" id="circles-size-variation-slider" min="0" max="100" value="0" class="control-slider">
+            <div class="slider-labels">
+              <span>0%</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <div class="control slider-control">
+            <label for="circles-overlap-slider" class="control-label">OVERLAP <span id="circles-overlap-display">0</span>%</label>
+            <input type="range" id="circles-overlap-slider" min="0" max="100" value="0" class="control-slider">
+            <div class="slider-labels">
+              <span>0%</span>
+              <span>100%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grid Mode Controls -->
+        <div id="circles-grid-controls" class="control" style="display: none;">
+          <div class="control slider-control">
+            <label for="circles-rows-slider" class="control-label">ROWS <span id="circles-rows-display">2</span></label>
+            <input type="range" id="circles-rows-slider" min="1" max="6" value="2" class="control-slider">
+            <div class="slider-labels">
+              <span>1</span>
+              <span>6</span>
+            </div>
+          </div>
+
+          <div class="control slider-control">
+            <label for="circles-grid-density-slider" class="control-label">DENSITY <span id="circles-grid-density-display">100</span>%</label>
+            <input type="range" id="circles-grid-density-slider" min="10" max="100" value="100" class="control-slider">
+            <div class="slider-labels">
+              <span>10%</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <div class="control slider-control">
+            <label for="circles-size-variation-y-slider" class="control-label">SIZE VARIATION Y <span id="circles-size-variation-y-display">0</span>%</label>
+            <input type="range" id="circles-size-variation-y-slider" min="-100" max="100" value="0" class="control-slider">
+            <div class="slider-labels">
+              <span>-100%</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <div class="control slider-control">
+            <label for="circles-size-variation-x-slider" class="control-label">SIZE VARIATION X <span id="circles-size-variation-x-display">0</span>%</label>
+            <input type="range" id="circles-size-variation-x-slider" min="-100" max="100" value="0" class="control-slider">
+            <div class="slider-labels">
+              <span>-100%</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <div class="control slider-control">
+            <label for="circles-grid-overlap-slider" class="control-label">OVERLAP <span id="circles-grid-overlap-display">0</span>%</label>
+            <input type="range" id="circles-grid-overlap-slider" min="0" max="400" value="0" class="control-slider">
+            <div class="slider-labels">
+              <span>0%</span>
+              <span>400%</span>
+            </div>
+          </div>
+
+          <div class="control">
+            <label for="circles-layout-select" class="control-label">LAYOUT</label>
+            <select id="circles-layout-select" class="control-select">
+              <option value="straight">STRAIGHT</option>
+              <option value="stagger">STAGGER</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="control">
+          <label for="circles-fill-select" class="control-label">FILL OR STROKE</label>
+          <select id="circles-fill-select" class="control-select">
+            <option value="stroke">STROKE</option>
+            <option value="fill">FILL</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="numeric-group" class="control-group" style="display: none;">
+        <div class="control">
+          <label for="numeric-input" class="control-label">NUMBER OR FORMULA</label>
+          <input type="text" id="numeric-input" placeholder="Enter a number..." class="control-input" value="3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679">
+        </div>
+        
+        <div class="control">
+          <label for="numeric-mode-select" class="control-label">VISUALIZATION MODE</label>
+          <select id="numeric-mode-select" class="control-select">
+            <option value="dotmatrix">DOT MATRIX</option>
+            <option value="height">HEIGHT ENCODING</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="save-section">
+        <button id="save-button" class="save-button">SAVE</button>
+        <div id="save-menu" class="save-menu hidden">
+          <button id="save-png" class="save-option">PNG</button>
+          <button id="save-svg" class="save-option">SVG</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="logo-container">
+      <div id="p5-container"></div>
+    </div>
+
+    <script src="main.js"></script>
+    <script src="drawing.js"></script>
+  </body>
+</html>
