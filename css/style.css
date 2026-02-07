@@ -1,0 +1,178 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+@font-face {
+  font-family: 'RPIGeist';
+  src: url('../assets/fonts/RPIGeist-Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'RPIGeist';
+  src: url('../assets/fonts/RPIGeist-Bold.woff2') format('woff2');
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'RPIGeistMono';
+  src: url('../assets/fonts/RPIGeistMono-Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
+:root {
+  --rpi-red: #d6001c;
+  --rpi-white: #ffffff;
+  --rpi-black: #000000;
+}
+
+body {
+  background-color: var(--rpi-white);
+  height: 100vh;
+  font-family: 'RPIGeist', Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Control Panel */
+.control-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 220px;
+  height: 100vh;
+  background: #fff;
+  border-left: 1px solid #000;
+  padding: 60px 20px 20px 20px;
+  z-index: 15;
+  transition: right 0.3s ease;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.control-panel.hidden {
+  right: -220px;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .control-panel {
+    width: 280px;
+    padding: 80px 20px 20px 20px;
+  }
+
+  .control-panel.hidden {
+    right: -280px;
+  }
+}
+
+/* Visual Feedback & Accessiblity */
+
+/* Control Toggle Button */
+.control-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: var(--rpi-white);
+  border: 1px solid var(--rpi-black);
+  color: var(--rpi-black);
+  font-family: 'RPIGeist', Arial, sans-serif;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 8px 12px;
+  z-index: 20;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.control-toggle:hover {
+  background: var(--rpi-black);
+  color: var(--rpi-white);
+}
+
+.control-toggle:focus {
+  outline: 2px solid var(--rpi-red);
+  outline-offset: 2px;
+}
+
+/* Form Elements */
+.control-select,
+.control-input {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.control-select:hover,
+.control-input:hover {
+  border-color: var(--rpi-red);
+}
+
+.control-select:focus,
+.control-input:focus {
+  outline: none;
+  border-color: var(--rpi-black);
+  box-shadow: 0 0 0 2px rgba(214, 0, 28, 0.2);
+  /* RPI Red glow */
+}
+
+/* Sliders */
+.control-slider {
+  height: 2px;
+  background: var(--slider-track-color, #000);
+  transition: height 0.2s ease;
+}
+
+.control-slider:hover {
+  height: 4px;
+}
+
+.control-slider:focus {
+  outline: 2px solid var(--rpi-red);
+  outline-offset: 2px;
+}
+
+/* Save Button */
+.save-button {
+  transition: color 0.2s ease;
+  font-weight: bold;
+}
+
+.save-button:hover {
+  color: var(--rpi-red);
+  text-decoration: none;
+}
+
+.save-button:focus {
+  outline: 2px solid var(--rpi-red);
+  outline-offset: 2px;
+}
+
+/* Save Options */
+.save-option {
+  transition: all 0.2s ease;
+}
+
+.save-option:focus {
+  outline: 2px solid var(--rpi-red);
+  outline-offset: -2px;
+  /* Inner outline */
+  background: #f0f0f0;
+}
+
+/* Mobile optimizations reset */
+@media (max-width: 400px) {
+  .logo-container {
+    transform: scale(0.8);
+    transform-origin: center center;
+  }
+}

@@ -31,6 +31,11 @@ const paths = {
   bar: "M247.851 129.855L249.406 131.411V146.018L247.851 147.573H2.00064L0.445312 146.018V131.411L2.00064 129.855H247.856H247.851Z"
 };
 
+// Layout constants
+const REFERENCE_WIDTH = 250;
+const LOGO_SCALE = 1.5;
+const LOGO_VERTICAL_OFFSET = -72; // Vertical offset for centering
+
 // Global variables
 let styleSelect;
 let colorModeSelect;
@@ -128,7 +133,7 @@ const colors = {
 };
 
 // Logo positioning - centers the 111.76px tall logo vertically in the viewport
-const LOGO_VERTICAL_OFFSET = -72;
+// Logo positioning - constant moved to top
 
 // Convert text to binary
 function textToBinary(text) {
@@ -280,12 +285,12 @@ async function setup() {
 
   // Load shaders from files
   try {
-    shaders.binary = await loadShader('shaders/vertex.glsl', 'shaders/binary.frag');
-    shaders.ticker = await loadShader('shaders/vertex.glsl', 'shaders/ticker.frag');
-    shaders.ruler = await loadShader('shaders/vertex.glsl', 'shaders/ruler.frag');
-    shaders.waveform = await loadShader('shaders/vertex.glsl', 'shaders/waveform.frag');
-    shaders.circles = await loadShader('shaders/vertex.glsl', 'shaders/circles.frag');
-    shaders.numeric = await loadShader('shaders/vertex.glsl', 'shaders/numeric.frag');
+    shaders.binary = await loadShader('assets/shaders/vertex.glsl', 'assets/shaders/binary.frag');
+    shaders.ticker = await loadShader('assets/shaders/vertex.glsl', 'assets/shaders/ticker.frag');
+    shaders.ruler = await loadShader('assets/shaders/vertex.glsl', 'assets/shaders/ruler.frag');
+    shaders.waveform = await loadShader('assets/shaders/vertex.glsl', 'assets/shaders/waveform.frag');
+    shaders.circles = await loadShader('assets/shaders/vertex.glsl', 'assets/shaders/circles.frag');
+    shaders.numeric = await loadShader('assets/shaders/vertex.glsl', 'assets/shaders/numeric.frag');
     console.log('Shaders loaded successfully');
   } catch (error) {
     console.error('Error loading shaders:', error);
@@ -351,11 +356,11 @@ async function setup() {
   const saveSvgButton = document.getElementById('save-svg');
 
   // Setup ruler sliders with display updates
-  rulerRepeatsSlider.addEventListener('input', function() {
+  rulerRepeatsSlider.addEventListener('input', function () {
     updateRulerRepeatsDisplay();
     updateUrlParameters();
   });
-  rulerUnitsSlider.addEventListener('input', function() {
+  rulerUnitsSlider.addEventListener('input', function () {
     updateRulerUnitsDisplay();
     updateUrlParameters();
   });
@@ -363,38 +368,38 @@ async function setup() {
   updateRulerUnitsDisplay(); // Set initial value
 
   // Setup ticker slider with display update
-  tickerSlider.addEventListener('input', function() {
+  tickerSlider.addEventListener('input', function () {
     updateTickerDisplay();
     updateUrlParameters();
   });
   updateTickerDisplay(); // Set initial value
 
   // Setup ticker ratio slider with display update
-  tickerRatioSlider.addEventListener('input', function() {
+  tickerRatioSlider.addEventListener('input', function () {
     updateTickerRatioDisplay();
     updateUrlParameters();
   });
   updateTickerRatioDisplay(); // Set initial value
 
   // Setup ticker width ratio slider with display update
-  tickerWidthRatioSlider.addEventListener('input', function() {
+  tickerWidthRatioSlider.addEventListener('input', function () {
     updateTickerWidthRatioDisplay();
     updateUrlParameters();
   });
   updateTickerWidthRatioDisplay(); // Set initial value
 
   // Setup waveform sliders with display updates and audio parameter updates
-  waveformTypeSlider.addEventListener('input', function() {
+  waveformTypeSlider.addEventListener('input', function () {
     updateWaveformTypeDisplay();
     updateAudioParameters();
     updateUrlParameters();
   });
-  waveformFrequencySlider.addEventListener('input', function() {
+  waveformFrequencySlider.addEventListener('input', function () {
     updateWaveformFrequencyDisplay();
     updateAudioParameters();
     updateUrlParameters();
   });
-  waveformSpeedSlider.addEventListener('input', function() {
+  waveformSpeedSlider.addEventListener('input', function () {
     updateWaveformSpeedDisplay();
     updateUrlParameters();
   });
@@ -440,13 +445,13 @@ async function setup() {
   updateCirclesOverlapDisplay(); // Set initial value
 
   // Setup circles mode selector
-  circlesModeSelect.addEventListener('change', function() {
+  circlesModeSelect.addEventListener('change', function () {
     handleCirclesModeChange();
     updateUrlParameters();
   });
 
   // Setup circles fill selector
-  circlesFillSelect.addEventListener('change', function() {
+  circlesFillSelect.addEventListener('change', function () {
     updateUrlParameters();
   });
 
@@ -471,7 +476,7 @@ async function setup() {
     updateCirclesGridOverlapDisplay();
     debouncedCircleUpdate();
   });
-  circlesLayoutSelect.addEventListener('change', function() {
+  circlesLayoutSelect.addEventListener('change', function () {
     debouncedCircleUpdate();
   });
 
@@ -482,50 +487,64 @@ async function setup() {
   updateCirclesGridOverlapDisplay(); // Set initial value
 
   // Setup control panel toggle with better mobile support
-  controlToggle.addEventListener('click', toggleControlPanel);
-  controlToggle.addEventListener('touchend', function(e) {
-    e.preventDefault();
-    toggleControlPanel();
-  });
+  if (controlToggle) {
+    controlToggle.addEventListener('click', function (e) {
+      e.preventDefault();
+      toggleControlPanel();
+    });
+    controlToggle.addEventListener('touchend', function (e) {
+      e.preventDefault();
+      toggleControlPanel();
+    });
+  }
 
   // Add click/touch outside to close functionality with improved mobile handling
   document.addEventListener('click', handleClickOutside);
   document.addEventListener('touchend', handleClickOutside);
 
   // Setup save functionality
-  saveButton.addEventListener('click', toggleSaveMenu);
-  savePngButton.addEventListener('click', savePNG);
-  saveSvgButton.addEventListener('click', saveSVG);
+  if (saveButton) {
+    saveButton.addEventListener('click', toggleSaveMenu);
+  }
+  if (savePngButton) {
+    savePngButton.addEventListener('click', savePNG);
+  }
+  if (saveSvgButton) {
+    saveSvgButton.addEventListener('click', saveSVG);
+  }
 
   // Close save menu when clicking outside
-  document.addEventListener('click', function(event) {
-    if (!saveButton.contains(event.target) && !saveMenu.contains(event.target)) {
-      saveMenu.classList.add('hidden');
+  document.addEventListener('click', function (event) {
+    if (saveButton && saveMenu && !saveButton.contains(event.target) && !saveMenu.contains(event.target)) {
+      if (!saveMenu.classList.contains('hidden')) {
+        saveMenu.classList.add('hidden');
+        saveButton.setAttribute('aria-expanded', 'false');
+      }
     }
   });
 
   // Setup style selector
-  styleSelect.addEventListener('change', function() {
+  styleSelect.addEventListener('change', function () {
     handleStyleChange();
     updateUrlParameters();
   });
 
   // Setup color mode selector
-  colorModeSelect.addEventListener('change', function() {
+  colorModeSelect.addEventListener('change', function () {
     handleColorModeChange();
     updateUrlParameters();
   });
 
   // Setup binary input with real-time updates
-  binaryInput.addEventListener('input', function() {
+  binaryInput.addEventListener('input', function () {
     handleBinaryInput();
     updateUrlParameters();
   });
-  binaryInput.addEventListener('keyup', function() {
+  binaryInput.addEventListener('keyup', function () {
     handleBinaryInput();
     updateUrlParameters();
   });
-  binaryInput.addEventListener('paste', function() {
+  binaryInput.addEventListener('paste', function () {
     handleBinaryInput();
     updateUrlParameters();
   });
@@ -534,21 +553,21 @@ async function setup() {
   }
 
   // Setup numeric input with real-time updates
-  numericInput.addEventListener('input', function() {
+  numericInput.addEventListener('input', function () {
     updateNumericData(numericInput.value);
     updateUrlParameters();
   });
-  numericInput.addEventListener('keyup', function() {
+  numericInput.addEventListener('keyup', function () {
     updateNumericData(numericInput.value);
     updateUrlParameters();
   });
-  numericInput.addEventListener('paste', function() {
+  numericInput.addEventListener('paste', function () {
     setTimeout(() => {
       updateNumericData(numericInput.value);
       updateUrlParameters();
     }, 10);
   });
-  numericInput.addEventListener('blur', function() {
+  numericInput.addEventListener('blur', function () {
     // When user leaves the field, show the evaluated result
     const evaluated = evaluateFormula(numericInput.value);
     if (evaluated !== numericInput.value && !isNaN(parseFloat(evaluated))) {
@@ -558,7 +577,7 @@ async function setup() {
   });
 
   // Setup numeric mode selector
-  numericModeSelect.addEventListener('change', function() {
+  numericModeSelect.addEventListener('change', function () {
     updateUrlParameters();
   });
 
@@ -576,7 +595,7 @@ async function setup() {
   initializeAudio();
 
   // Add global keyboard event listener for more reliable shift detection
-  document.addEventListener('keydown', function(event) {
+  document.addEventListener('keydown', function (event) {
     // Only handle keyboard events on non-mobile devices
     if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
       return; // Skip keyboard shortcuts on mobile
@@ -644,7 +663,7 @@ async function setup() {
   });
 
   // Add keyup event listener for spacebar release
-  document.addEventListener('keyup', function(event) {
+  document.addEventListener('keyup', function (event) {
     // Only handle keyboard events on non-mobile devices
     if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
       return;
@@ -663,8 +682,24 @@ function handleBinaryInput() {
 }
 
 function updateBinaryData(text) {
-  binaryData = textToBinary(text);
-  binaryLength = binaryData.length;
+  // Use profanity filter if available
+  let cleanText = text;
+  if (window.ProfanityFilter && typeof window.ProfanityFilter.sanitizeText === 'function') {
+    cleanText = window.ProfanityFilter.sanitizeText(text);
+    if (cleanText !== text) {
+      console.log('Profanity filtered from binary input');
+      // Update input field if it matches current text to show user the filtered version
+      if (binaryInput && binaryInput.value === text) {
+        binaryInput.value = cleanText;
+      }
+    }
+  }
+
+  binaryData = {
+    text: cleanText,
+    binary: textToBinary(cleanText)
+  };
+  binaryLength = binaryData.binary.length;
 }
 
 function updateNumericData(numericString) {
@@ -815,9 +850,11 @@ function toggleControlPanel() {
   if (isHidden) {
     controlPanel.classList.remove('hidden');
     toggleText.textContent = 'HIDE';
+    if (controlToggle) controlToggle.setAttribute('aria-expanded', 'true');
   } else {
     controlPanel.classList.add('hidden');
     toggleText.textContent = 'CONTROLS';
+    if (controlToggle) controlToggle.setAttribute('aria-expanded', 'false');
   }
 }
 
@@ -828,8 +865,8 @@ function handleClickOutside(event) {
   }
 
   // Don't close if clicking on the toggle button or inside the control panel
-  if (controlToggle && controlToggle.contains(event.target) || 
-      controlPanel && controlPanel.contains(event.target)) {
+  if (controlToggle && controlToggle.contains(event.target) ||
+    controlPanel && controlPanel.contains(event.target)) {
     return;
   }
 
@@ -839,12 +876,23 @@ function handleClickOutside(event) {
     if (toggleText) {
       toggleText.textContent = 'CONTROLS';
     }
+    if (controlToggle) controlToggle.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function toggleSaveMenu(e) {
+  if (e) e.stopPropagation();
+
+  if (saveMenu) {
+    saveMenu.classList.toggle('hidden');
+    const isExpanded = !saveMenu.classList.contains('hidden');
+    if (saveButton) saveButton.setAttribute('aria-expanded', isExpanded);
   }
 }
 
 function handleStyleChange() {
   // Get the selected style from dropdown
-  const selectedStyle = styleSelect? styleSelect.value : 'solid';
+  const selectedStyle = styleSelect ? styleSelect.value : 'solid';
 
   // Set currentShader based on selected style
   switch (selectedStyle) {
@@ -1006,11 +1054,6 @@ function updateControlElementColors(colorScheme) {
     option.style.setProperty('--fg-color', colorScheme.fg);
     option.style.setProperty('--bg-color', colorScheme.bg);
   });
-}
-
-function toggleSaveMenu() {
-  const saveMenu = document.getElementById('save-menu');
-  saveMenu.classList.toggle('hidden');
 }
 
 
@@ -1202,8 +1245,8 @@ function updateSpatialGrid(spatialGrid, circle) {
 // Fast collision detection using spatial grid
 function hasCollisionFast(x, y, radius, existingCircles, newCircles, spatialGrid, minDistanceMultiplier) {
   // Check bounds
-  if (x - radius < 0 || x + radius > spatialGrid.cols * spatialGrid.cellSize || 
-      y - radius < 0 || y + radius > spatialGrid.rows * spatialGrid.cellSize) {
+  if (x - radius < 0 || x + radius > spatialGrid.cols * spatialGrid.cellSize ||
+    y - radius < 0 || y + radius > spatialGrid.rows * spatialGrid.cellSize) {
     return true;
   }
 
@@ -1482,8 +1525,8 @@ function generateOptimizedGrid(barWidth, barHeight, baseRadius, minDistanceMulti
       const y = offsetY + row * rowHeight;
 
       // Ensure circle fits within bounds
-      if (x >= baseRadius && x <= barWidth - baseRadius && 
-          y >= baseRadius && y <= barHeight - baseRadius) {
+      if (x >= baseRadius && x <= barWidth - baseRadius &&
+        y >= baseRadius && y <= barHeight - baseRadius) {
         circles.push({ x, y, r: baseRadius });
       }
     }
@@ -1752,7 +1795,7 @@ function createBarPattern(barStartX, barY, exactBarWidth, barHeight) {
               }
 
               // Use rounded rectangle that stretches across the digit width
-              pattern += `\n    <rect x="${dotX}" y="${dotY}" width="${dotWidth}" height="${dotHeight}" rx="${dotHeight/2}" fill="${fgColor}"/>`;
+              pattern += `\n    <rect x="${dotX}" y="${dotY}" width="${dotWidth}" height="${dotHeight}" rx="${dotHeight / 2}" fill="${fgColor}"/>`;
             }
           }
         }
@@ -1769,7 +1812,7 @@ async function initializeAudio() {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
     // Load the pulse wave worklet
-    await audioContext.audioWorklet.addModule('pulse-worklet.js');
+    await audioContext.audioWorklet.addModule('js/pulse-worklet.js');
 
     // Create gain node for volume control and smooth fade in/out
     gainNode = audioContext.createGain();
@@ -1825,13 +1868,13 @@ async function startAudio() {
     // Create custom pulse wave using AudioWorklet
     try {
       pulseWorkletNode = new AudioWorkletNode(audioContext, 'pulse-processor');
-      
+
       // Set initial frequency
       pulseWorkletNode.port.postMessage({
         type: 'frequency',
         value: mappedFrequency
       });
-      
+
       // Set initial pulse width (20% to match visual)
       pulseWorkletNode.port.postMessage({
         type: 'pulseWidth',
@@ -1844,7 +1887,7 @@ async function startAudio() {
 
       oscillators.pulse.connect(oscillatorGains.pulse);
       oscillatorGains.pulse.connect(gainNode);
-      
+
     } catch (error) {
       console.error('Failed to create pulse worklet:', error);
       // Fallback: create a square wave oscillator
@@ -2237,11 +2280,11 @@ function updateAudioParameters() {
       const t = waveType - 2.0;
       squareGain = Math.max(0, 1.0 - t);
       pulseGain = Math.min(1.0, t);
-      
+
       // Update pulse width based on slider position
       // Map from 20% to 80% duty cycle as slider moves from 2.0 to 3.0
       const pulseWidth = 0.2 + t * 0.6;
-      
+
       // Send pulse width update to worklet
       if (pulseWorkletNode) {
         pulseWorkletNode.port.postMessage({
@@ -2316,7 +2359,7 @@ function draw() {
   }
 
   // Use exact 250px reference dimensions
-  const currentWidth = 250;
+  const currentWidth = REFERENCE_WIDTH;
   const logoHeight = 111.76; // Exact height from 250px reference
 
   // Reset shader for regular drawing
@@ -2326,14 +2369,14 @@ function draw() {
 
   // Draw the SVG logo
   push();
-  translate(-width/2, -height/2); // Convert to screen coordinates for WEBGL
-  translate(width/2, height/2);
+  translate(-width / 2, -height / 2); // Convert to screen coordinates for WEBGL
+  translate(width / 2, height / 2);
 
   // Scale the logo appropriately
-  scale(1.5);
+  scale(LOGO_SCALE);
 
   // Center the logo
-  translate(-currentWidth/2, LOGO_VERTICAL_OFFSET);
+  translate(-currentWidth / 2, LOGO_VERTICAL_OFFSET);
 
   // Draw the actual SVG paths (excluding bar) with current foreground color
   if (colorScheme) {
@@ -2357,20 +2400,20 @@ function draw() {
 function drawBottomBar(currentWidth) {
   // Use the exact same coordinate system and positioning as the logo
   push();
-  translate(-width/2, -height/2); // Convert to screen coordinates for WEBGL
-  translate(width/2, height/2);
+  translate(-width / 2, -height / 2); // Convert to screen coordinates for WEBGL
+  translate(width / 2, height / 2);
 
   // Scale the same as logo
-  scale(1.5);
+  scale(LOGO_SCALE);
 
   // Center the same as logo
-  translate(-currentWidth/2, LOGO_VERTICAL_OFFSET);
+  translate(-currentWidth / 2, LOGO_VERTICAL_OFFSET);
 
   // Position the bar to match 250px reference exactly
   translate(0, 132.911); // Match exact bar Y position from 250px reference
 
   // Calculate bar dimensions to match 250px reference exactly
-const exactBarWidth = 250; // Exact width from 250px reference
+  const exactBarWidth = REFERENCE_WIDTH; // Exact width from 250px reference
   const rectHeight = 18; // Exact height from 250px reference
   const barStartX = 0; // Exact X position from 250px reference
 
@@ -2699,7 +2742,7 @@ const exactBarWidth = 250; // Exact width from 250px reference
             const dotX = x + horizontalGap / 2;
             const dotY = barY + rectHeight - dotHeight; // Position at bottom
 
-            rect(dotX, dotY, dotWidth, dotHeight, dotHeight/2);
+            rect(dotX, dotY, dotWidth, dotHeight, dotHeight / 2);
             continue;
           }
 
@@ -2727,7 +2770,7 @@ const exactBarWidth = 250; // Exact width from 250px reference
               }
 
               // Use rounded rectangle that stretches across the digit width
-              rect(dotX, dotY, dotWidth, dotHeight, dotHeight/2);
+              rect(dotX, dotY, dotWidth, dotHeight, dotHeight / 2);
             }
           }
         }
