@@ -1,8 +1,4 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* RPI Design Hub - High Fidelity Styles */
 
 @font-face {
   font-family: 'RPIGeist';
@@ -26,153 +22,700 @@
 }
 
 :root {
+  /* Brand Core */
   --rpi-red: #d6001c;
   --rpi-white: #ffffff;
   --rpi-black: #000000;
+  --rpi-gray-100: #f5f5f5;
+  --rpi-gray-200: #e0e0e0;
+  --rpi-gray-800: #1a1a1a;
+
+  /* Theme Variables (Default: Light) */
+  --bg-app: var(--rpi-gray-100);
+  --bg-sidebar: var(--rpi-white);
+  --bg-header: var(--rpi-black);
+
+  --text-primary: var(--rpi-black);
+  --text-secondary: #666666;
+  --text-on-header: var(--rpi-white);
+
+  --border-color: var(--rpi-gray-200);
+  --accent-color: var(--rpi-red);
+
+  --input-bg: var(--rpi-gray-100);
+  --input-border: transparent;
+
+  /* Layout Dimensions */
+  --header-height: 60px;
+  --sidebar-width: 320px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
 }
 
 body {
-  background-color: var(--rpi-white);
-  height: 100vh;
+  background-color: var(--bg-app);
   font-family: 'RPIGeist', Arial, sans-serif;
+  color: var(--text-primary);
+  height: 100vh;
+  overflow: hidden;
+  /* App-like feel */
   display: flex;
   flex-direction: column;
 }
 
-/* Control Panel */
-.control-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 220px;
-  height: 100vh;
-  background: #fff;
-  border-left: 1px solid #000;
-  padding: 60px 20px 20px 20px;
-  z-index: 15;
-  transition: right 0.3s ease;
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  overflow-y: auto;
-  overflow-x: hidden;
+/* --- Layout Structure --- */
+
+/* Header */
+.app-header {
+  height: var(--header-height);
+  background-color: var(--bg-header);
+  color: var(--text-on-header);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 50;
+  flex-shrink: 0;
 }
 
-.control-panel.hidden {
-  right: -220px;
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'RPIGeistMono', monospace;
+  letter-spacing: 0.05em;
 }
 
-/* Mobile optimizations */
-@media (max-width: 768px) {
-  .control-panel {
-    width: 280px;
-    padding: 80px 20px 20px 20px;
-  }
-
-  .control-panel.hidden {
-    right: -280px;
-  }
-}
-
-/* Visual Feedback & Accessiblity */
-
-/* Control Toggle Button */
-.control-toggle {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  background: var(--rpi-white);
-  border: 1px solid var(--rpi-black);
-  color: var(--rpi-black);
-  font-family: 'RPIGeist', Arial, sans-serif;
-  font-size: 11px;
+.brand-logo {
   font-weight: bold;
-  text-transform: uppercase;
+  font-size: 18px;
+}
+
+.brand-divider {
+  opacity: 0.3;
+}
+
+.brand-title {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.mobile-menu-toggle {
+  display: none;
+  /* Hidden on desktop */
+  background: none;
+  border: none;
+  color: white;
   cursor: pointer;
-  padding: 8px 12px;
-  z-index: 20;
+  padding: 8px;
+}
+
+/* App Layout Container */
+.app-layout {
+  display: flex;
+  flex: 1;
+  height: calc(100vh - var(--header-height));
+  position: relative;
+}
+
+/* Sidebar */
+.app-sidebar {
+  width: var(--sidebar-width);
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  z-index: 40;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebar-content {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  min-height: 100%;
+}
+
+.sidebar-divider {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 0 -24px;
+}
+
+.sidebar-spacer {
+  flex: 1;
+  /* Pushes save button to bottom if space permits */
+}
+
+/* Main Workspace */
+.app-main {
+  flex: 1;
+  background-color: var(--bg-app);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.canvas-viewport {
+  width: 100%;
+  height: 100%;
+  padding: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-container {
+  /* The canvas attaches here */
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+  background: var(--bg-sidebar);
+  /* Use checkboard or solid? Solid for now */
+  border-radius: 8px;
+  /* Slight rounding of the 'artboard' */
+  overflow: hidden;
+}
+
+#p5-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Workspace Controls */
+.workspace-controls {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.workspace-btn {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
   transition: all 0.2s ease;
-  text-decoration: none;
 }
 
-.control-toggle:hover {
-  background: var(--rpi-black);
-  color: var(--rpi-white);
+.workspace-btn:hover {
+  background: var(--rpi-gray-100);
+  color: var(--accent-color);
 }
 
-.control-toggle:focus {
-  outline: 2px solid var(--rpi-red);
-  outline-offset: 2px;
+.workspace-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border-color);
 }
 
-/* Form Elements */
+.zoom-level {
+  font-family: 'RPIGeistMono', monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 40px;
+  text-align: center;
+}
+
+/* --- Components --- */
+
+/* Typography */
+.control-label {
+  display: block;
+  font-family: 'RPIGeistMono', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+.control-header {
+  font-family: 'RPIGeist', sans-serif;
+  font-weight: bold;
+  font-size: 14px;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.control-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  font-style: italic;
+}
+
+/* Selects & Inputs */
+.select-wrapper {
+  position: relative;
+}
+
+.select-wrapper::after {
+  content: '';
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  border-right: 1px solid var(--text-primary);
+  border-bottom: 1px solid var(--text-primary);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
 .control-select,
 .control-input {
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+  appearance: none;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  /* Slight rounding for modern feel */
+  padding: 12px 16px;
+  font-family: 'RPIGeist', sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+  transition: all 0.2s ease;
 }
 
 .control-select:hover,
 .control-input:hover {
-  border-color: var(--rpi-red);
+  background-color: rgba(0, 0, 0, 0.03);
 }
 
 .control-select:focus,
 .control-input:focus {
   outline: none;
-  border-color: var(--rpi-black);
-  box-shadow: 0 0 0 2px rgba(214, 0, 28, 0.2);
-  /* RPI Red glow */
+  background-color: var(--rpi-white);
+  box-shadow: 0 0 0 2px var(--accent-color);
 }
 
 /* Sliders */
 .control-slider {
+  width: 100%;
   height: 2px;
-  background: var(--slider-track-color, #000);
-  transition: height 0.2s ease;
+  background: var(--border-color);
+  border-radius: 0;
+  appearance: none;
+  outline: none;
+  margin: 20px 0;
+  cursor: pointer;
 }
 
-.control-slider:hover {
-  height: 4px;
+.control-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 20px;
+  /* Tall rectangle */
+  border-radius: 1px;
+  background: var(--text-primary);
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.1s ease;
+  transform: translateY(-9px);
+  /* Center on thin track */
 }
 
-.control-slider:focus {
-  outline: 2px solid var(--rpi-red);
-  outline-offset: 2px;
+.control-slider::-webkit-slider-thumb:hover {
+  background: var(--accent-color);
+  transform: translateY(-9px) scale(1.1);
+}
+
+.control-slider::-moz-range-thumb {
+  width: 12px;
+  height: 20px;
+  border-radius: 1px;
+  background: var(--text-primary);
+  border: none;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.control-slider:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 2px var(--bg-sidebar), 0 0 0 4px var(--accent-color);
 }
 
 /* Save Button */
-.save-button {
-  transition: color 0.2s ease;
-  font-weight: bold;
+.save-section {
+  position: relative;
+  margin-top: 24px;
 }
 
-.save-button:hover {
-  color: var(--rpi-red);
-  text-decoration: none;
-}
-
-.save-button:focus {
-  outline: 2px solid var(--rpi-red);
-  outline-offset: 2px;
-}
-
-/* Save Options */
-.save-option {
+.primary-button {
+  padding: 0 24px;
+  height: 44px;
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 22px;
+  /* Pill shape */
+  font-family: 'RPIGeist', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: none;
 }
 
-.save-option:focus {
-  outline: 2px solid var(--rpi-red);
-  outline-offset: -2px;
-  /* Inner outline */
-  background: #f0f0f0;
+.primary-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(214, 0, 28, 0.3);
+  filter: brightness(1.1);
 }
 
-/* Mobile optimizations reset */
-@media (max-width: 400px) {
-  .logo-container {
-    transform: scale(0.8);
-    transform-origin: center center;
+.primary-button:active {
+  transform: translateY(1px);
+}
+
+.icon-right {
+  opacity: 0.8;
+}
+
+/* Save Menu */
+.save-section {
+  position: relative;
+}
+
+.save-menu {
+  position: absolute;
+  top: 100%;
+  margin-top: 8px;
+  bottom: auto;
+  right: 0;
+  left: auto;
+  min-width: 200px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 100;
+  transform-origin: top right;
+  animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.save-menu.hidden {
+  display: none;
+}
+
+.save-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.save-option:hover {
+  background-color: var(--rpi-gray-100);
+}
+
+.save-option .option-label {
+  font-family: 'RPIGeist', sans-serif;
+  font-weight: bold;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.save-option .option-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* Info Badges */
+.info-badge {
+  background: var(--rpi-gray-100);
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+  font-family: 'RPIGeistMono', monospace;
+}
+
+.slider-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: 'RPIGeistMono', monospace;
+  margin-top: -8px;
+}
+
+/* --- Responsive & Mobile --- */
+@media (max-width: 768px) {
+  :root {
+    --header-height: 56px;
+    --sidebar-width: 280px;
   }
+
+  .mobile-menu-toggle {
+    display: block;
+  }
+
+  .app-sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    transform: translateX(-100%);
+    /* Hidden by default on mobile */
+    box-shadow: none;
+  }
+
+  .app-sidebar.active {
+    transform: translateX(0);
+    box-shadow: 20px 0 50px rgba(0, 0, 0, 0.2);
+  }
+
+  .app-main {
+    padding: 0;
+  }
+
+  .canvas-viewport {
+    padding: 20px;
+  }
+}
+
+/* Animations */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.control-group {
+  animation: fadeSlideIn 0.4s ease-out backwards;
+}
+
+.control-group:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.control-group:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.control-group:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+/* --- Theme Classes (applied to body) --- */
+body.theme-light {
+  --bg-app: var(--rpi-gray-100);
+  --bg-sidebar: var(--rpi-white);
+  --text-primary: var(--rpi-black);
+}
+
+body.theme-dark {
+  --bg-app: #0a0a0a;
+  --bg-sidebar: #1a1a1a;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --border-color: #333333;
+  --input-bg: #262626;
+  --input-border: #404040;
+  --bg-header: #000000;
+}
+
+body.theme-red {
+  --bg-app: #f5f5f5;
+  --bg-sidebar: #ffffff;
+  --text-primary: var(--rpi-red);
+  --accent-color: var(--rpi-black);
+  --bg-header: var(--rpi-red);
+}
+
+/* Utilities */
+.hidden {
+  display: none !important;
+}
+
+/* Playback Control Details */
+#playback-btn {
+  padding-right: 12px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-color);
+}
+
+.control-select {
+  display: none;
+}
+
+.btn-text {
+  font-family: 'RPIGeistMono', monospace;
+  font-size: 10px;
+  margin-left: 8px;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  opacity: 0.8;
+}
+
+/* Custom Select Styles */
+.custom-select-wrapper {
+  position: relative;
+  user-select: none;
+  width: 100%;
+}
+
+.custom-select-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-family: 'RPIGeistMono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  height: 40px;
+  line-height: 40px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.custom-select-trigger::after {
+  content: '';
+  width: 10px;
+  height: 6px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6H0z' fill='%23666666'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  transition: transform 0.2s;
+}
+
+.custom-select-wrapper.open .custom-select-trigger::after {
+  transform: rotate(180deg);
+}
+
+.custom-select-options {
+  position: absolute;
+  display: block;
+  top: 100%;
+  left: 0;
+  right: 0;
+  border: 1px solid var(--input-border);
+  border-top: 0;
+  background: var(--bg-sidebar);
+  transition: all 0.2s;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 100;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.custom-select-wrapper.open .custom-select-options {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: all;
+}
+
+.custom-option {
+  position: relative;
+  display: block;
+  padding: 0 12px;
+  font-family: 'RPIGeistMono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 36px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.custom-option:hover {
+  background: var(--rpi-gray-100);
+  color: var(--accent-color);
+}
+
+.custom-option.selected {
+  background: var(--rpi-red);
+  color: #ffffff;
 }

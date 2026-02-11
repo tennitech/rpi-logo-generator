@@ -89,9 +89,8 @@ let numericModeSelect;
 // Static circle data cache
 let staticCircleData = null;
 let lastCircleParams = null;
-let controlPanel;
-let controlToggle;
-let toggleText;
+let appSidebar;
+let mobileMenuToggle;
 let tickerShader1, tickerShader2, binaryShader;
 let currentShader = 1;
 let barBuffer;
@@ -122,6 +121,7 @@ let oscillatorGains = {
   pulse: null
 };
 let pulseWorkletNode = null;
+let lastFocusedElement = null; // For accessibility focus management
 
 // Color scheme management
 let currentColorMode = 'black-on-white';
@@ -134,6 +134,21 @@ const colors = {
 
 // Logo positioning - centers the 111.76px tall logo vertically in the viewport
 // Logo positioning - constant moved to top
+
+
+
+
+// Logo positioning - constant moved to top
+
+// Viewport & Playback State
+let isPlaying = true;
+let zoomLevel = 1.0;
+let panOffset = { x: 0, y: 0 };
+let isPanningMode = false;
+
+// Zoom/Pan/Playback UI references
+let playbackBtn, iconPause, iconPlay, playbackText, playbackDivider;
+let zoomInBtn, zoomOutBtn, panBtn, zoomLevelDisplay;
 
 // Convert text to binary
 function textToBinary(text) {
@@ -272,7 +287,12 @@ let shaders = {
 
 
 async function setup() {
-  let canvas = createCanvas(windowWidth, windowHeight, WEBGL);
+  // Create canvas that fills the container
+  const container = document.getElementById('p5-container');
+  const width = container ? container.offsetWidth : windowWidth;
+  const height = container ? container.offsetHeight : windowHeight;
+
+  let canvas = createCanvas(width, height, WEBGL);
   canvas.parent('p5-container');
 
 
@@ -323,6 +343,39 @@ async function setup() {
   circlesGroup = document.getElementById('circles-group');
   circlesDensitySlider = document.getElementById('circles-density-slider');
   circlesDensityDisplay = document.getElementById('circles-density-display');
+
+  // Get new control references for Phase 2c
+  playbackBtn = document.getElementById('playback-btn');
+  iconPause = document.getElementById('icon-pause');
+  iconPlay = document.getElementById('icon-play');
+  playbackText = document.getElementById('playback-text');
+  playbackDivider = document.getElementById('playback-divider');
+
+  zoomInBtn = document.getElementById('zoom-in-btn');
+  zoomOutBtn = document.getElementById('zoom-out-btn');
+  panBtn = document.getElementById('pan-btn');
+  zoomLevelDisplay = document.getElementById('zoom-level');
+
+  // Setup Playback Listeners
+  if (playbackBtn) {
+    playbackBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      togglePlayback();
+    });
+  }
+
+  // Setup Zoom Listeners
+  if (zoomInBtn) {
+    zoomInBtn.addEventListener('click', () => zoomCanvas(0.1));
+  }
+  if (zoomOutBtn) {
+    zoomOutBtn.addEventListener('click', () => zoomCanvas(-0.1));
+  }
+
+  // Setup Pan Listener
+  if (panBtn) {
+    panBtn.addEventListener('click', togglePanMode);
+  }
   circlesSizeVariationSlider = document.getElementById('circles-size-variation-slider');
   circlesSizeVariationDisplay = document.getElementById('circles-size-variation-display');
   circlesOverlapSlider = document.getElementById('circles-overlap-slider');
@@ -345,9 +398,8 @@ async function setup() {
   numericGroup = document.getElementById('numeric-group');
   numericInput = document.getElementById('numeric-input');
   numericModeSelect = document.getElementById('numeric-mode-select');
-  controlPanel = document.getElementById('control-panel');
-  controlToggle = document.getElementById('control-toggle');
-  toggleText = document.getElementById('toggle-text');
+  appSidebar = document.getElementById('app-sidebar');
+  mobileMenuToggle = document.getElementById('mobile-menu-toggle');
 
   // Get save control references
   const saveButton = document.getElementById('save-button');
@@ -486,15 +538,11 @@ async function setup() {
   updateCirclesSizeVariationXDisplay(); // Set initial value
   updateCirclesGridOverlapDisplay(); // Set initial value
 
-  // Setup control panel toggle with better mobile support
-  if (controlToggle) {
-    controlToggle.addEventListener('click', function (e) {
+  // Setup mobile menu toggle
+  if (mobileMenuToggle) {
+    mobileMenuToggle.addEventListener('click', function (e) {
       e.preventDefault();
-      toggleControlPanel();
-    });
-    controlToggle.addEventListener('touchend', function (e) {
-      e.preventDefault();
-      toggleControlPanel();
+      toggleMobileMenu();
     });
   }
 
@@ -502,10 +550,49 @@ async function setup() {
   document.addEventListener('click', handleClickOutside);
   document.addEventListener('touchend', handleClickOutside);
 
-  // Setup save functionality
-  if (saveButton) {
-    saveButton.addEventListener('click', toggleSaveMenu);
-  }
+  // Focus trap and Escape key support for sidebar
+  appSidebar.addEventListener('keydown', function (e) {
+    // Only trap focus on mobile when sidebar is active
+    if (window.innerWidth <= 768 && !appSidebar.classList.contains('active')) return;
+
+    // Handle Escape to close (mobile only)
+    if (e.key === 'Escape' && window.innerWidth <= 768) {
+      e.stopPropagation();
+      toggleMobileMenu();
+      return;
+    }
+
+    // Handle Tab to trap focus
+    if (e.key === 'Tab') {
+      const focusableContent = appSidebar.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+
+      if (focusableContent.length === 0) return;
+
+      const first = focusableContent[0];
+      const last = focusableContent[focusableContent.length - 1];
+
+      if (e.shiftKey) { // Shift + Tab
+        if (document.activeElement === first) {
+          last.focus();
+          e.preventDefault();
+        }
+      } else { // Tab
+        if (document.activeElement === last) {
+          first.focus();
+          e.preventDefault();
+        }
+      }
+    }
+  });
+
+  // Setup save functionality - use delegation for robustness
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('#save-button');
+    if (btn) {
+      toggleSaveMenu(e);
+    }
+  });
+
   if (savePngButton) {
     savePngButton.addEventListener('click', savePNG);
   }
@@ -514,11 +601,15 @@ async function setup() {
   }
 
   // Close save menu when clicking outside
+  // Close save menu when clicking outside
   document.addEventListener('click', function (event) {
-    if (saveButton && saveMenu && !saveButton.contains(event.target) && !saveMenu.contains(event.target)) {
-      if (!saveMenu.classList.contains('hidden')) {
-        saveMenu.classList.add('hidden');
-        saveButton.setAttribute('aria-expanded', 'false');
+    const btn = document.getElementById('save-button');
+    const menu = document.getElementById('save-menu');
+
+    if (btn && menu && !btn.contains(event.target) && !menu.contains(event.target)) {
+      if (!menu.classList.contains('hidden')) {
+        menu.classList.add('hidden');
+        btn.setAttribute('aria-expanded', 'false');
       }
     }
   });
@@ -594,6 +685,9 @@ async function setup() {
   // Initialize Web Audio API
   initializeAudio();
 
+  // Initialize custom dropdowns
+  setupCustomDropdowns();
+
   // Add global keyboard event listener for more reliable shift detection
   document.addEventListener('keydown', function (event) {
     // Only handle keyboard events on non-mobile devices
@@ -601,11 +695,13 @@ async function setup() {
       return; // Skip keyboard shortcuts on mobile
     }
 
-    // Handle spacebar for audio playback
+    // Handle spacebar for playback
     if (event.code === 'Space' && !event.shiftKey) {
-      event.preventDefault();
-      if (!isAudioPlaying) {
-        startAudio();
+      // Only toggle if current style is animated
+      // Animated styles: Ticker (2), Waveform (4)
+      if (currentShader === 2 || currentShader === 4) {
+        event.preventDefault();
+        togglePlayback();
       }
       return;
     }
@@ -844,39 +940,52 @@ function updateCirclesGridOverlapDisplay() {
   staticCircleData = null;
 }
 
-function toggleControlPanel() {
-  const isHidden = controlPanel.classList.contains('hidden');
+function toggleMobileMenu() {
+  const isActive = appSidebar.classList.contains('active');
 
-  if (isHidden) {
-    controlPanel.classList.remove('hidden');
-    toggleText.textContent = 'HIDE';
-    if (controlToggle) controlToggle.setAttribute('aria-expanded', 'true');
+  if (!isActive) {
+    // Opening sidebar
+    lastFocusedElement = document.activeElement;
+    appSidebar.classList.add('active');
+    if (mobileMenuToggle) mobileMenuToggle.setAttribute('aria-expanded', 'true');
+
+    // Move focus to first interactive element in sidebar
+    setTimeout(() => {
+      const firstFocusable = appSidebar.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (firstFocusable) firstFocusable.focus();
+    }, 100);
   } else {
-    controlPanel.classList.add('hidden');
-    toggleText.textContent = 'CONTROLS';
-    if (controlToggle) controlToggle.setAttribute('aria-expanded', 'false');
+    // Closing sidebar
+    appSidebar.classList.remove('active');
+    if (mobileMenuToggle) mobileMenuToggle.setAttribute('aria-expanded', 'false');
+
+    // Restore focus
+    if (lastFocusedElement && document.body.contains(lastFocusedElement)) {
+      lastFocusedElement.focus();
+    } else if (mobileMenuToggle) {
+      mobileMenuToggle.focus();
+    }
   }
 }
 
 function handleClickOutside(event) {
+  // Only apply on mobile where sidebar overlays content
+  if (window.innerWidth > 768) return;
+
   // Prevent duplicate events on mobile
   if (event.type === 'touchend' && event.cancelable) {
     event.preventDefault();
   }
 
-  // Don't close if clicking on the toggle button or inside the control panel
-  if (controlToggle && controlToggle.contains(event.target) ||
-    controlPanel && controlPanel.contains(event.target)) {
+  // Don't close if clicking on the toggle button or inside the sidebar
+  if (mobileMenuToggle && mobileMenuToggle.contains(event.target) ||
+    appSidebar && appSidebar.contains(event.target)) {
     return;
   }
 
-  // Close the panel if it's open
-  if (controlPanel && !controlPanel.classList.contains('hidden')) {
-    controlPanel.classList.add('hidden');
-    if (toggleText) {
-      toggleText.textContent = 'CONTROLS';
-    }
-    if (controlToggle) controlToggle.setAttribute('aria-expanded', 'false');
+  // Close the sidebar if it's open
+  if (appSidebar && appSidebar.classList.contains('active')) {
+    toggleMobileMenu();
   }
 }
 
@@ -933,18 +1042,23 @@ function handleStyleChange() {
     numericGroup.style.display = 'none';
 
     // Show the appropriate group
+    // Show the appropriate group and handle playback controls
+    let isAnimated = false;
+
     switch (selectedStyle) {
       case 'ruler':
         rulerGroup.style.display = 'block';
         break;
       case 'ticker':
         tickerGroup.style.display = 'block';
+        isAnimated = true;
         break;
       case 'binary':
         binaryGroup.style.display = 'block';
         break;
       case 'waveform':
         waveformGroup.style.display = 'block';
+        isAnimated = true;
         break;
       case 'circles':
         circlesGroup.style.display = 'block';
@@ -952,6 +1066,25 @@ function handleStyleChange() {
       case 'numeric':
         numericGroup.style.display = 'block';
         break;
+    }
+
+    // Toggle playback controls visibility
+    if (playbackBtn && playbackDivider) {
+      if (isAnimated) {
+        playbackBtn.classList.remove('hidden');
+        playbackDivider.classList.remove('hidden');
+        // Reset to playing state when switching to an animated mode, or keep?
+        // Let's ensure loop is on if we switch to it, or respect current state?
+        // Better to reset to playing for UX.
+        if (!isPlaying) togglePlayback();
+      } else {
+        playbackBtn.classList.add('hidden');
+        playbackDivider.classList.add('hidden');
+        // Ensure we loop for static draws (or noLoop logic might interfere with interactions?)
+        // Static modes usually call noLoop() or just draw once?
+        // This app seems to run draw loop constantly for all modes currently.
+        if (!isPlaying) togglePlayback(); // Resume loop if it was paused
+      }
     }
   }
 
@@ -965,94 +1098,42 @@ function handleColorModeChange() {
 
 function applyColorMode(colorMode) {
   currentColorMode = colorMode;
-  const colorScheme = colors[colorMode];
 
-  if (colorScheme) {
-    // Update body background
-    document.body.style.backgroundColor = colorScheme.bg;
+  // Remove all theme classes first
+  document.body.classList.remove('theme-light', 'theme-dark', 'theme-red', 'theme-inverted');
 
-    // Update control panel background and text colors
-    const controlPanel = document.getElementById('control-panel');
-    if (controlPanel) {
-      controlPanel.style.backgroundColor = colorScheme.bg;
-      controlPanel.style.color = colorScheme.fg;
-
-      // Update border color
-      if (colorMode === 'white-on-black' || colorMode === 'white-on-red') {
-        controlPanel.style.borderLeftColor = colorScheme.fg;
-      } else {
-        controlPanel.style.borderLeftColor = '#000';
-      }
-    }
-
-    // Update control toggle colors
-    const controlToggle = document.getElementById('control-toggle');
-    if (controlToggle) {
-      controlToggle.style.color = colorScheme.fg;
-    }
-
-    // Update all control elements
-    updateControlElementColors(colorScheme);
-
-    console.log('Color mode applied:', colorMode);
+  // Add appropriate theme class
+  switch (colorMode) {
+    case 'black-on-white':
+      document.body.classList.add('theme-light');
+      break;
+    case 'white-on-black':
+      document.body.classList.add('theme-dark');
+      break;
+    case 'white-on-red':
+      document.body.classList.add('theme-red');
+      break;
+    case 'red-on-white':
+      document.body.classList.add('theme-inverted'); // Assuming inverted style for now
+      break;
+    default:
+      document.body.classList.add('theme-light');
   }
+
+  // Update control element colors (only needed for complex elements like sliders or SVG icons that rely on JS)
+  // Most styling is now handled by CSS variables
+  updateControlElementColors(colors[colorMode]);
+
+  console.log('Color mode applied:', colorMode);
 }
 
 function updateControlElementColors(colorScheme) {
-  // Update select elements and dropdown arrows
+  // Update select dropdown arrows (needs JS because it's a data URI)
   const selects = document.querySelectorAll('.control-select');
   selects.forEach(select => {
-    select.style.backgroundColor = colorScheme.bg;
-    select.style.color = colorScheme.fg;
-    select.style.borderColor = colorScheme.fg;
-
-    // Set dropdown arrow color
     const arrowColor = colorScheme.fg === '#ffffff' ? 'white' : 'black';
     const arrowSvg = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><polygon points="6,8 2,4 10,4" fill="${arrowColor}"/></svg>')`;
     select.style.setProperty('--dropdown-arrow', arrowSvg);
-  });
-
-  // Update input elements
-  const inputs = document.querySelectorAll('.control-input');
-  inputs.forEach(input => {
-    input.style.backgroundColor = colorScheme.bg;
-    input.style.color = colorScheme.fg;
-    input.style.borderColor = colorScheme.fg;
-  });
-
-  // Update labels
-  const labels = document.querySelectorAll('.control-label, .slider-labels');
-  labels.forEach(label => {
-    label.style.color = colorScheme.fg;
-  });
-
-  // Update sliders and slider thumbs
-  const sliders = document.querySelectorAll('.control-slider');
-  sliders.forEach(slider => {
-    slider.style.setProperty('--slider-track-color', colorScheme.fg);
-    slider.style.setProperty('--slider-thumb-color', colorScheme.fg);
-  });
-
-  // Update save button
-  const saveButton = document.getElementById('save-button');
-  if (saveButton) {
-    saveButton.style.color = colorScheme.fg;
-  }
-
-  // Update save menu
-  const saveMenu = document.getElementById('save-menu');
-  if (saveMenu) {
-    saveMenu.style.backgroundColor = colorScheme.bg;
-    saveMenu.style.borderColor = colorScheme.fg;
-  }
-
-  // Update save options
-  const saveOptions = document.querySelectorAll('.save-option');
-  saveOptions.forEach(option => {
-    option.style.color = colorScheme.fg;
-    option.style.backgroundColor = colorScheme.bg;
-    option.style.setProperty('--fg-color', colorScheme.fg);
-    option.style.setProperty('--bg-color', colorScheme.bg);
   });
 }
 
@@ -2375,6 +2456,10 @@ function draw() {
   // Scale the logo appropriately
   scale(LOGO_SCALE);
 
+  // Viewport View Transformation (Zoom & Pan)
+  translate(panOffset.x, panOffset.y);
+  scale(zoomLevel);
+
   // Center the logo
   translate(-currentWidth / 2, LOGO_VERTICAL_OFFSET);
 
@@ -2405,6 +2490,10 @@ function drawBottomBar(currentWidth) {
 
   // Scale the same as logo
   scale(LOGO_SCALE);
+
+  // Viewport View Transformation
+  translate(panOffset.x, panOffset.y);
+  scale(zoomLevel);
 
   // Center the same as logo
   translate(-currentWidth / 2, LOGO_VERTICAL_OFFSET);
@@ -2787,3 +2876,148 @@ function drawBottomBar(currentWidth) {
 
   pop();
 }
+
+// --- Phase 2c: Playback & Viewport Logic ---
+
+function togglePlayback() {
+  isPlaying = !isPlaying;
+
+  if (isPlaying) {
+    loop();
+    if (iconPlay) iconPlay.classList.add('hidden');
+    if (iconPause) iconPause.classList.remove('hidden');
+    if (playbackText) playbackText.textContent = "SPACE TO PAUSE";
+    if (playbackBtn) playbackBtn.setAttribute('aria-label', 'Pause Animation');
+  } else {
+    noLoop();
+    if (iconPause) iconPause.classList.add('hidden');
+    if (iconPlay) iconPlay.classList.remove('hidden');
+    if (playbackText) playbackText.textContent = "SPACE TO PLAY";
+    if (playbackBtn) playbackBtn.setAttribute('aria-label', 'Play Animation');
+  }
+}
+
+function zoomCanvas(amount) {
+  zoomLevel += amount;
+  zoomLevel = constrain(zoomLevel, 0.5, 3.0); // Limit zoom 50% to 300%
+
+  if (zoomLevelDisplay) {
+    zoomLevelDisplay.textContent = Math.round(zoomLevel * 100) + '%';
+  }
+
+  if (!isPlaying) redraw();
+}
+
+function togglePanMode() {
+  isPanningMode = !isPanningMode;
+
+  if (panBtn) {
+    if (isPanningMode) {
+      panBtn.style.color = 'var(--accent-color)';
+      panBtn.style.background = 'var(--rpi-gray-100)';
+      document.body.style.cursor = 'move';
+    } else {
+      panBtn.style.color = '';
+      panBtn.style.background = '';
+      document.body.style.cursor = 'default';
+    }
+  }
+}
+
+function mouseDragged() {
+  if (isPanningMode) {
+    panOffset.x += movedX;
+    panOffset.y += movedY;
+    if (!isPlaying) redraw();
+    return false; // Prevent default browser drag
+  }
+}
+
+// --- Custom Dropdown Logic ---
+function setupCustomDropdowns() {
+  const selects = document.querySelectorAll('.control-select');
+
+  selects.forEach(select => {
+    // Check if already initialized to avoid duplicates
+    if (select.parentNode.classList.contains('custom-select-wrapper')) return;
+
+    // Create wrapper
+    const wrapper = document.createElement('div');
+    wrapper.className = 'custom-select-wrapper';
+    select.parentNode.insertBefore(wrapper, select);
+    wrapper.appendChild(select);
+
+    // Create trigger
+    const trigger = document.createElement('div');
+    trigger.className = 'custom-select-trigger';
+    const selectedOption = select.options[select.selectedIndex];
+    trigger.textContent = selectedOption ? selectedOption.textContent : 'Select...';
+    wrapper.appendChild(trigger);
+
+    // Create options list
+    const optionsList = document.createElement('div');
+    optionsList.className = 'custom-select-options';
+    wrapper.appendChild(optionsList);
+
+    // Populate options
+    Array.from(select.options).forEach(option => {
+      const customOption = document.createElement('div');
+      customOption.className = 'custom-option';
+      customOption.textContent = option.textContent;
+      customOption.dataset.value = option.value;
+
+      if (option.selected) {
+        customOption.classList.add('selected');
+      }
+
+      customOption.addEventListener('click', (e) => {
+        e.stopPropagation();
+
+        // Update native select
+        select.value = option.value;
+        select.dispatchEvent(new Event('change'));
+
+        // Update UI
+        trigger.textContent = option.textContent;
+        wrapper.querySelectorAll('.custom-option').forEach(opt => opt.classList.remove('selected'));
+        customOption.classList.add('selected');
+        wrapper.classList.remove('open');
+      });
+
+      optionsList.appendChild(customOption);
+    });
+
+    // Toggle dropdown
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Close all other dropdowns
+      document.querySelectorAll('.custom-select-wrapper').forEach(w => {
+        if (w !== wrapper) w.classList.remove('open');
+      });
+      wrapper.classList.toggle('open');
+    });
+
+    // Listen for external updates to the select (e.g. from keyboard shortcuts)
+    select.addEventListener('change', () => {
+      const newSelected = select.options[select.selectedIndex];
+      trigger.textContent = newSelected.textContent;
+      wrapper.querySelectorAll('.custom-option').forEach(opt => {
+        if (opt.dataset.value === select.value) {
+          opt.classList.add('selected');
+        } else {
+          opt.classList.remove('selected');
+        }
+      });
+    });
+  });
+
+  // click outside to close dropdowns
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.custom-select-wrapper')) {
+      document.querySelectorAll('.custom-select-wrapper').forEach(w => w.classList.remove('open'));
+    }
+  });
+}
+
+// Ensure custom dropdowns are initialized when DOM is ready
+document.addEventListener('DOMContentLoaded', setupCustomDropdowns);

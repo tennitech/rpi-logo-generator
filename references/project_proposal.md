@@ -79,29 +79,15 @@ When generating code or suggesting features, adhere to these strict guidelines:
 ## 4. Feature Implementation Roadmap
 
 ### Phase 1: February - Foundation & Safety
+* [x] **Repo Setup:** Finalize licensing and clean up "Upstatement" prototype code. 
+* [x] **Integration:** Established technical pathway (local dev environment active). 
+* [x] **Guardrails V1:** Implemented profanity/text-filtering for the data visualizer. 
+* [x] **UI Refactor:** Shifted UI to "workspace" feel with sidebar and header controls.
 
-* [ ] **Repo Setup:** Finalize licensing and clean up "Upstatement" prototype code. 
-
-
-* 
-**Integration:** Establish technical pathway to host within RPI Brand Hub. 
-
-
-* [ ] **Guardrails V1:** Implement profanity/text-filtering for the data visualizer. 
-
-
-* [ ] **UI Refactor:** Shift UI from "generator" to "workspace" feel. 
-
-
-
-### Phase 2: March - The "Canvas" Core
-
-* [ ] **Accessibility Audit:** Update for screen readers and contrast. 
-
-
+### Phase 2: March - The "Canvas" Core (Partial Completion)
+* [x] **Accessibility Audit:** Updated for screen readers and contrast (semantic HTML, ARIA). 
+* [x] **Visual Polish:** Implemented custom dropdowns and refined "Download" actions.
 * [ ] **Canvas Prototype:** Build drag-and-drop interface with standard canvas sizes (e.g., Instagram, 8.5x11). 
-
-
 * [ ] **Asset Lockdown:** Integrate hard-coded brand libraries (colors/fonts) to prevent user deviation. 
 
 

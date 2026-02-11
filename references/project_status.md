@@ -35,10 +35,11 @@ A web-based tool to generate Rensselaer Polytechnic Institute (RPI) style logos 
 ## 4. Active Roadmap
 
 ### Phase 2: Refinement & UI Polish (Next)
-*   [ ] **Responsive Design:** Ensure controls validation on mobile/tablet.
-*   [ ] **Visual Feedback:** Improve UI states (hover, active, disabled).
-*   [ ] **Accessibility:** Add ARIA labels and keyboard navigation support.
-*   [ ] **Shader Optimization:** Review GLSL performance.
+*   [x] **Responsive Design:** Verified mobile menu and layout adjustments.
+*   [x] **Visual Feedback:** Implemented hover states, active states, and custom dropdowns.
+*   [x] **Accessibility:** Added ARIA labels, semantic HTML, and keyboard navigation.
+*   [x] **Shader Optimization:** Reviewed performance; shaders are stable.
+*   [x] **UI Polish:** Fixed download button style, hidden native selects, and refined layout.
 
 ### Phase 3: Advanced Features
 *   [ ] **Export Options:** High-res PNG/SVG export refinement.

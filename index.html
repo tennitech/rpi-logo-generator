@@ -10,293 +10,310 @@
 </head>
 
 <body>
-  <!-- Control Panel Toggle (outside panel so it stays visible) -->
-  <button id="control-toggle" class="control-toggle" aria-expanded="false" aria-controls="control-panel"
-    aria-label="Toggle Control Panel">
-    <span id="toggle-text">CONTROLS</span>
-  </button>
-
-  <!-- Control Panel -->
-  <div id="control-panel" class="control-panel hidden" role="region" aria-label="Logo Generator Controls">
-    <div class="control-group">
-      <div class="control">
-        <label for="style-select" class="control-label">STYLE</label>
-        <select id="style-select" class="control-select">
-          <option value="solid">SOLID</option>
-          <option value="ruler">RULER</option>
-          <option value="ticker">TICKER</option>
-          <option value="binary">BINARY</option>
-          <option value="waveform">WAVEFORM</option>
-          <option value="circles">CIRCLES</option>
-          <option value="numeric">NUMERIC</option>
-        </select>
-      </div>
-
-      <div class="control">
-        <label for="color-mode-select" class="control-label">COLOR MODE</label>
-        <select id="color-mode-select" class="control-select">
-          <option value="black-on-white">BLACK ON WHITE</option>
-          <option value="white-on-black">WHITE ON BLACK</option>
-          <option value="white-on-red">WHITE ON RED</option>
-          <option value="red-on-white">RED ON WHITE</option>
-        </select>
-      </div>
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="header-brand">
+      <span class="brand-logo">RPI</span>
+      <span class="brand-divider">|</span>
+      <span class="brand-title">LOGO GENERATOR</span>
     </div>
-
-
-
-    <div id="ruler-group" class="control-group" style="display: none;">
-      <div class="control slider-control">
-        <label for="ruler-repeats-slider" class="control-label">REPEATS <span
-            id="ruler-repeats-display">10</span></label>
-        <input type="range" id="ruler-repeats-slider" min="4" max="20" value="10" class="control-slider"
-          aria-label="Ruler Repeats">
-        <div class="slider-labels">
-          <span>4</span>
-          <span>20</span>
+    <div class="header-actions">
+      <div class="save-section">
+        <button id="save-button" class="save-button primary-button" aria-haspopup="true" aria-expanded="false"
+          aria-controls="save-menu">
+          Download Asset
+        </button>
+        <div id="save-menu" class="save-menu hidden" role="menu">
+          <button id="save-png" class="save-option" role="menuitem">
+            <span class="option-label">PNG IMAGE</span>
+            <span class="option-desc">High resolution raster</span>
+          </button>
+          <button id="save-svg" class="save-option" role="menuitem">
+            <span class="option-label">SVG VECTOR</span>
+            <span class="option-desc">Scalable format</span>
+          </button>
         </div>
       </div>
-
-      <div class="control slider-control">
-        <label for="ruler-units-slider" class="control-label">UNITS <span id="ruler-units-display">4</span></label>
-        <input type="range" id="ruler-units-slider" min="2" max="10" step="2" value="4" class="control-slider"
-          aria-label="Ruler Units">
-        <div class="slider-labels">
-          <span>2</span>
-          <span>10</span>
-        </div>
-      </div>
+      <button id="mobile-menu-toggle" class="mobile-menu-toggle" aria-label="Toggle Menu" aria-expanded="false"
+        aria-controls="app-sidebar">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
     </div>
+  </header>
 
-    <div id="binary-group" class="control-group" style="display: none;">
-      <div class="control">
-        <label for="binary-input" class="control-label">TRANSLATE BINARY</label>
-        <input type="text" id="binary-input" placeholder="Enter Text..." class="control-input"
-          aria-label="Binary Text Input">
-      </div>
-    </div>
+  <div class="app-layout">
+    <!-- Sidebar Controls -->
+    <aside id="app-sidebar" class="app-sidebar" role="region" aria-label="Design Controls">
+      <div class="sidebar-content">
+        <div class="control-group">
+          <div class="control">
+            <label for="style-select" class="control-label">VISUAL STYLE</label>
+            <div class="select-wrapper">
+              <select id="style-select" class="control-select">
+                <option value="solid">SOLID</option>
+                <option value="ruler">RULER</option>
+                <option value="ticker">TICKER</option>
+                <option value="binary">BINARY</option>
+                <option value="waveform">WAVEFORM</option>
+                <option value="circles">CIRCLES</option>
+                <option value="numeric">NUMERIC</option>
+              </select>
+            </div>
+          </div>
 
-    <div id="ticker-group" class="control-group" style="display: none;">
-      <div class="control slider-control">
-        <label for="ticker-slider" class="control-label">REPEATS <span id="ticker-display">34</span></label>
-        <input type="range" id="ticker-slider" min="5" max="40" value="34" class="control-slider"
-          aria-label="Ticker Repeats">
-        <div class="slider-labels">
-          <span>5</span>
-          <span>40</span>
-        </div>
-      </div>
-
-      <div class="control slider-control">
-        <label for="ticker-ratio-slider" class="control-label">COUNT RATIO <span
-            id="ticker-ratio-display">2:1</span></label>
-        <input type="range" id="ticker-ratio-slider" min="1" max="5" value="2" class="control-slider"
-          aria-label="Ticker Count Ratio">
-        <div class="slider-labels">
-          <span>1:1</span>
-          <span>5:1</span>
-        </div>
-      </div>
-
-      <div class="control slider-control">
-        <label for="ticker-width-ratio-slider" class="control-label">WIDTH RATIO <span
-            id="ticker-width-ratio-display">1:2</span></label>
-        <input type="range" id="ticker-width-ratio-slider" min="1" max="5" value="2" class="control-slider"
-          aria-label="Ticker Width Ratio">
-        <div class="slider-labels">
-          <span>1:1</span>
-          <span>1:5</span>
-        </div>
-      </div>
-    </div>
-
-    <div id="waveform-group" class="control-group" style="display: none;">
-      <div class="control slider-control">
-        <label for="waveform-type-slider" class="control-label">WAVE TYPE <span
-            id="waveform-type-display">SINE</span></label>
-        <input type="range" id="waveform-type-slider" min="0" max="3" step="0.01" value="0" class="control-slider"
-          aria-label="Waveform Type">
-        <div class="slider-labels">
-          <span>SINE</span>
-          <span>PULSE</span>
-        </div>
-      </div>
-
-      <div class="control slider-control">
-        <label for="waveform-frequency-slider" class="control-label">FREQUENCY <span
-            id="waveform-frequency-display">24</span></label>
-        <input type="range" id="waveform-frequency-slider" min="10" max="100" value="24" class="control-slider"
-          aria-label="Waveform Frequency">
-        <div class="slider-labels">
-          <span>10</span>
-          <span>100</span>
-        </div>
-      </div>
-
-      <div class="control slider-control">
-        <label for="waveform-speed-slider" class="control-label">SPEED <span
-            id="waveform-speed-display">0.7</span></label>
-        <input type="range" id="waveform-speed-slider" min="0" max="5" step="0.1" value="0.7" class="control-slider"
-          aria-label="Waveform Speed">
-        <div class="slider-labels">
-          <span>0</span>
-          <span>5</span>
-        </div>
-      </div>
-
-      <div class="control">
-        <label class="control-label">PRESS SPACEBAR TO PLAY</label>
-      </div>
-    </div>
-
-    <div id="circles-group" class="control-group" style="display: none;">
-      <div class="control">
-        <label for="circles-mode-select" class="control-label">MODE</label>
-        <select id="circles-mode-select" class="control-select">
-          <option value="packing">PACKING</option>
-          <option value="grid">GRID</option>
-        </select>
-      </div>
-
-      <!-- Packing Mode Controls -->
-      <div id="circles-packing-controls" class="control">
-        <div class="control slider-control">
-          <label for="circles-density-slider" class="control-label">DENSITY <span
-              id="circles-density-display">50</span>%</label>
-          <input type="range" id="circles-density-slider" min="10" max="100" value="50" class="control-slider"
-            aria-label="Circles Density">
-          <div class="slider-labels">
-            <span>10%</span>
-            <span>100%</span>
+          <div class="control">
+            <label for="color-mode-select" class="control-label">THEME</label>
+            <div class="select-wrapper">
+              <select id="color-mode-select" class="control-select">
+                <option value="black-on-white">LIGHT (Default)</option>
+                <option value="white-on-black">DARK</option>
+                <option value="white-on-red">RED</option>
+                <option value="red-on-white">INVERTED</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        <div class="control slider-control">
-          <label for="circles-size-variation-slider" class="control-label">SIZE VARIATION <span
-              id="circles-size-variation-display">0</span>%</label>
-          <input type="range" id="circles-size-variation-slider" min="0" max="100" value="0" class="control-slider"
-            aria-label="Size Variation">
-          <div class="slider-labels">
-            <span>0%</span>
-            <span>100%</span>
+        <div class="sidebar-divider"></div>
+
+        <!-- Dynamic Control Groups -->
+        <div id="ruler-group" class="control-group" style="display: none;">
+          <div class="control-header">RULER SETTINGS</div>
+          <div class="control slider-control">
+            <label for="ruler-repeats-slider" class="control-label">REPEATS <span
+                id="ruler-repeats-display">10</span></label>
+            <input type="range" id="ruler-repeats-slider" min="4" max="20" value="10" class="control-slider"
+              aria-label="Ruler Repeats">
+          </div>
+          <div class="control slider-control">
+            <label for="ruler-units-slider" class="control-label">UNITS <span id="ruler-units-display">4</span></label>
+            <input type="range" id="ruler-units-slider" min="2" max="10" step="2" value="4" class="control-slider"
+              aria-label="Ruler Units">
           </div>
         </div>
 
-        <div class="control slider-control">
-          <label for="circles-overlap-slider" class="control-label">OVERLAP <span
-              id="circles-overlap-display">0</span>%</label>
-          <input type="range" id="circles-overlap-slider" min="0" max="100" value="0" class="control-slider"
-            aria-label="Overlap Amount">
-          <div class="slider-labels">
-            <span>0%</span>
-            <span>100%</span>
+        <div id="binary-group" class="control-group" style="display: none;">
+          <div class="control-header">BINARY SETTINGS</div>
+          <div class="control">
+            <label for="binary-input" class="control-label">INPUT TEXT</label>
+            <input type="text" id="binary-input" placeholder="ENTER TEXT..." class="control-input"
+              aria-label="Binary Text Input">
+            <div class="control-hint">Type to translate to binary bars</div>
           </div>
+        </div>
+
+        <div id="ticker-group" class="control-group" style="display: none;">
+          <div class="control-header">TICKER SETTINGS</div>
+          <div class="control slider-control">
+            <label for="ticker-slider" class="control-label">REPEATS <span id="ticker-display">34</span></label>
+            <input type="range" id="ticker-slider" min="5" max="40" value="34" class="control-slider"
+              aria-label="Ticker Repeats">
+          </div>
+
+          <div class="control slider-control">
+            <label for="ticker-ratio-slider" class="control-label">COUNT RATIO <span
+                id="ticker-ratio-display">2:1</span></label>
+            <input type="range" id="ticker-ratio-slider" min="1" max="5" value="2" class="control-slider"
+              aria-label="Ticker Count Ratio">
+          </div>
+
+          <div class="control slider-control">
+            <label for="ticker-width-ratio-slider" class="control-label">WIDTH RATIO <span
+                id="ticker-width-ratio-display">1:2</span></label>
+            <input type="range" id="ticker-width-ratio-slider" min="1" max="5" value="2" class="control-slider"
+              aria-label="Ticker Width Ratio">
+          </div>
+        </div>
+
+        <div id="waveform-group" class="control-group" style="display: none;">
+          <div class="control-header">WAVEFORM SETTINGS</div>
+          <div class="control slider-control">
+            <label for="waveform-type-slider" class="control-label">TYPE <span
+                id="waveform-type-display">SINE</span></label>
+            <input type="range" id="waveform-type-slider" min="0" max="3" step="0.01" value="0" class="control-slider"
+              aria-label="Waveform Type">
+          </div>
+
+          <div class="control slider-control">
+            <label for="waveform-frequency-slider" class="control-label">FREQUENCY <span
+                id="waveform-frequency-display">24</span></label>
+            <input type="range" id="waveform-frequency-slider" min="10" max="100" value="24" class="control-slider"
+              aria-label="Waveform Frequency">
+          </div>
+
+          <div class="control slider-control">
+            <label for="waveform-speed-slider" class="control-label">SPEED <span
+                id="waveform-speed-display">0.7</span></label>
+            <input type="range" id="waveform-speed-slider" min="0" max="5" step="0.1" value="0.7" class="control-slider"
+              aria-label="Waveform Speed">
+          </div>
+
+          <div class="control">
+            <div class="info-badge">PRESS SPACEBAR TO PLAY</div>
+          </div>
+        </div>
+
+        <div id="circles-group" class="control-group" style="display: none;">
+          <div class="control-header">CIRCLES SETTINGS</div>
+          <div class="control">
+            <label for="circles-mode-select" class="control-label">MODE</label>
+            <div class="select-wrapper">
+              <select id="circles-mode-select" class="control-select">
+                <option value="packing">PACKING</option>
+                <option value="grid">GRID</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Packing Mode Controls -->
+          <div id="circles-packing-controls" class="sub-group">
+            <div class="control slider-control">
+              <label for="circles-density-slider" class="control-label">DENSITY <span
+                  id="circles-density-display">50</span>%</label>
+              <input type="range" id="circles-density-slider" min="10" max="100" value="50" class="control-slider"
+                aria-label="Circles Density">
+            </div>
+
+            <div class="control slider-control">
+              <label for="circles-size-variation-slider" class="control-label">VARIATION <span
+                  id="circles-size-variation-display">0</span>%</label>
+              <input type="range" id="circles-size-variation-slider" min="0" max="100" value="0" class="control-slider"
+                aria-label="Size Variation">
+            </div>
+
+            <div class="control slider-control">
+              <label for="circles-overlap-slider" class="control-label">OVERLAP <span
+                  id="circles-overlap-display">0</span>%</label>
+              <input type="range" id="circles-overlap-slider" min="0" max="100" value="0" class="control-slider"
+                aria-label="Overlap Amount">
+            </div>
+          </div>
+
+          <!-- Grid Mode Controls -->
+          <div id="circles-grid-controls" class="sub-group" style="display: none;">
+            <div class="control slider-control">
+              <label for="circles-rows-slider" class="control-label">ROWS <span
+                  id="circles-rows-display">2</span></label>
+              <input type="range" id="circles-rows-slider" min="1" max="6" value="2" class="control-slider"
+                aria-label="Grid Rows">
+            </div>
+
+            <div class="control slider-control">
+              <label for="circles-grid-density-slider" class="control-label">DENSITY <span
+                  id="circles-grid-density-display">100</span>%</label>
+              <input type="range" id="circles-grid-density-slider" min="10" max="100" value="100" class="control-slider"
+                aria-label="Grid Density">
+            </div>
+
+            <div class="control slider-control">
+              <label for="circles-size-variation-y-slider" class="control-label">VAR Y <span
+                  id="circles-size-variation-y-display">0</span>%</label>
+              <input type="range" id="circles-size-variation-y-slider" min="-100" max="100" value="0"
+                class="control-slider" aria-label="Vertical Size Variation">
+            </div>
+
+            <div class="control slider-control">
+              <label for="circles-size-variation-x-slider" class="control-label">VAR X <span
+                  id="circles-size-variation-x-display">0</span>%</label>
+              <input type="range" id="circles-size-variation-x-slider" min="-100" max="100" value="0"
+                class="control-slider" aria-label="Horizontal Size Variation">
+            </div>
+
+            <div class="control slider-control">
+              <label for="circles-grid-overlap-slider" class="control-label">OVERLAP <span
+                  id="circles-grid-overlap-display">0</span>%</label>
+              <input type="range" id="circles-grid-overlap-slider" min="0" max="400" value="0" class="control-slider"
+                aria-label="Grid Overlap">
+            </div>
+
+            <div class="control">
+              <label for="circles-layout-select" class="control-label">LAYOUT</label>
+              <div class="select-wrapper">
+                <select id="circles-layout-select" class="control-select">
+                  <option value="straight">STRAIGHT</option>
+                  <option value="stagger">STAGGER</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="control">
+            <label for="circles-fill-select" class="control-label">STYLE</label>
+            <div class="select-wrapper">
+              <select id="circles-fill-select" class="control-select">
+                <option value="stroke">STROKE</option>
+                <option value="fill">FILL</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div id="numeric-group" class="control-group" style="display: none;">
+          <div class="control-header">NUMERIC SETTINGS</div>
+          <div class="control">
+            <label for="numeric-input" class="control-label">NUMBER / FORMULA</label>
+            <input type="text" id="numeric-input" placeholder="Enter a number..." class="control-input"
+              value="3.14159..." aria-label="Numeric Input">
+          </div>
+
+          <div class="control">
+            <label for="numeric-mode-select" class="control-label">VISUALIZATION</label>
+            <div class="select-wrapper">
+              <select id="numeric-mode-select" class="control-select">
+                <option value="dotmatrix">DOT MATRIX</option>
+                <option value="height">HEIGHT ENCODING</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+
+
+
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="app-main">
+      <div class="canvas-viewport">
+        <div class="logo-container">
+          <div id="p5-container"></div>
         </div>
       </div>
 
-      <!-- Grid Mode Controls -->
-      <div id="circles-grid-controls" class="control" style="display: none;">
-        <div class="control slider-control">
-          <label for="circles-rows-slider" class="control-label">ROWS <span id="circles-rows-display">2</span></label>
-          <input type="range" id="circles-rows-slider" min="1" max="6" value="2" class="control-slider"
-            aria-label="Grid Rows">
-          <div class="slider-labels">
-            <span>1</span>
-            <span>6</span>
-          </div>
-        </div>
+      <!-- Visual Workspace Actions -->
+      <div class="workspace-controls">
+        <!-- Playback Control (Hidden by default, shown for animated styles) -->
 
-        <div class="control slider-control">
-          <label for="circles-grid-density-slider" class="control-label">DENSITY <span
-              id="circles-grid-density-display">100</span>%</label>
-          <input type="range" id="circles-grid-density-slider" min="10" max="100" value="100" class="control-slider"
-            aria-label="Grid Density">
-          <div class="slider-labels">
-            <span>10%</span>
-            <span>100%</span>
-          </div>
-        </div>
 
-        <div class="control slider-control">
-          <label for="circles-size-variation-y-slider" class="control-label">SIZE VARIATION Y <span
-              id="circles-size-variation-y-display">0</span>%</label>
-          <input type="range" id="circles-size-variation-y-slider" min="-100" max="100" value="0" class="control-slider"
-            aria-label="Vertical Size Variation">
-          <div class="slider-labels">
-            <span>-100%</span>
-            <span>100%</span>
-          </div>
-        </div>
-
-        <div class="control slider-control">
-          <label for="circles-size-variation-x-slider" class="control-label">SIZE VARIATION X <span
-              id="circles-size-variation-x-display">0</span>%</label>
-          <input type="range" id="circles-size-variation-x-slider" min="-100" max="100" value="0" class="control-slider"
-            aria-label="Horizontal Size Variation">
-          <div class="slider-labels">
-            <span>-100%</span>
-            <span>100%</span>
-          </div>
-        </div>
-
-        <div class="control slider-control">
-          <label for="circles-grid-overlap-slider" class="control-label">OVERLAP <span
-              id="circles-grid-overlap-display">0</span>%</label>
-          <input type="range" id="circles-grid-overlap-slider" min="0" max="400" value="0" class="control-slider"
-            aria-label="Grid Overlap">
-          <div class="slider-labels">
-            <span>0%</span>
-            <span>400%</span>
-          </div>
-        </div>
-
-        <div class="control">
-          <label for="circles-layout-select" class="control-label">LAYOUT</label>
-          <select id="circles-layout-select" class="control-select">
-            <option value="straight">STRAIGHT</option>
-            <option value="stagger">STAGGER</option>
-          </select>
-        </div>
+        <button id="zoom-out-btn" class="workspace-btn" aria-label="Zoom Out">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
+        <span id="zoom-level" class="zoom-level">100%</span>
+        <button id="zoom-in-btn" class="workspace-btn" aria-label="Zoom In">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
+        <div class="workspace-divider"></div>
+        <button id="pan-btn" class="workspace-btn" aria-label="Pan Tool">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 11l18-5v12l-18-5z"></path>
+          </svg>
+        </button>
       </div>
-
-      <div class="control">
-        <label for="circles-fill-select" class="control-label">FILL OR STROKE</label>
-        <select id="circles-fill-select" class="control-select">
-          <option value="stroke">STROKE</option>
-          <option value="fill">FILL</option>
-        </select>
-      </div>
-    </div>
-
-    <div id="numeric-group" class="control-group" style="display: none;">
-      <div class="control">
-        <label for="numeric-input" class="control-label">NUMBER OR FORMULA</label>
-        <input type="text" id="numeric-input" placeholder="Enter a number..." class="control-input"
-          value="3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679"
-          aria-label="Numeric Input">
-      </div>
-
-      <div class="control">
-        <label for="numeric-mode-select" class="control-label">VISUALIZATION MODE</label>
-        <select id="numeric-mode-select" class="control-select">
-          <option value="dotmatrix">DOT MATRIX</option>
-          <option value="height">HEIGHT ENCODING</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="save-section">
-      <button id="save-button" class="save-button" aria-haspopup="true" aria-expanded="false"
-        aria-controls="save-menu">SAVE</button>
-      <div id="save-menu" class="save-menu hidden" role="menu">
-        <button id="save-png" class="save-option" role="menuitem">PNG</button>
-        <button id="save-svg" class="save-option" role="menuitem">SVG</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="logo-container">
-    <div id="p5-container"></div>
+    </main>
   </div>
 
   <script src="js/utils/profanityFilter.js"></script>
