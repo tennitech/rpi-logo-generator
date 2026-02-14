@@ -348,7 +348,7 @@ function drawBarPatternOnGraphics(pg, barStartX, barY, exactBarWidth, rectHeight
             const dotX = x + horizontalGap / 2;
             const dotY = barY + rectHeight - dotHeight; // Position at bottom
 
-            pg.rect(dotX, dotY, dotWidth, dotHeight, dotHeight/2);
+            pg.rect(dotX, dotY, dotWidth, dotHeight, dotHeight / 2);
             continue;
           }
 
@@ -376,7 +376,7 @@ function drawBarPatternOnGraphics(pg, barStartX, barY, exactBarWidth, rectHeight
               }
 
               // Use rounded rectangle that stretches across the digit width
-              pg.rect(dotX, dotY, dotWidth, dotHeight, dotHeight/2);
+              pg.rect(dotX, dotY, dotWidth, dotHeight, dotHeight / 2);
             }
           }
         }
@@ -442,9 +442,9 @@ function drawCirclePattern(pg, barStartX, barY, barWidth, barHeight, density, si
     console.error('Error in drawCirclePattern:', error);
     // Draw a simple fallback pattern
     if (pg) {
-      pg.ellipse(barStartX + barWidth/2, barY + barHeight/2, Math.min(barWidth, barHeight) * 0.8, Math.min(barWidth, barHeight) * 0.8);
+      pg.ellipse(barStartX + barWidth / 2, barY + barHeight / 2, Math.min(barWidth, barHeight) * 0.8, Math.min(barWidth, barHeight) * 0.8);
     } else {
-      ellipse(barStartX + barWidth/2, barY + barHeight/2, Math.min(barWidth, barHeight) * 0.8, Math.min(barWidth, barHeight) * 0.8);
+      ellipse(barStartX + barWidth / 2, barY + barHeight / 2, Math.min(barWidth, barHeight) * 0.8, Math.min(barWidth, barHeight) * 0.8);
     }
   }
 }
@@ -493,16 +493,12 @@ function savePNG() {
   console.log('Save PNG called');
 
   try {
-    // Hide control panel temporarily
-    const wasHidden = controlPanel.classList.contains('hidden');
-    if (!wasHidden) {
-      controlPanel.classList.add('hidden');
-    }
+    Toast.show('Generating PNG...', 'info', 2000);
 
     setTimeout(() => {
       // Create a temporary graphics buffer with transparent background
-    const currentWidth = 250; // Exact width from 250px reference
-    const logoHeight = 151; // 112px letters + 20.5px spacing + 18px bar = 150.5px, rounded to 151
+      const currentWidth = 250; // Exact width from 250px reference
+      const logoHeight = 151; // 112px letters + 20.5px spacing + 18px bar = 150.5px, rounded to 151
 
       // Create off-screen graphics buffer with transparent background
       const exportGraphics = createGraphics(Math.ceil(currentWidth * 1.5) + 40, Math.ceil(logoHeight * 1.5) + 40);
@@ -568,69 +564,78 @@ function savePNG() {
       document.body.removeChild(link);
 
       console.log('Transparent PNG save completed successfully');
+      Toast.show('PNG download started', 'success');
 
-      // Restore control panel
-      if (!wasHidden) {
-        controlPanel.classList.remove('hidden');
-      }
+      // Clean up graphics buffer to prevent memory leaks
+      exportGraphics.remove();
 
       // Hide save menu
-      document.getElementById('save-menu').classList.add('hidden');
+      if (saveMenu) saveMenu.classList.add('hidden');
 
     }, 100);
 
   } catch (error) {
     console.error('PNG save error:', error);
     console.error('Error stack:', error.stack);
-    alert('Save failed: ' + error.message);
+    Toast.show('Save failed: ' + error.message, 'error');
   }
 }
 
 function saveSVG() {
-  const currentWidth = 250; // Exact width from 250px reference
-  const logoHeight = 149.411; // Exact height including bar from 250px reference
+  try {
+    Toast.show('Generating SVG...', 'info', 2000);
 
-  // Get current colors
-  const colorScheme = colors[currentColorMode];
-  const fgColor = colorScheme ? colorScheme.fg : '#000000';
+    const currentWidth = 250; // Exact width from 250px reference
+    const logoHeight = 149.411; // Exact height including bar from 250px reference
 
-  let svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+    // Get current colors
+    const colorScheme = colors[currentColorMode];
+    const fgColor = colorScheme ? colorScheme.fg : '#000000';
+
+    let svgContent = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${currentWidth}" height="${logoHeight}" viewBox="0 0 ${currentWidth} ${logoHeight}" xmlns="http://www.w3.org/2000/svg">
   <path d="${paths.r}" fill="${fgColor}"/>
   <path d="${paths.p}" fill="${fgColor}"/>
   <path d="${paths.i}" fill="${fgColor}"/>`;
 
-  // Add the bar using exact 250px reference calculations
-  const barY = 132.911; // Exact Y position from 250px reference
-  const barHeight = 18; // Exact height from specification
-  const exactBarWidth = 250; // Exact width from 250px reference
-  const barStartX = 0; // Exact X position from 250px reference
+    // Add the bar using exact 250px reference calculations
+    const barY = 132.911; // Exact Y position from 250px reference
+    const barHeight = 18; // Exact height from specification
+    const exactBarWidth = 250; // Exact width from 250px reference
+    const barStartX = 0; // Exact X position from 250px reference
 
-  if (currentShader === 0) {
-    // Solid bar with corner details on all four corners
-    const cornerSize = 1.5;
-    const pathData = `M ${barStartX + cornerSize} ${barY} L ${barStartX + exactBarWidth - cornerSize} ${barY} L ${barStartX + exactBarWidth} ${barY + cornerSize} L ${barStartX + exactBarWidth} ${barY + barHeight - cornerSize} L ${barStartX + exactBarWidth - cornerSize} ${barY + barHeight} L ${barStartX + cornerSize} ${barY + barHeight} L ${barStartX} ${barY + barHeight - cornerSize} L ${barStartX} ${barY + cornerSize} Z`;
-    svgContent += `\n  <path d="${pathData}" fill="${fgColor}"/>`;
-  } else {
-    // For other modes, create the pattern as individual rectangles
-    svgContent += createBarPattern(barStartX, barY, exactBarWidth, barHeight);
+    if (currentShader === 0) {
+      // Solid bar with corner details on all four corners
+      const cornerSize = 1.5;
+      const pathData = `M ${barStartX + cornerSize} ${barY} L ${barStartX + exactBarWidth - cornerSize} ${barY} L ${barStartX + exactBarWidth} ${barY + cornerSize} L ${barStartX + exactBarWidth} ${barY + barHeight - cornerSize} L ${barStartX + exactBarWidth - cornerSize} ${barY + barHeight} L ${barStartX + cornerSize} ${barY + barHeight} L ${barStartX} ${barY + barHeight - cornerSize} L ${barStartX} ${barY + cornerSize} Z`;
+      svgContent += `\n  <path d="${pathData}" fill="${fgColor}"/>`;
+    } else {
+      // For other modes, create the pattern as individual rectangles
+      svgContent += createBarPattern(barStartX, barY, exactBarWidth, barHeight);
+    }
+
+    svgContent += `\n</svg>`;
+
+    // Download SVG
+    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'RPI-logo.svg';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    // Hide save menu
+    if (saveMenu) saveMenu.classList.add('hidden');
+
+    Toast.show('SVG download started', 'success');
+
+  } catch (error) {
+    console.error('SVG save error:', error);
+    Toast.show('Save failed: ' + error.message, 'error');
   }
-
-  svgContent += `\n</svg>`;
-
-  // Download SVG
-  const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'RPI-logo.svg';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-
-  // Hide save menu
-  document.getElementById('save-menu').classList.add('hidden');
 }
 
 function createBarPattern(barStartX, barY, exactBarWidth, barHeight) {
@@ -772,14 +777,14 @@ function createBarPattern(barStartX, barY, exactBarWidth, barHeight) {
           const x = barStartX + i * digitWidth;
 
           // Handle decimal points (value 10) - render as bottom-aligned rounded rectangle
-        if (digit === 10) {
-          const dotWidth = digitWidth - horizontalGap;
-          const dotX = x + horizontalGap / 2;
-          const dotY = barY + barHeight - dotHeight; // Position at bottom
+          if (digit === 10) {
+            const dotWidth = digitWidth - horizontalGap;
+            const dotX = x + horizontalGap / 2;
+            const dotY = barY + barHeight - dotHeight; // Position at bottom
 
-          pattern += `\n    <rect x="${dotX}" y="${dotY}" width="${dotWidth}" height="${dotHeight}" rx="${dotHeight/2}" fill="${fgColor}"/>`;
-          continue;
-        }
+            pattern += `\n    <rect x="${dotX}" y="${dotY}" width="${dotWidth}" height="${dotHeight}" rx="${dotHeight / 2}" fill="${fgColor}"/>`;
+            continue;
+          }
 
           // Calculate dot width to stretch across most of the digit column width
           // Leave half the horizontal gap on each side
@@ -805,7 +810,7 @@ function createBarPattern(barStartX, barY, exactBarWidth, barHeight) {
               }
 
               // Use rounded rectangle that stretches across the digit width
-              pattern += `\n    <rect x="${dotX}" y="${dotY}" width="${dotWidth}" height="${dotHeight}" rx="${dotHeight/2}" fill="${fgColor}"/>`;
+              pattern += `\n    <rect x="${dotX}" y="${dotY}" width="${dotWidth}" height="${dotHeight}" rx="${dotHeight / 2}" fill="${fgColor}"/>`;
             }
           }
         }

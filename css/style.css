@@ -1,56 +1,98 @@
-/* RPI Design Hub - High Fidelity Styles */
+/* RPI Logo Generator - Brand-Compliant Styles
+   Typography:  RPI Geist (body), RPI Geist Mono (labels, captions ≤14px), Replica (display)
+   Colors:      Black #000, White #FFF, Red #D6001C  |  Secondary: Silver #E1EDF5, Gray #B9CCD8, Blue #0081CE, Gold #CDAC38
+   Guidelines:  https://brand.rpi.edu
+*/
+
+/* ─── Font Faces ─── */
 
 @font-face {
   font-family: 'RPIGeist';
   src: url('../assets/fonts/RPIGeist-Regular.woff2') format('woff2');
-  font-weight: normal;
+  font-weight: 400;
   font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'RPIGeist';
+  src: url('../assets/fonts/RPIGeist-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
   font-family: 'RPIGeist';
   src: url('../assets/fonts/RPIGeist-Bold.woff2') format('woff2');
-  font-weight: bold;
+  font-weight: 700;
   font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
   font-family: 'RPIGeistMono';
   src: url('../assets/fonts/RPIGeistMono-Regular.woff2') format('woff2');
-  font-weight: normal;
+  font-weight: 400;
   font-style: normal;
+  font-display: swap;
 }
+
+/* ─── Design Tokens ─── */
 
 :root {
-  /* Brand Core */
-  --rpi-red: #d6001c;
+  /* Brand Core (from RPI Brand Guidelines §Color) */
+  --rpi-red: #D6001C;
   --rpi-white: #ffffff;
   --rpi-black: #000000;
-  --rpi-gray-100: #f5f5f5;
-  --rpi-gray-200: #e0e0e0;
-  --rpi-gray-800: #1a1a1a;
+
+  /* Secondary Palette */
+  --rpi-silver: #E1EDF5;
+  --rpi-gray: #B9CCD8;
+  --rpi-blue: #0081CE;
+  --rpi-link-blue: #006EB0;
+  --rpi-gold: #CDAC38;
+
+  /* Functional Neutrals */
+  --neutral-50: #fafafa;
+  --neutral-100: #f5f5f5;
+  --neutral-200: #e5e5e5;
+  --neutral-300: #d4d4d4;
+  --neutral-600: #525252;
+  --neutral-800: #1a1a1a;
+  --neutral-900: #0a0a0a;
 
   /* Theme Variables (Default: Light) */
-  --bg-app: var(--rpi-gray-100);
+  --bg-app: var(--neutral-100);
   --bg-sidebar: var(--rpi-white);
   --bg-header: var(--rpi-black);
+  --bg-canvas: var(--rpi-white);
 
   --text-primary: var(--rpi-black);
-  --text-secondary: #666666;
+  --text-secondary: var(--neutral-600);
   --text-on-header: var(--rpi-white);
 
-  --border-color: var(--rpi-gray-200);
+  --border-color: var(--neutral-200);
   --accent-color: var(--rpi-red);
 
-  --input-bg: var(--rpi-gray-100);
+  --input-bg: var(--neutral-100);
   --input-border: transparent;
 
-  /* Layout Dimensions */
-  --header-height: 60px;
-  --sidebar-width: 320px;
+  /* Layout */
+  --header-height: 56px;
+  --sidebar-width: 300px;
+
+  /* Transitions */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
 }
 
-* {
+/* ─── Reset ─── */
+
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -61,25 +103,31 @@
   outline-offset: 2px;
 }
 
+/* ─── Base ─── */
+
 body {
   background-color: var(--bg-app);
-  font-family: 'RPIGeist', Arial, sans-serif;
+  font-family: 'RPIGeist', 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 400;
   color: var(--text-primary);
   height: 100vh;
   overflow: hidden;
-  /* App-like feel */
   display: flex;
   flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* --- Layout Structure --- */
+/* ────────────────────────────────────────
+   Layout Structure
+   ──────────────────────────────────────── */
 
 /* Header */
 .app-header {
   height: var(--header-height);
   background-color: var(--bg-header);
   color: var(--text-on-header);
-  padding: 0 24px;
+  padding: 0 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -90,28 +138,36 @@ body {
 .header-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-family: 'RPIGeistMono', monospace;
+  gap: 10px;
+  font-family: 'RPIGeistMono', 'Geist Mono', monospace;
   letter-spacing: 0.05em;
 }
 
 .brand-logo {
-  font-weight: bold;
-  font-size: 18px;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.02em;
 }
 
 .brand-divider {
-  opacity: 0.3;
+  opacity: 0.25;
+  font-weight: 300;
 }
 
 .brand-title {
-  font-size: 14px;
-  opacity: 0.8;
+  font-size: 11px;
+  opacity: 0.6;
+  letter-spacing: 0.08em;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .mobile-menu-toggle {
   display: none;
-  /* Hidden on desktop */
   background: none;
   border: none;
   color: white;
@@ -119,7 +175,7 @@ body {
   padding: 8px;
 }
 
-/* App Layout Container */
+/* App Layout */
 .app-layout {
   display: flex;
   flex: 1;
@@ -136,26 +192,35 @@ body {
   flex-direction: column;
   overflow-y: auto;
   z-index: 40;
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+  transition: transform 0.3s var(--ease-out-expo);
+}
+
+/* Thin scrollbar */
+.app-sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.app-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb {
+  background: var(--neutral-300);
+  border-radius: 2px;
 }
 
 .sidebar-content {
-  padding: 24px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  min-height: 100%;
+  gap: 0;
 }
 
 .sidebar-divider {
   height: 1px;
   background-color: var(--border-color);
-  margin: 0 -24px;
-}
-
-.sidebar-spacer {
-  flex: 1;
-  /* Pushes save button to bottom if space permits */
+  margin: 16px 0;
 }
 
 /* Main Workspace */
@@ -172,25 +237,23 @@ body {
 .canvas-viewport {
   width: 100%;
   height: 100%;
-  padding: 40px;
+  padding: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .logo-container {
-  /* The canvas attaches here */
   width: 100%;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease;
-  background: var(--bg-sidebar);
-  /* Use checkboard or solid? Solid for now */
-  border-radius: 8px;
-  /* Slight rounding of the 'artboard' */
+  background: var(--bg-canvas);
+  border-radius: 4px;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.06);
   overflow: hidden;
 }
 
@@ -202,87 +265,128 @@ body {
   justify-content: center;
 }
 
-/* Workspace Controls */
+/* ────────────────────────────────────────
+   Workspace Controls (Zoom Bar)
+   ──────────────────────────────────────── */
+
 .workspace-controls {
   position: absolute;
-  bottom: 24px;
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
   background: var(--bg-sidebar);
   border: 1px solid var(--border-color);
-  border-radius: 24px;
-  padding: 8px 16px;
+  border-radius: 20px;
+  padding: 6px 14px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   z-index: 10;
 }
 
 .workspace-btn {
   background: none;
   border: none;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
-  transition: all 0.2s ease;
+  transition: color var(--duration-fast) ease, background var(--duration-fast) ease;
 }
 
 .workspace-btn:hover {
-  background: var(--rpi-gray-100);
+  color: var(--text-primary);
+  background: var(--neutral-100);
+}
+
+.workspace-btn:active {
   color: var(--accent-color);
 }
 
 .workspace-divider {
   width: 1px;
-  height: 16px;
+  height: 14px;
   background: var(--border-color);
 }
 
 .zoom-level {
   font-family: 'RPIGeistMono', monospace;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
-  min-width: 40px;
+  min-width: 36px;
   text-align: center;
+  user-select: none;
 }
 
-/* --- Components --- */
+/* ────────────────────────────────────────
+   Sidebar Controls
+   ──────────────────────────────────────── */
 
-/* Typography */
+.control-group {
+  animation: fadeSlideIn 0.3s ease-out backwards;
+}
+
+.control-group:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.control-group:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.control-group:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.control {
+  margin-bottom: 16px;
+}
+
+.control:last-child {
+  margin-bottom: 0;
+}
+
 .control-label {
   display: block;
   font-family: 'RPIGeistMono', monospace;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-secondary);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 500;
+  letter-spacing: 0.08em;
+  font-weight: 400;
 }
 
 .control-header {
   font-family: 'RPIGeist', sans-serif;
-  font-weight: bold;
-  font-size: 14px;
+  font-weight: 700;
+  font-size: 12px;
   color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   margin-bottom: 16px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border-color);
 }
 
 .control-hint {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-secondary);
-  margin-top: 6px;
+  margin-top: 4px;
   font-style: italic;
 }
 
-/* Selects & Inputs */
+/* ─── Selects & Inputs ─── */
+
+/* Hide the native <select> — custom dropdown replaces it */
+.control-select {
+  display: none;
+}
+
 .select-wrapper {
   position: relative;
 }
@@ -290,154 +394,157 @@ body {
 .select-wrapper::after {
   content: '';
   position: absolute;
-  right: 16px;
+  right: 14px;
   top: 50%;
-  transform: translateY(-50%);
-  width: 8px;
-  height: 8px;
-  border-right: 1px solid var(--text-primary);
-  border-bottom: 1px solid var(--text-primary);
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid var(--text-secondary);
+  border-bottom: 1.5px solid var(--text-secondary);
   transform: translateY(-70%) rotate(45deg);
   pointer-events: none;
 }
 
-.control-select,
 .control-input {
   width: 100%;
   appearance: none;
   background-color: var(--input-bg);
   border: 1px solid var(--input-border);
-  border-radius: 4px;
-  /* Slight rounding for modern feel */
-  padding: 12px 16px;
-  font-family: 'RPIGeist', sans-serif;
-  font-size: 14px;
+  border-radius: 2px;
+  padding: 10px 12px;
+  font-family: 'RPIGeistMono', monospace;
+  font-size: 12px;
   color: var(--text-primary);
-  transition: all 0.2s ease;
+  transition: all var(--duration-fast) ease;
 }
 
-.control-select:hover,
 .control-input:hover {
-  background-color: rgba(0, 0, 0, 0.03);
+  background-color: var(--neutral-200);
 }
 
-.control-select:focus,
 .control-input:focus {
   outline: none;
   background-color: var(--rpi-white);
   box-shadow: 0 0 0 2px var(--accent-color);
 }
 
-/* Sliders */
+.control-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+/* ─── Sliders ─── */
+
+.slider-control {
+  margin-bottom: 8px;
+}
+
 .control-slider {
   width: 100%;
-  height: 2px;
-  background: var(--border-color);
+  height: 1px;
+  background: var(--neutral-300);
   border-radius: 0;
   appearance: none;
   outline: none;
-  margin: 20px 0;
+  margin: 16px 0 8px;
   cursor: pointer;
 }
 
 .control-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 12px;
-  height: 20px;
-  /* Tall rectangle */
+  width: 10px;
+  height: 18px;
   border-radius: 1px;
   background: var(--text-primary);
   border: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: all 0.1s ease;
-  transform: translateY(-9px);
-  /* Center on thin track */
+  cursor: grab;
+  transition: background var(--duration-fast) ease;
 }
 
 .control-slider::-webkit-slider-thumb:hover {
   background: var(--accent-color);
-  transform: translateY(-9px) scale(1.1);
+}
+
+.control-slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
 }
 
 .control-slider::-moz-range-thumb {
-  width: 12px;
-  height: 20px;
+  width: 10px;
+  height: 18px;
   border-radius: 1px;
   background: var(--text-primary);
   border: none;
-  cursor: pointer;
-  transition: all 0.1s ease;
+  cursor: grab;
+}
+
+.control-slider::-moz-range-thumb:hover {
+  background: var(--accent-color);
 }
 
 .control-slider:focus::-webkit-slider-thumb {
   box-shadow: 0 0 0 2px var(--bg-sidebar), 0 0 0 4px var(--accent-color);
 }
 
-/* Save Button */
+/* ────────────────────────────────────────
+   Save / Download Section
+   ──────────────────────────────────────── */
+
 .save-section {
   position: relative;
-  margin-top: 24px;
 }
 
 .primary-button {
-  padding: 0 24px;
-  height: 44px;
+  padding: 0 20px;
+  height: 40px;
   background-color: var(--accent-color);
   color: white;
   border: none;
-  border-radius: 22px;
-  /* Pill shape */
+  border-radius: 2px;
   font-family: 'RPIGeist', sans-serif;
   font-weight: 700;
-  font-size: 14px;
-  letter-spacing: 0;
+  font-size: 13px;
+  letter-spacing: 0.02em;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--duration-fast) ease;
   box-shadow: none;
 }
 
 .primary-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(214, 0, 28, 0.3);
-  filter: brightness(1.1);
+  filter: brightness(1.15);
+  box-shadow: 0 2px 8px rgba(214, 0, 28, 0.25);
 }
 
 .primary-button:active {
-  transform: translateY(1px);
+  filter: brightness(0.95);
+  transform: scale(0.98);
 }
 
 .icon-right {
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
-/* Save Menu */
-.save-section {
-  position: relative;
-}
-
+/* Save Menu Dropdown */
 .save-menu {
   position: absolute;
-  top: 100%;
-  margin-top: 8px;
-  bottom: auto;
+  top: calc(100% + 6px);
   right: 0;
   left: auto;
-  min-width: 200px;
+  min-width: 220px;
   background: var(--bg-sidebar);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   z-index: 100;
   transform-origin: top right;
-  animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: menuReveal 0.15s var(--ease-out-expo);
 }
 
 .save-menu.hidden {
@@ -448,192 +555,68 @@ body {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 12px 16px;
+  padding: 10px 12px;
   background: none;
   border: none;
-  border-radius: 8px;
+  border-radius: 2px;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: background var(--duration-fast) ease;
+  text-align: left;
+  width: 100%;
 }
 
 .save-option:hover {
-  background-color: var(--rpi-gray-100);
+  background-color: var(--neutral-100);
+}
+
+.save-option:active {
+  background-color: var(--neutral-200);
 }
 
 .save-option .option-label {
-  font-family: 'RPIGeist', sans-serif;
-  font-weight: bold;
-  font-size: 13px;
+  font-family: 'RPIGeistMono', monospace;
+  font-weight: 500;
+  font-size: 12px;
   color: var(--text-primary);
+  letter-spacing: 0.04em;
 }
 
 .save-option .option-desc {
+  font-family: 'RPIGeist', sans-serif;
   font-size: 11px;
   color: var(--text-secondary);
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
-/* Info Badges */
+/* ────────────────────────────────────────
+   Info Badges
+   ──────────────────────────────────────── */
+
 .info-badge {
-  background: var(--rpi-gray-100);
+  background: var(--neutral-100);
   border: 1px solid var(--border-color);
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 2px;
+  font-size: 10px;
   color: var(--text-secondary);
   text-align: center;
   font-family: 'RPIGeistMono', monospace;
+  letter-spacing: 0.04em;
 }
 
 .slider-labels {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 9px;
   color: var(--text-secondary);
   font-family: 'RPIGeistMono', monospace;
-  margin-top: -8px;
+  margin-top: -4px;
 }
 
-/* --- Responsive & Mobile --- */
-@media (max-width: 768px) {
-  :root {
-    --header-height: 56px;
-    --sidebar-width: 280px;
-  }
+/* ────────────────────────────────────────
+   Custom Select Dropdown
+   ──────────────────────────────────────── */
 
-  .mobile-menu-toggle {
-    display: block;
-  }
-
-  .app-sidebar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    transform: translateX(-100%);
-    /* Hidden by default on mobile */
-    box-shadow: none;
-  }
-
-  .app-sidebar.active {
-    transform: translateX(0);
-    box-shadow: 20px 0 50px rgba(0, 0, 0, 0.2);
-  }
-
-  .app-main {
-    padding: 0;
-  }
-
-  .canvas-viewport {
-    padding: 20px;
-  }
-}
-
-/* Animations */
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeSlideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.control-group {
-  animation: fadeSlideIn 0.4s ease-out backwards;
-}
-
-.control-group:nth-child(1) {
-  animation-delay: 0.1s;
-}
-
-.control-group:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.control-group:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-/* --- Theme Classes (applied to body) --- */
-body.theme-light {
-  --bg-app: var(--rpi-gray-100);
-  --bg-sidebar: var(--rpi-white);
-  --text-primary: var(--rpi-black);
-}
-
-body.theme-dark {
-  --bg-app: #0a0a0a;
-  --bg-sidebar: #1a1a1a;
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --border-color: #333333;
-  --input-bg: #262626;
-  --input-border: #404040;
-  --bg-header: #000000;
-}
-
-body.theme-red {
-  --bg-app: #f5f5f5;
-  --bg-sidebar: #ffffff;
-  --text-primary: var(--rpi-red);
-  --accent-color: var(--rpi-black);
-  --bg-header: var(--rpi-red);
-}
-
-/* Utilities */
-.hidden {
-  display: none !important;
-}
-
-/* Playback Control Details */
-#playback-btn {
-  padding-right: 12px;
-  background: var(--bg-sidebar);
-  border: 1px solid var(--border-color);
-}
-
-.control-select {
-  display: none;
-}
-
-.btn-text {
-  font-family: 'RPIGeistMono', monospace;
-  font-size: 10px;
-  margin-left: 8px;
-  font-weight: bold;
-  letter-spacing: 0.05em;
-  opacity: 0.8;
-}
-
-/* Custom Select Styles */
 .custom-select-wrapper {
   position: relative;
   user-select: none;
@@ -650,22 +633,32 @@ body.theme-red {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-primary);
-  height: 40px;
-  line-height: 40px;
+  height: 38px;
+  line-height: 38px;
   background: var(--input-bg);
   border: 1px solid var(--input-border);
+  border-radius: 2px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration-fast) ease;
+}
+
+.custom-select-trigger:hover {
+  background: var(--neutral-200);
 }
 
 .custom-select-trigger::after {
   content: '';
-  width: 10px;
-  height: 6px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6H0z' fill='%23666666'/%3E%3C/svg%3E");
+  width: 8px;
+  height: 5px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6H0z' fill='%23525252'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: center;
-  transition: transform 0.2s;
+  transition: transform var(--duration-fast) ease;
+}
+
+.custom-select-wrapper.open .custom-select-trigger {
+  background: var(--rpi-white);
+  box-shadow: 0 0 0 2px var(--accent-color);
 }
 
 .custom-select-wrapper.open .custom-select-trigger::after {
@@ -678,17 +671,18 @@ body.theme-red {
   top: 100%;
   left: 0;
   right: 0;
-  border: 1px solid var(--input-border);
+  border: 1px solid var(--border-color);
   border-top: 0;
   background: var(--bg-sidebar);
-  transition: all 0.2s;
+  border-radius: 0 0 2px 2px;
+  transition: all var(--duration-fast) ease;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
   z-index: 100;
   max-height: 200px;
   overflow-y: auto;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 .custom-select-wrapper.open .custom-select-options {
@@ -703,19 +697,247 @@ body.theme-red {
   padding: 0 12px;
   font-family: 'RPIGeistMono', monospace;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--text-primary);
-  line-height: 36px;
+  line-height: 34px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration-fast) ease;
 }
 
 .custom-option:hover {
-  background: var(--rpi-gray-100);
+  background: var(--neutral-100);
   color: var(--accent-color);
 }
 
 .custom-option.selected {
-  background: var(--rpi-red);
-  color: #ffffff;
+  font-weight: 500;
+  color: var(--accent-color);
+}
+
+/* ────────────────────────────────────────
+   Playback
+   ──────────────────────────────────────── */
+
+#playback-btn {
+  padding-right: 12px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-color);
+}
+
+.btn-text {
+  font-family: 'RPIGeistMono', monospace;
+  font-size: 10px;
+  margin-left: 6px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+}
+
+/* ────────────────────────────────────────
+   Toast Notifications
+   ──────────────────────────────────────── */
+
+#toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--rpi-white);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 12px 16px;
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  font-family: 'RPIGeist', sans-serif;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 260px;
+  pointer-events: all;
+  animation: slideInRight 0.25s var(--ease-out-expo) forwards;
+  opacity: 0;
+  transform: translateX(16px);
+}
+
+.toast.success {
+  border-left: 3px solid #16a34a;
+}
+
+.toast.error {
+  border-left: 3px solid var(--rpi-red);
+}
+
+.toast.info {
+  border-left: 3px solid var(--rpi-blue);
+}
+
+.toast-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toast.success .toast-icon {
+  color: #16a34a;
+}
+
+.toast.error .toast-icon {
+  color: var(--rpi-red);
+}
+
+.toast.info .toast-icon {
+  color: var(--rpi-blue);
+}
+
+/* ────────────────────────────────────────
+   Theme Variants (applied to <body>)
+   ──────────────────────────────────────── */
+
+body.theme-light {
+  --bg-app: var(--neutral-100);
+  --bg-sidebar: var(--rpi-white);
+  --bg-canvas: var(--rpi-white);
+  --text-primary: var(--rpi-black);
+}
+
+body.theme-dark {
+  --bg-app: #0a0a0a;
+  --bg-sidebar: #111111;
+  --bg-canvas: #111111;
+  --text-primary: #f0f0f0;
+  --text-secondary: #888888;
+  --border-color: #222222;
+  --input-bg: #1a1a1a;
+  --input-border: #333333;
+  --bg-header: #000000;
+  --neutral-100: #1a1a1a;
+  --neutral-200: #262626;
+  --neutral-300: #333333;
+}
+
+body.theme-red {
+  --bg-app: var(--neutral-100);
+  --bg-sidebar: var(--rpi-white);
+  --bg-canvas: var(--rpi-white);
+  --text-primary: var(--rpi-red);
+  --accent-color: var(--rpi-black);
+  --bg-header: var(--rpi-red);
+}
+
+/* ────────────────────────────────────────
+   Utilities
+   ──────────────────────────────────────── */
+
+.hidden {
+  display: none !important;
+}
+
+.sub-group {
+  padding-top: 4px;
+}
+
+/* ────────────────────────────────────────
+   Animations
+   ──────────────────────────────────────── */
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes menuReveal {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeOutRight {
+  to {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+
+/* ────────────────────────────────────────
+   Responsive / Mobile
+   ──────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  :root {
+    --header-height: 48px;
+    --sidebar-width: 280px;
+  }
+
+  .mobile-menu-toggle {
+    display: block;
+  }
+
+  .app-sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    transform: translateX(-100%);
+    box-shadow: none;
+  }
+
+  .app-sidebar.active {
+    transform: translateX(0);
+    box-shadow: 16px 0 48px rgba(0, 0, 0, 0.15);
+  }
+
+  .canvas-viewport {
+    padding: 16px;
+  }
+
+  .primary-button {
+    height: 36px;
+    font-size: 12px;
+    padding: 0 14px;
+  }
+
+  .save-menu {
+    right: -8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-title {
+    display: none;
+  }
+
+  .brand-divider {
+    display: none;
+  }
 }

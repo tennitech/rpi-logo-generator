@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width">
-  <title>RPI Logo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Generate unique, brand-compliant RPI logos and lockups with dynamic bar patterns.">
+  <title>RPI Logo Generator</title>
   <link href="css/style.css" rel="stylesheet" type="text/css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
 </head>
@@ -37,6 +38,11 @@
           <button id="save-svg" class="save-option" role="menuitem">
             <span class="option-label">SVG VECTOR</span>
             <span class="option-desc">Scalable format</span>
+          </button>
+          <div class="sidebar-divider" style="margin: 4px 0;"></div>
+          <button id="copy-embed" class="save-option" role="menuitem">
+            <span class="option-label">COPY EMBED CODE</span>
+            <span class="option-desc">For Frontify / Web</span>
           </button>
         </div>
       </div>
@@ -322,7 +328,9 @@
     </main>
   </div>
 
+  <div id="toast-container"></div>
   <script src="js/utils/profanityFilter.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/main.js"></script>
   <script src="js/drawing.js"></script>
 </body>

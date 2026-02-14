@@ -91,6 +91,8 @@ let staticCircleData = null;
 let lastCircleParams = null;
 let appSidebar;
 let mobileMenuToggle;
+let saveButton;
+let saveMenu;
 let tickerShader1, tickerShader2, binaryShader;
 let currentShader = 1;
 let barBuffer;
@@ -132,13 +134,6 @@ const colors = {
   'red-on-white': { bg: '#ffffff', fg: '#d6001c' }
 };
 
-// Logo positioning - centers the 111.76px tall logo vertically in the viewport
-// Logo positioning - constant moved to top
-
-
-
-
-// Logo positioning - constant moved to top
 
 // Viewport & Playback State
 let isPlaying = true;
@@ -295,6 +290,18 @@ async function setup() {
   let canvas = createCanvas(width, height, WEBGL);
   canvas.parent('p5-container');
 
+  // Handle WebGL context loss to prevent crashes
+  canvas.elt.addEventListener('webglcontextlost', (event) => {
+    event.preventDefault();
+    console.warn('WebGL core context lost. Suspending animation loop.');
+    noLoop();
+  });
+
+  canvas.elt.addEventListener('webglcontextrestored', () => {
+    console.log('WebGL core context restored. Resuming animation loop.');
+    loop();
+  });
+
 
 
   // Initialize binary data first
@@ -401,9 +408,9 @@ async function setup() {
   appSidebar = document.getElementById('app-sidebar');
   mobileMenuToggle = document.getElementById('mobile-menu-toggle');
 
-  // Get save control references
-  const saveButton = document.getElementById('save-button');
-  const saveMenu = document.getElementById('save-menu');
+  // Get save control references (globals declared at top so toggleSaveMenu can access them)
+  saveButton = document.getElementById('save-button');
+  saveMenu = document.getElementById('save-menu');
   const savePngButton = document.getElementById('save-png');
   const saveSvgButton = document.getElementById('save-svg');
 
@@ -411,10 +418,12 @@ async function setup() {
   rulerRepeatsSlider.addEventListener('input', function () {
     updateRulerRepeatsDisplay();
     updateUrlParameters();
+    requestUpdate();
   });
   rulerUnitsSlider.addEventListener('input', function () {
     updateRulerUnitsDisplay();
     updateUrlParameters();
+    requestUpdate();
   });
   updateRulerRepeatsDisplay(); // Set initial value
   updateRulerUnitsDisplay(); // Set initial value
@@ -423,6 +432,7 @@ async function setup() {
   tickerSlider.addEventListener('input', function () {
     updateTickerDisplay();
     updateUrlParameters();
+    requestUpdate();
   });
   updateTickerDisplay(); // Set initial value
 
@@ -430,6 +440,7 @@ async function setup() {
   tickerRatioSlider.addEventListener('input', function () {
     updateTickerRatioDisplay();
     updateUrlParameters();
+    requestUpdate();
   });
   updateTickerRatioDisplay(); // Set initial value
 
@@ -437,6 +448,7 @@ async function setup() {
   tickerWidthRatioSlider.addEventListener('input', function () {
     updateTickerWidthRatioDisplay();
     updateUrlParameters();
+    requestUpdate();
   });
   updateTickerWidthRatioDisplay(); // Set initial value
 
@@ -445,15 +457,18 @@ async function setup() {
     updateWaveformTypeDisplay();
     updateAudioParameters();
     updateUrlParameters();
+    requestUpdate();
   });
   waveformFrequencySlider.addEventListener('input', function () {
     updateWaveformFrequencyDisplay();
     updateAudioParameters();
     updateUrlParameters();
+    requestUpdate();
   });
   waveformSpeedSlider.addEventListener('input', function () {
     updateWaveformSpeedDisplay();
     updateUrlParameters();
+    requestUpdate();
   });
 
   // Set default values only if no URL parameters
@@ -600,7 +615,27 @@ async function setup() {
     saveSvgButton.addEventListener('click', saveSVG);
   }
 
-  // Close save menu when clicking outside
+  const copyEmbedButton = document.getElementById('copy-embed');
+  if (copyEmbedButton) {
+    copyEmbedButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+
+      // Get current URL which includes all active parameters
+      const embedUrl = window.location.href;
+      const embedCode = `<iframe src="${embedUrl}" width="100%" height="600" frameborder="0" allowfullscreen style="border: none; overflow: hidden; background: transparent;"></iframe>`;
+
+      navigator.clipboard.writeText(embedCode).then(() => {
+        Toast.show('Embed code copied to clipboard!', 'success');
+      }).catch(err => {
+        console.error('Failed to copy:', err);
+        Toast.show('Failed to copy embed code: ' + err.message, 'error');
+      });
+
+      // Hide menu
+      if (saveMenu) saveMenu.classList.add('hidden');
+    });
+  }
+
   // Close save menu when clicking outside
   document.addEventListener('click', function (event) {
     const btn = document.getElementById('save-button');
@@ -630,14 +665,17 @@ async function setup() {
   binaryInput.addEventListener('input', function () {
     handleBinaryInput();
     updateUrlParameters();
+    requestUpdate();
   });
   binaryInput.addEventListener('keyup', function () {
     handleBinaryInput();
     updateUrlParameters();
+    requestUpdate();
   });
   binaryInput.addEventListener('paste', function () {
     handleBinaryInput();
     updateUrlParameters();
+    requestUpdate();
   });
   if (!window.location.search) {
     binaryInput.value = "RPI"; // Set default value only if no URL params
@@ -647,15 +685,18 @@ async function setup() {
   numericInput.addEventListener('input', function () {
     updateNumericData(numericInput.value);
     updateUrlParameters();
+    requestUpdate();
   });
   numericInput.addEventListener('keyup', function () {
     updateNumericData(numericInput.value);
     updateUrlParameters();
+    requestUpdate();
   });
   numericInput.addEventListener('paste', function () {
     setTimeout(() => {
       updateNumericData(numericInput.value);
       updateUrlParameters();
+      requestUpdate();
     }, 10);
   });
   numericInput.addEventListener('blur', function () {
@@ -670,6 +711,7 @@ async function setup() {
   // Setup numeric mode selector
   numericModeSelect.addEventListener('change', function () {
     updateUrlParameters();
+    requestUpdate();
   });
 
   // Apply URL parameters if present, otherwise use defaults
@@ -720,11 +762,9 @@ async function setup() {
       // Safely update the dropdown if it exists
       if (styleSelect) {
         styleSelect.value = nextStyle;
+        // Dispatch change event to update UI elements and trigger handleStyleChange
+        styleSelect.dispatchEvent(new Event('change'));
       }
-
-      // Trigger the change event to update UI visibility which will set currentShader correctly
-      handleStyleChange();
-      updateUrlParameters();
 
       console.log('Keyboard toggle - style:', nextStyle);
     }
@@ -745,14 +785,11 @@ async function setup() {
 
       const nextColorMode = colorModes[nextIndex];
 
-      // Update dropdown
+      // Update dropdown and trigger change event for UI sync
       if (colorModeSelect) {
         colorModeSelect.value = nextColorMode;
+        colorModeSelect.dispatchEvent(new Event('change'));
       }
-
-      // Apply color mode
-      applyColorMode(nextColorMode);
-      updateUrlParameters();
 
       console.log('Keyboard toggle - color mode:', nextColorMode);
     }
@@ -1089,6 +1126,7 @@ function handleStyleChange() {
   }
 
   console.log('Style changed to:', selectedStyle, 'currentShader:', currentShader);
+  requestUpdate();
 }
 
 function handleColorModeChange() {
@@ -1125,6 +1163,13 @@ function applyColorMode(colorMode) {
   updateControlElementColors(colors[colorMode]);
 
   console.log('Color mode applied:', colorMode);
+  requestUpdate();
+}
+
+function requestUpdate() {
+  if (!isPlaying) {
+    redraw();
+  }
 }
 
 function updateControlElementColors(colorScheme) {

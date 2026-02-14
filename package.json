@@ -1,0 +1,24 @@
+{
+  "name": "rpi-logo-generator",
+  "version": "1.0.0",
+  "description": "A generative visual identity system for Rensselaer Polytechnic Institute that embodies the concept of measurement itself as a design tool. Rather than a static logo, this creates infinite variations of the RPI wordmark where the bottom bar transforms into live visualizations of data, patterns, and metrics.",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tennitech/rpi-logo-generator.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/tennitech/rpi-logo-generator/issues"
+  },
+  "homepage": "https://github.com/tennitech/rpi-logo-generator#readme",
+  "devDependencies": {
+    "jest": "^30.2.0"
+  }
+}

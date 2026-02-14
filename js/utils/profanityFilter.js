@@ -22,11 +22,17 @@ const BLOCKED_TERMS = [
     // Add more as per requirements
 ];
 
-// Make available globally
-window.ProfanityFilter = {
-    hasProfanity: hasProfanity,
-    sanitizeText: sanitizeText
-};
+// Export for both Browser and Node.js environments
+if (typeof window !== 'undefined') {
+    window.ProfanityFilter = {
+        hasProfanity: hasProfanity,
+        sanitizeText: sanitizeText
+    };
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { hasProfanity, sanitizeText };
+}
 
 /**
  * Checks if the text contains profanity.
