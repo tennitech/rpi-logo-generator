@@ -1,6 +1,6 @@
 # RPI Logo Generator - Project Status & Master Documentation
 
-**Last Updated:** 2026-02-12
+**Last Updated:** 2026-02-17
 **Current Phase:** Phase 3 (Advanced Features & Refinement)
 
 ## 1. Project Overview
@@ -48,6 +48,11 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 *   [ ] **AI Exploration:** (Future) Event-specific background generation.
 
 ## 5. Recent Updates
+- **[2026-02-17] Stability Pass In Progress**:
+    - Fixed ticker width ratio label binding bug in `main.js` (`#ticker-width-ratio-display` now updates correctly).
+    - Consolidated SVG bar pattern export logic into shared utility `js/utils/barPattern.js` to prevent drift between files.
+    - Added waveform and circles SVG export parity in the shared generator (including circles grid/packing and fill/stroke variants).
+    - Added regression tests for shared SVG bar generation and ticker width ratio display behavior.
 - **[2026-02-12] Phase 2 Completed**:
     - Implemented Toast notification system for better UX.
     - Added "Copy Embed Code" feature for Frontify integration.
@@ -60,6 +65,9 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 *   **Font Format:** Chosen `.woff2` for optimal web performance.
 *   **Global Access:** `ProfanityFilter` attached to `window` for p5.js compatibility.
 *   **Frontify Integration:** Chosen external iframe embedding as the initial integration strategy for simplicity and speed.
+*   **Export Consistency:** Introduced shared SVG bar pattern generator (`js/utils/barPattern.js`) as single source of truth for non-solid bar exports.
 
 ## 7. Known Issues / Notes
 *   `main.js` relies heavily on global variables (p5.js pattern). Future refactoring might consider modularizing this.
+*   Previously identified issue where ticker width ratio display failed to update has been resolved (2026-02-17).
+*   Previously identified SVG export drift between `main.js` and `drawing.js` has been addressed by shared utility (2026-02-17).
