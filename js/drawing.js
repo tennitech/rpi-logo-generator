@@ -610,8 +610,43 @@ function saveSVG() {
       const pathData = `M ${barStartX + cornerSize} ${barY} L ${barStartX + exactBarWidth - cornerSize} ${barY} L ${barStartX + exactBarWidth} ${barY + cornerSize} L ${barStartX + exactBarWidth} ${barY + barHeight - cornerSize} L ${barStartX + exactBarWidth - cornerSize} ${barY + barHeight} L ${barStartX + cornerSize} ${barY + barHeight} L ${barStartX} ${barY + barHeight - cornerSize} L ${barStartX} ${barY + cornerSize} Z`;
       svgContent += `\n  <path d="${pathData}" fill="${fgColor}"/>`;
     } else {
-      // For other modes, create the pattern as individual rectangles
-      svgContent += createBarPattern(barStartX, barY, exactBarWidth, barHeight);
+      svgContent += createBarPatternSVG({
+        currentShader,
+        barStartX,
+        barY,
+        exactBarWidth,
+        barHeight,
+        fgColor,
+        textToBinary,
+        parseNumericString,
+        generateGridCircles,
+        generateStaticPackedCircles,
+        values: {
+          rulerRepeats: rulerRepeatsSlider.value,
+          rulerUnits: rulerUnitsSlider.value,
+          tickerRepeats: tickerSlider.value,
+          tickerRatio: tickerRatioSlider.value,
+          tickerWidthRatio: tickerWidthRatioSlider.value,
+          binaryText: binaryInput.value || 'RPI',
+          waveformType: waveformTypeSlider.value,
+          waveformFrequency: waveformFrequencySlider.value,
+          waveformSpeed: waveformSpeedSlider.value,
+          timeSeconds: millis() / 1000.0,
+          circlesMode: circlesModeSelect ? circlesModeSelect.value : 'packing',
+          circlesFill: circlesFillSelect ? circlesFillSelect.value : 'stroke',
+          circlesDensity: circlesDensitySlider.value,
+          circlesSizeVariation: circlesSizeVariationSlider.value,
+          circlesOverlap: circlesOverlapSlider.value,
+          circlesRows: circlesRowsSlider.value,
+          circlesGridDensity: circlesGridDensitySlider.value,
+          circlesSizeVariationY: circlesSizeVariationYSlider.value,
+          circlesSizeVariationX: circlesSizeVariationXSlider.value,
+          circlesGridOverlap: circlesGridOverlapSlider.value,
+          circlesLayout: circlesLayoutSelect ? circlesLayoutSelect.value : 'straight',
+          numericValue: numericInput ? numericInput.value : '',
+          numericMode: numericModeSelect ? numericModeSelect.value : 'dotmatrix'
+        }
+      });
     }
 
     svgContent += `\n</svg>`;
@@ -636,189 +671,6 @@ function saveSVG() {
     console.error('SVG save error:', error);
     Toast.show('Save failed: ' + error.message, 'error');
   }
-}
-
-function createBarPattern(barStartX, barY, exactBarWidth, barHeight) {
-  let pattern = '';
-  const colorScheme = colors[currentColorMode];
-  const fgColor = colorScheme ? colorScheme.fg : '#000000';
-
-  if (currentShader === 1) {
-    // Ruler pattern
-    const rulerRepeats = parseInt(rulerRepeatsSlider.value);
-    const rulerUnits = parseInt(rulerUnitsSlider.value);
-    const rulerTotalTicks = rulerRepeats * rulerUnits + 1;
-    const rulerTickWidth = exactBarWidth / (2 * rulerTotalTicks - 1);
-    const rulerTickSpacing = rulerTickWidth * 2;
-
-    for (let i = 0; i < rulerTotalTicks; i++) {
-      const tickX = barStartX + i * rulerTickSpacing;
-      let tickHeight;
-
-      if (i === 0 || i === rulerTotalTicks - 1) {
-        tickHeight = barHeight;
-      } else if (i % rulerUnits === 0) {
-        tickHeight = barHeight;
-      } else {
-        const positionInUnit = i % rulerUnits;
-        if (rulerUnits === 10) {
-          if (positionInUnit === 5) {
-            tickHeight = barHeight * 0.75;
-          } else if (positionInUnit % 2 === 0) {
-            tickHeight = barHeight * 0.5;
-          } else {
-            tickHeight = barHeight * 0.25;
-          }
-        } else {
-          if (positionInUnit === Math.floor(rulerUnits / 2)) {
-            tickHeight = barHeight * 0.75;
-          } else {
-            tickHeight = barHeight * 0.5;
-          }
-        }
-      }
-
-      const tickY = barY + barHeight - tickHeight;
-      pattern += `\n    <rect x="${tickX}" y="${tickY}" width="${rulerTickWidth}" height="${tickHeight}" fill="${fgColor}"/>`;
-    }
-  } else if (currentShader === 2) {
-    // Ticker pattern
-    const tickerRatio = parseInt(tickerRatioSlider.value);
-    const tickerWidthRatio = parseInt(tickerWidthRatioSlider.value);
-    const tickerBottomTicks = parseInt(tickerSlider.value);
-    const tickerTopTicks = tickerBottomTicks * tickerRatio;
-    const tickerHalfHeight = barHeight / 2;
-    const tickerSpacing = exactBarWidth / tickerTopTicks;
-    const tickerTopWidth = tickerSpacing / 2;
-    const tickerBottomWidth = tickerTopWidth * tickerWidthRatio;
-
-    // Top row
-    for (let i = 0; i < tickerTopTicks; i++) {
-      const x = barStartX + i * tickerSpacing;
-      pattern += `\n    <rect x="${x}" y="${barY}" width="${tickerTopWidth}" height="${tickerHalfHeight}" fill="${fgColor}"/>`;
-    }
-
-    // Bottom row
-    for (let i = 0; i < tickerBottomTicks; i++) {
-      const topIndex = i * tickerRatio;
-      const x = barStartX + topIndex * tickerSpacing;
-      pattern += `\n    <rect x="${x}" y="${barY + tickerHalfHeight}" width="${tickerBottomWidth}" height="${tickerHalfHeight}" fill="${fgColor}"/>`;
-    }
-  } else if (currentShader === 3) {
-    // Binary pattern
-    const binaryText = binaryInput.value || "RPI";
-    const binaryDataArray = textToBinary(binaryText);
-
-    if (binaryDataArray.length > 0) {
-      const bitWidth = exactBarWidth / binaryDataArray.length;
-      const binaryRowHeight = barHeight / 3;
-      const binaryTopRowY = barY;
-      const binaryMiddleRowY = barY + binaryRowHeight;
-      const binaryBottomRowY = barY + binaryRowHeight * 2;
-
-      for (let i = 0; i < binaryDataArray.length; i++) {
-        const x = barStartX + i * bitWidth;
-
-        if (binaryDataArray[i] === 1) {
-          pattern += `\n    <rect x="${x}" y="${binaryTopRowY}" width="${bitWidth}" height="${binaryRowHeight}" fill="${fgColor}"/>`;
-          pattern += `\n    <rect x="${x}" y="${binaryBottomRowY}" width="${bitWidth}" height="${binaryRowHeight}" fill="${fgColor}"/>`;
-        } else {
-          // 0 = single bar in middle row
-          pattern += `\n    <rect x="${x}" y="${binaryMiddleRowY}" width="${bitWidth}" height="${binaryRowHeight}" fill="${fgColor}"/>`;
-        }
-      }
-    }
-  } else if (currentShader === 6) {
-    // Numeric pattern - get visualization mode
-    const numericString = numericInput.value || "3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679";
-    const digits = parseNumericString(numericString);
-    const mode = numericModeSelect ? numericModeSelect.value : 'height';
-
-    if (digits.length > 0) {
-      const digitWidth = exactBarWidth / digits.length;
-      const horizontalGap = 1; // Minimum gap between digit columns
-      const dotHeight = 1.5; // Height of each dot
-
-      if (mode === 'height') {
-        // Height Encoding mode - digit height bars with inner stroke
-        for (let i = 0; i < digits.length; i++) {
-          const digit = digits[i];
-          const x = barStartX + i * digitWidth;
-
-          // Skip decimal points (value 10) - they create spacing
-          if (digit === 10) {
-            continue;
-          }
-
-          // Map digits 0-9 to height percentages
-          let heightPercent = 0.0;
-          switch (digit) {
-            case 0: heightPercent = 0.1; break;  // 10%
-            case 1: heightPercent = 0.2; break;  // 20%
-            case 2: heightPercent = 0.3; break;  // 30%
-            case 3: heightPercent = 0.4; break;  // 40%
-            case 4: heightPercent = 0.5; break;  // 50%
-            case 5: heightPercent = 0.6; break;  // 60%
-            case 6: heightPercent = 0.7; break;  // 70%
-            case 7: heightPercent = 0.8; break;  // 80%
-            case 8: heightPercent = 0.9; break;  // 90%
-            case 9: heightPercent = 1.0; break;  // 100%
-          }
-
-          const digitBarHeight = barHeight * heightPercent;
-          const barBottomY = barY + barHeight - digitBarHeight; // Position from bottom
-
-          pattern += `\n    <rect x="${x}" y="${barBottomY}" width="${digitWidth}" height="${digitBarHeight}" fill="${fgColor}"/>`;
-        }
-      } else if (mode === 'dotmatrix') {
-        // Dot Matrix mode - dots distributed evenly across the full height of the bar
-        for (let i = 0; i < digits.length; i++) {
-          const digit = digits[i];
-          const x = barStartX + i * digitWidth;
-
-          // Handle decimal points (value 10) - render as bottom-aligned rounded rectangle
-          if (digit === 10) {
-            const dotWidth = digitWidth - horizontalGap;
-            const dotX = x + horizontalGap / 2;
-            const dotY = barY + barHeight - dotHeight; // Position at bottom
-
-            pattern += `\n    <rect x="${dotX}" y="${dotY}" width="${dotWidth}" height="${dotHeight}" rx="${dotHeight / 2}" fill="${fgColor}"/>`;
-            continue;
-          }
-
-          // Calculate dot width to stretch across most of the digit column width
-          // Leave half the horizontal gap on each side
-          const dotWidth = digitWidth - horizontalGap;
-          const dotX = x + horizontalGap / 2;
-
-          // For digits > 0, distribute dots evenly across the full bar height
-          if (digit > 0) {
-            // Calculate the available space for dots
-            const availableHeight = barHeight - dotHeight; // Reserve space for dot height
-
-            // Distribute dots evenly across the available height
-            for (let dotIndex = 0; dotIndex < digit; dotIndex++) {
-              let dotY;
-
-              if (digit === 1) {
-                // Single dot: center it vertically
-                dotY = barY + (barHeight - dotHeight) / 2;
-              } else {
-                // Multiple dots: distribute evenly from top to bottom
-                const spacing = availableHeight / (digit - 1);
-                dotY = barY + dotIndex * spacing;
-              }
-
-              // Use rounded rectangle that stretches across the digit width
-              pattern += `\n    <rect x="${dotX}" y="${dotY}" width="${dotWidth}" height="${dotHeight}" rx="${dotHeight / 2}" fill="${fgColor}"/>`;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  return pattern;
 }
 
 function createNumericTexture(digits) {
