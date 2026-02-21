@@ -41,6 +41,8 @@ let styleSelect;
 let colorModeSelect;
 let binaryInput;
 let binaryGroup;
+let morseInput;
+let morseGroup;
 let rulerGroup;
 let rulerRepeatsSlider;
 let rulerRepeatsDisplay;
@@ -98,6 +100,8 @@ let currentShader = 1;
 let barBuffer;
 let binaryData = [];
 let binaryLength = 0;
+let morseData = [];
+let morseLength = 0;
 let numericData = [];
 let numericLength = 0;
 let numericTexture = null;
@@ -144,6 +148,59 @@ let isPanningMode = false;
 // Zoom/Pan/Playback UI references
 let playbackBtn, iconPause, iconPlay, playbackText, playbackDivider;
 let zoomInBtn, zoomOutBtn, panBtn, zoomLevelDisplay;
+
+const MORSE_DICT = {
+  'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.',
+  'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..',
+  'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.',
+  'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-',
+  'Y': '-.--', 'Z': '--..', '1': '.----', '2': '..---', '3': '...--',
+  '4': '....-', '5': '.....', '6': '-....', '7': '--...', '8': '---..',
+  '9': '----.', '0': '-----', ', ': '--..--', '.': '.-.-.-', '?': '..--..',
+  '/': '-..-.', '-': '-....-', '(': '-.--.', ')': '-.--.-'
+};
+
+function textToMorse(text) {
+  if (!text || typeof text !== 'string') text = "RPI";
+
+  text = text.trim().toUpperCase().substring(0, 100);
+
+  let morseArray = [];
+  const words = text.split(' ');
+
+  for (let w = 0; w < words.length; w++) {
+    const word = words[w];
+    for (let l = 0; l < word.length; l++) {
+      const char = word[l];
+      const code = MORSE_DICT[char];
+
+      if (code) {
+        for (let c = 0; c < code.length; c++) {
+          const symbol = code[c];
+          if (symbol === '.') {
+            morseArray.push(1);
+          } else if (symbol === '-') {
+            morseArray.push(1, 1, 1);
+          }
+
+          if (c < code.length - 1) {
+            morseArray.push(0);
+          }
+        }
+
+        if (l < word.length - 1) {
+          morseArray.push(0, 0, 0);
+        }
+      }
+    }
+
+    if (w < words.length - 1) {
+      morseArray.push(0, 0, 0, 0, 0, 0, 0);
+    }
+  }
+
+  return morseArray;
+}
 
 // Convert text to binary
 function textToBinary(text) {
@@ -307,6 +364,9 @@ async function setup() {
   // Initialize binary data first
   updateBinaryData("RPI");
 
+  // Initialize morse data
+  updateMorseData("RPI");
+
   // Initialize numeric data
   updateNumericData("3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679");
 
@@ -328,6 +388,8 @@ async function setup() {
   colorModeSelect = document.getElementById('color-mode-select');
   binaryInput = document.getElementById('binary-input');
   binaryGroup = document.getElementById('binary-group');
+  morseInput = document.getElementById('morse-input');
+  morseGroup = document.getElementById('morse-group');
   rulerGroup = document.getElementById('ruler-group');
   rulerRepeatsSlider = document.getElementById('ruler-repeats-slider');
   rulerRepeatsDisplay = document.getElementById('ruler-repeats-display');
@@ -681,6 +743,21 @@ async function setup() {
     binaryInput.value = "RPI"; // Set default value only if no URL params
   }
 
+  // Setup morse input with real-time updates
+  if (morseInput) {
+    const handleMorseInput = function () {
+      updateMorseData(morseInput.value);
+      updateUrlParameters();
+      requestUpdate();
+    };
+    morseInput.addEventListener('input', handleMorseInput);
+    morseInput.addEventListener('keyup', handleMorseInput);
+    morseInput.addEventListener('paste', handleMorseInput);
+    if (!window.location.search) {
+      morseInput.value = "RPI"; // Set default value
+    }
+  }
+
   // Setup numeric input with real-time updates
   numericInput.addEventListener('input', function () {
     updateNumericData(numericInput.value);
@@ -751,12 +828,12 @@ async function setup() {
     if (event.code === 'Space' && event.shiftKey) {
       event.preventDefault();
 
-      // Cycle through all seven modes: solid -> ruler -> ticker -> binary -> waveform -> circles -> numeric -> solid
+      // Cycle through all eight modes: solid -> ruler -> ticker -> binary -> morse -> waveform -> circles -> numeric -> solid
       // Get current style from dropdown to ensure sync
       const currentStyle = styleSelect ? styleSelect.value : 'solid';
-      const styleValues = ['solid', 'ruler', 'ticker', 'binary', 'waveform', 'circles', 'numeric'];
+      const styleValues = ['solid', 'ruler', 'ticker', 'binary', 'morse', 'waveform', 'circles', 'numeric'];
       const currentIndex = styleValues.indexOf(currentStyle);
-      const nextIndex = (currentIndex + 1) % 7;
+      const nextIndex = (currentIndex + 1) % styleValues.length;
       const nextStyle = styleValues[nextIndex];
 
       // Safely update the dropdown if it exists
@@ -833,6 +910,25 @@ function updateBinaryData(text) {
     binary: textToBinary(cleanText)
   };
   binaryLength = binaryData.binary.length;
+}
+
+function updateMorseData(text) {
+  let cleanText = text || "RPI";
+  if (window.ProfanityFilter && typeof window.ProfanityFilter.sanitizeText === 'function') {
+    cleanText = window.ProfanityFilter.sanitizeText(cleanText);
+    if (cleanText !== text) {
+      console.log('Profanity filtered from morse input');
+      if (morseInput && morseInput.value === text) {
+        morseInput.value = cleanText;
+      }
+    }
+  }
+
+  morseData = {
+    text: cleanText,
+    morse: textToMorse(cleanText)
+  };
+  morseLength = morseData.morse.length;
 }
 
 function updateNumericData(numericString) {
@@ -1061,13 +1157,16 @@ function handleStyleChange() {
     case 'numeric':
       currentShader = 6;
       break;
+    case 'morse':
+      currentShader = 7;
+      break;
     default:
       currentShader = 0;
       break;
   }
 
   // Safely update UI elements only if they exist
-  if (binaryGroup && rulerGroup && tickerGroup && waveformGroup && circlesGroup && numericGroup) {
+  if (binaryGroup && rulerGroup && tickerGroup && waveformGroup && circlesGroup && numericGroup && morseGroup) {
     // Hide all groups first
     binaryGroup.style.display = 'none';
     rulerGroup.style.display = 'none';
@@ -1075,6 +1174,7 @@ function handleStyleChange() {
     waveformGroup.style.display = 'none';
     circlesGroup.style.display = 'none';
     numericGroup.style.display = 'none';
+    morseGroup.style.display = 'none';
 
     // Show the appropriate group
     // Show the appropriate group and handle playback controls
@@ -1100,6 +1200,9 @@ function handleStyleChange() {
         break;
       case 'numeric':
         numericGroup.style.display = 'block';
+        break;
+      case 'morse':
+        morseGroup.style.display = 'block';
         break;
     }
 
@@ -1821,6 +1924,9 @@ function getUrlParameters() {
     // Binary parameters
     binaryText: params.get('binaryText') || 'RPI',
 
+    // Morse parameters
+    morseText: params.get('morseText') || 'RPI',
+
     // Numeric parameters
     numericValue: params.get('numericValue') || '3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679',
     numericMode: params.get('numericMode') || 'dotmatrix',
@@ -1872,6 +1978,12 @@ function updateUrlParameters() {
   if (styleSelect && styleSelect.value === 'binary') {
     if (binaryInput && binaryInput.value !== 'RPI') {
       params.set('binaryText', binaryInput.value);
+    }
+  }
+
+  if (styleSelect && styleSelect.value === 'morse') {
+    if (morseInput && morseInput.value !== 'RPI') {
+      params.set('morseText', morseInput.value);
     }
   }
 
@@ -1981,6 +2093,12 @@ function applyUrlParameters() {
     binaryInput.value = params.binaryText;
   }
 
+  // Apply morse parameters
+  if (morseInput) {
+    morseInput.value = params.morseText;
+    updateMorseData(params.morseText);
+  }
+
   // Apply numeric parameters
   if (numericInput) {
     numericInput.value = params.numericValue;
@@ -2064,6 +2182,8 @@ function applyUrlParameters() {
 
   // Update binary data
   updateBinaryData(params.binaryText);
+  // Update morse data
+  updateMorseData(params.morseText);
 }
 
 function updateAllDisplays() {
@@ -2643,6 +2763,38 @@ function drawBottomBar(currentWidth) {
             }
           }
         }
+      }
+    }
+  } else if (currentShader === 7) {
+    // Morse code mode
+    resetShader();
+    fill(fgColor);
+    noStroke();
+    rectMode(CORNER);
+
+    const text = morseInput ? morseInput.value || "RPI" : "RPI";
+    const validMorseData = textToMorse(text);
+
+    if (validMorseData && validMorseData.length > 0) {
+      const actualBitWidth = exactBarWidth / validMorseData.length;
+      let currentRunLength = 0;
+      let runStartX = 0;
+
+      for (let i = 0; i < validMorseData.length; i++) {
+        if (validMorseData[i] === 1) {
+          if (currentRunLength === 0) {
+            runStartX = barStartX + i * actualBitWidth;
+          }
+          currentRunLength++;
+        } else {
+          if (currentRunLength > 0) {
+            rect(runStartX, 0, currentRunLength * actualBitWidth, rectHeight);
+            currentRunLength = 0;
+          }
+        }
+      }
+      if (currentRunLength > 0) {
+        rect(runStartX, 0, currentRunLength * actualBitWidth, rectHeight);
       }
     }
   } else {

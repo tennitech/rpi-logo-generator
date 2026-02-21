@@ -382,6 +382,33 @@ function drawBarPatternOnGraphics(pg, barStartX, barY, exactBarWidth, rectHeight
         }
       }
     }
+  } else if (currentShader === 7) {
+    // Morse code mode
+    const text = typeof morseInput !== 'undefined' && morseInput ? morseInput.value || "RPI" : "RPI";
+    const validMorseData = typeof textToMorse !== 'undefined' ? textToMorse(text) : [];
+
+    if (validMorseData && validMorseData.length > 0) {
+      const actualBitWidth = exactBarWidth / validMorseData.length;
+      let currentRunLength = 0;
+      let runStartX = 0;
+
+      for (let i = 0; i < validMorseData.length; i++) {
+        if (validMorseData[i] === 1) {
+          if (currentRunLength === 0) {
+            runStartX = barStartX + i * actualBitWidth;
+          }
+          currentRunLength++;
+        } else {
+          if (currentRunLength > 0) {
+            pg.rect(runStartX, barY, currentRunLength * actualBitWidth, rectHeight);
+            currentRunLength = 0;
+          }
+        }
+      }
+      if (currentRunLength > 0) {
+        pg.rect(runStartX, barY, currentRunLength * actualBitWidth, rectHeight);
+      }
+    }
   }
 }
 
@@ -644,7 +671,8 @@ function saveSVG() {
           circlesGridOverlap: circlesGridOverlapSlider.value,
           circlesLayout: circlesLayoutSelect ? circlesLayoutSelect.value : 'straight',
           numericValue: numericInput ? numericInput.value : '',
-          numericMode: numericModeSelect ? numericModeSelect.value : 'dotmatrix'
+          numericMode: numericModeSelect ? numericModeSelect.value : 'dotmatrix',
+          morseText: typeof morseInput !== 'undefined' && morseInput ? morseInput.value || 'RPI' : 'RPI'
         }
       });
     }

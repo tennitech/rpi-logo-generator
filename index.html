@@ -71,6 +71,7 @@
                 <option value="ruler">RULER</option>
                 <option value="ticker">TICKER</option>
                 <option value="binary">BINARY</option>
+                <option value="morse">MORSE CODE</option>
                 <option value="waveform">WAVEFORM</option>
                 <option value="circles">CIRCLES</option>
                 <option value="numeric">NUMERIC</option>
@@ -90,8 +91,6 @@
             </div>
           </div>
         </div>
-
-        <div class="sidebar-divider"></div>
 
         <!-- Dynamic Control Groups -->
         <div id="ruler-group" class="control-group" style="display: none;">
@@ -116,6 +115,16 @@
             <input type="text" id="binary-input" placeholder="ENTER TEXT..." class="control-input"
               aria-label="Binary Text Input">
             <div class="control-hint">Type to translate to binary bars</div>
+          </div>
+        </div>
+
+        <div id="morse-group" class="control-group" style="display: none;">
+          <div class="control-header">MORSE CODE SETTINGS</div>
+          <div class="control">
+            <label for="morse-input" class="control-label">INPUT TEXT</label>
+            <input type="text" id="morse-input" placeholder="ENTER TEXT..." class="control-input"
+              aria-label="Morse Text Input">
+            <div class="control-hint">Type to translate to morse code</div>
           </div>
         </div>
 
@@ -321,7 +330,10 @@
         <button id="pan-btn" class="workspace-btn" aria-label="Pan Tool">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 11l18-5v12l-18-5z"></path>
+            <path d="M18 11V6a2 2 0 0 0-4 0v4"></path>
+            <path d="M14 10V4a2 2 0 0 0-4 0v6"></path>
+            <path d="M10 10.5V3a2 2 0 0 0-4 0v9"></path>
+            <path d="M6 12v-1.5a2 2 0 0 0-4 0v5.5c0 3 2.5 5.5 5.5 5.5h3c3 0 5.5-2.5 5.5-5.5V11"></path>
           </svg>
         </button>
       </div>

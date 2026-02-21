@@ -249,6 +249,36 @@ function createBarPatternSVG(config) {
     return pattern;
   }
 
+  if (currentShader === 7) {
+    const text = values.morseText || 'RPI';
+    const validMorseData = typeof textToMorse !== 'undefined' ? textToMorse(text) : [];
+
+    if (validMorseData.length > 0) {
+      const bitWidth = exactBarWidth / validMorseData.length;
+
+      let currentRunLength = 0;
+      let runStartX = 0;
+
+      for (let i = 0; i < validMorseData.length; i++) {
+        if (validMorseData[i] === 1) {
+          if (currentRunLength === 0) {
+            runStartX = barStartX + i * bitWidth;
+          }
+          currentRunLength++;
+        } else {
+          if (currentRunLength > 0) {
+            pattern += `\n    <rect x="${runStartX}" y="${barY}" width="${currentRunLength * bitWidth}" height="${barHeight}" fill="${fgColor}"/>`;
+            currentRunLength = 0;
+          }
+        }
+      }
+      if (currentRunLength > 0) {
+        pattern += `\n    <rect x="${runStartX}" y="${barY}" width="${currentRunLength * bitWidth}" height="${barHeight}" fill="${fgColor}"/>`;
+      }
+    }
+    return pattern;
+  }
+
   return pattern;
 }
 
