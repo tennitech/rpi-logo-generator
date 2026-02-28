@@ -41,6 +41,12 @@ let styleSelect;
 let colorModeSelect;
 let binaryInput;
 let binaryGroup;
+let binaryAudioToggle;
+let morseInput;
+let morseGroup;
+let morsePlayBtn;
+let morseResetBtn;
+let morseInfoBadge;
 let rulerGroup;
 let rulerRepeatsSlider;
 let rulerRepeatsDisplay;
@@ -53,6 +59,7 @@ let tickerRatioSlider;
 let tickerRatioDisplay;
 let tickerWidthRatioSlider;
 let tickerWidthRatioDisplay;
+let tickerAudioToggle;
 let waveformGroup;
 let waveformTypeSlider;
 let waveformTypeDisplay;
@@ -60,6 +67,17 @@ let waveformFrequencySlider;
 let waveformFrequencyDisplay;
 let waveformSpeedSlider;
 let waveformSpeedDisplay;
+let waveformAudioToggle;
+let waveformEnvelopeToggle;
+let envelopeSettingsGroup;
+let waveformEnvelopeType;
+let waveformEnvelopeWavesSlider;
+let waveformEnvelopeWavesDisplay;
+let waveformEnvelopeCenterSlider;
+let waveformEnvelopeCenterDisplay;
+let waveformEnvelopeBipolarToggle;
+let waveformAnimateToggle;
+let animationInfoBadge;
 let circlesGroup;
 let circlesDensitySlider;
 let circlesDensityDisplay;
@@ -85,6 +103,30 @@ let circlesLayoutSelect;
 let numericGroup;
 let numericInput;
 let numericModeSelect;
+let matrixGroup;
+let matrixInput;
+let matrixRowsSlider;
+let matrixRowsDisplay;
+let matrixGapSlider;
+let matrixGapDisplay;
+let trussGroup;
+let trussSegmentsSlider;
+let trussSegmentsDisplay;
+let trussThicknessSlider;
+let trussThicknessDisplay;
+let staffGroup;
+let staffInstrumentSelect;
+let staffClearBtn;
+let staffAudioToggle;
+let staffAnimateToggle;
+let staffTempoSlider;
+let staffTempoDisplay;
+let morseAudioToggle;
+let currentStaffNotes = [];
+let currentNoteDuration = 1; // quarter note by default
+let graphInput;
+let graphScaleSlider;
+let graphScaleDisplay;
 
 // Static circle data cache
 let staticCircleData = null;
@@ -98,9 +140,12 @@ let currentShader = 1;
 let barBuffer;
 let binaryData = [];
 let binaryLength = 0;
+let morseData = [];
+let morseLength = 0;
 let numericData = [];
 let numericLength = 0;
 let numericTexture = null;
+window.animationTime = 0;
 
 
 
@@ -134,6 +179,59 @@ const colors = {
   'red-on-white': { bg: '#ffffff', fg: '#d6001c' }
 };
 
+const MORSE_DICT = {
+  'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.',
+  'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..',
+  'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.',
+  'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-',
+  'Y': '-.--', 'Z': '--..', '1': '.----', '2': '..---', '3': '...--',
+  '4': '....-', '5': '.....', '6': '-....', '7': '--...', '8': '---..',
+  '9': '----.', '0': '-----', ', ': '--..--', '.': '.-.-.-', '?': '..--..',
+  '/': '-..-.', '-': '-....-', '(': '-.--.', ')': '-.--.-'
+};
+
+function textToMorse(text) {
+  if (!text || typeof text !== 'string') text = "RPI";
+
+  text = text.trim().toUpperCase().substring(0, 100);
+
+  let morseArray = [];
+  const words = text.split(' ');
+
+  for (let w = 0; w < words.length; w++) {
+    const word = words[w];
+    for (let l = 0; l < word.length; l++) {
+      const char = word[l];
+      const code = MORSE_DICT[char];
+
+      if (code) {
+        for (let c = 0; c < code.length; c++) {
+          const symbol = code[c];
+          if (symbol === '.') {
+            morseArray.push(1); // Dot is 1 unit
+          } else if (symbol === '-') {
+            morseArray.push(1, 1, 1); // Dash is 3 units
+          }
+
+          if (c < code.length - 1) {
+            morseArray.push(0); // Inter-element gap is 1 unit
+          }
+        }
+
+        if (l < word.length - 1) {
+          morseArray.push(0, 0, 0); // Inter-letter gap is 3 units
+        }
+      }
+    }
+
+    if (w < words.length - 1) {
+      morseArray.push(0, 0, 0, 0, 0, 0, 0); // Inter-word gap is 7 units
+    }
+  }
+
+  return morseArray;
+}
+
 
 // Viewport & Playback State
 let isPlaying = true;
@@ -143,7 +241,7 @@ let isPanningMode = false;
 
 // Zoom/Pan/Playback UI references
 let playbackBtn, iconPause, iconPlay, playbackText, playbackDivider;
-let zoomInBtn, zoomOutBtn, panBtn, zoomLevelDisplay;
+let zoomInBtn, zoomOutBtn, zoomResetBtn, panBtn, zoomLevelDisplay;
 
 // Convert text to binary
 function textToBinary(text) {
@@ -307,6 +405,9 @@ async function setup() {
   // Initialize binary data first
   updateBinaryData("RPI");
 
+  // Initialize morse data
+  updateMorseData("RPI");
+
   // Initialize numeric data
   updateNumericData("3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679");
 
@@ -328,6 +429,13 @@ async function setup() {
   colorModeSelect = document.getElementById('color-mode-select');
   binaryInput = document.getElementById('binary-input');
   binaryGroup = document.getElementById('binary-group');
+  binaryAudioToggle = document.getElementById('binary-audio-toggle');
+  morseInput = document.getElementById('morse-input');
+  morseGroup = document.getElementById('morse-group');
+  morsePlayBtn = document.getElementById('morse-play-btn');
+  morseResetBtn = document.getElementById('morse-reset-btn');
+  morseInfoBadge = document.getElementById('morse-info-badge');
+  morseAudioToggle = document.getElementById('morse-audio-toggle');
   rulerGroup = document.getElementById('ruler-group');
   rulerRepeatsSlider = document.getElementById('ruler-repeats-slider');
   rulerRepeatsDisplay = document.getElementById('ruler-repeats-display');
@@ -340,6 +448,7 @@ async function setup() {
   tickerRatioDisplay = document.getElementById('ticker-ratio-display');
   tickerWidthRatioSlider = document.getElementById('ticker-width-ratio-slider');
   tickerWidthRatioDisplay = document.getElementById('ticker-width-ratio-display');
+  tickerAudioToggle = document.getElementById('ticker-audio-toggle');
   waveformGroup = document.getElementById('waveform-group');
   waveformTypeSlider = document.getElementById('waveform-type-slider');
   waveformTypeDisplay = document.getElementById('waveform-type-display');
@@ -347,6 +456,15 @@ async function setup() {
   waveformFrequencyDisplay = document.getElementById('waveform-frequency-display');
   waveformSpeedSlider = document.getElementById('waveform-speed-slider');
   waveformSpeedDisplay = document.getElementById('waveform-speed-display');
+  waveformAudioToggle = document.getElementById('waveform-audio-toggle');
+  waveformEnvelopeToggle = document.getElementById('waveform-envelope-toggle');
+  envelopeSettingsGroup = document.getElementById('envelope-settings-group');
+  waveformEnvelopeType = document.getElementById('waveform-envelope-type');
+  waveformEnvelopeWavesSlider = document.getElementById('waveform-envelope-waves-slider');
+  waveformEnvelopeWavesDisplay = document.getElementById('waveform-envelope-waves-display');
+  waveformEnvelopeCenterSlider = document.getElementById('waveform-envelope-center-slider');
+  waveformEnvelopeCenterDisplay = document.getElementById('waveform-envelope-center-display');
+  waveformEnvelopeBipolarToggle = document.getElementById('waveform-envelope-bipolar-toggle');
   circlesGroup = document.getElementById('circles-group');
   circlesDensitySlider = document.getElementById('circles-density-slider');
   circlesDensityDisplay = document.getElementById('circles-density-display');
@@ -360,6 +478,7 @@ async function setup() {
 
   zoomInBtn = document.getElementById('zoom-in-btn');
   zoomOutBtn = document.getElementById('zoom-out-btn');
+  zoomResetBtn = document.getElementById('zoom-reset-btn');
   panBtn = document.getElementById('pan-btn');
   zoomLevelDisplay = document.getElementById('zoom-level');
 
@@ -371,12 +490,75 @@ async function setup() {
     });
   }
 
-  // Setup Zoom Listeners
+  // Setup Zoom Listeners and Input
+  let zoomInterval = null;
+  const startZoom = (amount) => {
+    zoomCanvas(amount);
+    if (!zoomInterval) {
+      zoomInterval = setInterval(() => zoomCanvas(amount * 0.5), 50);
+    }
+  };
+  const stopZoom = () => {
+    if (zoomInterval) {
+      clearInterval(zoomInterval);
+      zoomInterval = null;
+    }
+  };
+
   if (zoomInBtn) {
-    zoomInBtn.addEventListener('click', () => zoomCanvas(0.1));
+    zoomInBtn.addEventListener('mousedown', () => startZoom(0.1));
+    zoomInBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startZoom(0.1); });
+    zoomInBtn.addEventListener('mouseup', stopZoom);
+    zoomInBtn.addEventListener('mouseleave', stopZoom);
+    zoomInBtn.addEventListener('touchend', stopZoom);
   }
   if (zoomOutBtn) {
-    zoomOutBtn.addEventListener('click', () => zoomCanvas(-0.1));
+    zoomOutBtn.addEventListener('mousedown', () => startZoom(-0.1));
+    zoomOutBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startZoom(-0.1); });
+    zoomOutBtn.addEventListener('mouseup', stopZoom);
+    zoomOutBtn.addEventListener('mouseleave', stopZoom);
+    zoomOutBtn.addEventListener('touchend', stopZoom);
+  }
+  if (zoomResetBtn) {
+    zoomResetBtn.addEventListener('click', () => {
+      zoomLevel = 1.0;
+      panOffset = { x: 0, y: 0 };
+      if (zoomLevelDisplay) {
+        zoomLevelDisplay.value = '100%';
+      }
+      if (!isPlaying) redraw();
+    });
+  }
+
+  // Zoom Input Handling
+  if (zoomLevelDisplay) {
+    const handleZoomInput = () => {
+      let val = zoomLevelDisplay.value.replace('%', '');
+      let num = parseFloat(val);
+      if (!isNaN(num)) {
+        zoomLevel = num / 100;
+        zoomLevel = constrain(zoomLevel, 0.5, 3.0);
+        clampPanOffset();
+        if (!isPlaying) redraw();
+      }
+      zoomLevelDisplay.value = Math.round(zoomLevel * 100) + '%';
+    };
+    zoomLevelDisplay.addEventListener('change', handleZoomInput);
+    zoomLevelDisplay.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        handleZoomInput();
+        zoomLevelDisplay.blur();
+      }
+    });
+    // On focus, select the number for easy editing
+    zoomLevelDisplay.addEventListener('focus', () => {
+      zoomLevelDisplay.value = Math.round(zoomLevel * 100);
+      zoomLevelDisplay.select();
+    });
+    // On blur, revert to % format if unchanged
+    zoomLevelDisplay.addEventListener('blur', () => {
+      zoomLevelDisplay.value = Math.round(zoomLevel * 100) + '%';
+    });
   }
 
   // Setup Pan Listener
@@ -405,6 +587,32 @@ async function setup() {
   numericGroup = document.getElementById('numeric-group');
   numericInput = document.getElementById('numeric-input');
   numericModeSelect = document.getElementById('numeric-mode-select');
+  matrixGroup = document.getElementById('matrix-group');
+  matrixInput = document.getElementById('matrix-input');
+  matrixRowsSlider = document.getElementById('matrix-rows-slider');
+  matrixRowsDisplay = document.getElementById('matrix-rows-display');
+  matrixGapSlider = document.getElementById('matrix-gap-slider');
+  matrixGapDisplay = document.getElementById('matrix-gap-display');
+  trussGroup = document.getElementById('truss-group');
+  trussSegmentsSlider = document.getElementById('truss-segments-slider');
+  trussSegmentsDisplay = document.getElementById('truss-segments-display');
+  trussThicknessSlider = document.getElementById('truss-thickness-slider');
+  trussThicknessDisplay = document.getElementById('truss-thickness-display');
+  staffGroup = document.getElementById('staff-group');
+  staffInstrumentSelect = document.getElementById('staff-instrument-select');
+  staffClearBtn = document.getElementById('staff-clear-btn');
+  staffAudioToggle = document.getElementById('staff-audio-toggle');
+  staffAnimateToggle = document.getElementById('staff-animate-toggle');
+  staffTempoSlider = document.getElementById('staff-tempo-slider');
+  staffTempoDisplay = document.getElementById('staff-tempo-display');
+  pulseGroup = document.getElementById('pulse-group');
+  pulseInput = document.getElementById('pulse-input');
+  pulseIntensitySlider = document.getElementById('pulse-intensity-slider');
+  pulseIntensityDisplay = document.getElementById('pulse-intensity-display');
+  graphGroup = document.getElementById('graph-group');
+  graphInput = document.getElementById('graph-input');
+  graphScaleSlider = document.getElementById('graph-scale-slider');
+  graphScaleDisplay = document.getElementById('graph-scale-display');
   appSidebar = document.getElementById('app-sidebar');
   mobileMenuToggle = document.getElementById('mobile-menu-toggle');
 
@@ -413,6 +621,8 @@ async function setup() {
   saveMenu = document.getElementById('save-menu');
   const savePngButton = document.getElementById('save-png');
   const saveSvgButton = document.getElementById('save-svg');
+  waveformAnimateToggle = document.getElementById('waveform-animate-toggle');
+  animationInfoBadge = document.getElementById('animation-info-badge');
 
   // Setup ruler sliders with display updates
   rulerRepeatsSlider.addEventListener('input', function () {
@@ -470,6 +680,60 @@ async function setup() {
     updateUrlParameters();
     requestUpdate();
   });
+
+  if (waveformEnvelopeToggle) {
+    waveformEnvelopeToggle.addEventListener('change', function () {
+      if (envelopeSettingsGroup) envelopeSettingsGroup.style.display = this.checked ? 'block' : 'none';
+      updateUrlParameters();
+      requestUpdate();
+    });
+  }
+  if (waveformEnvelopeType) {
+    waveformEnvelopeType.addEventListener('change', function () {
+      updateUrlParameters();
+      requestUpdate();
+    });
+  }
+  if (waveformEnvelopeWavesSlider) {
+    waveformEnvelopeWavesSlider.addEventListener('input', function () {
+      if (waveformEnvelopeWavesDisplay) waveformEnvelopeWavesDisplay.textContent = this.value;
+      updateUrlParameters();
+      requestUpdate();
+    });
+  }
+  if (waveformEnvelopeCenterSlider) {
+    waveformEnvelopeCenterSlider.addEventListener('input', function () {
+      if (waveformEnvelopeCenterDisplay) waveformEnvelopeCenterDisplay.textContent = this.value;
+      updateUrlParameters();
+      requestUpdate();
+    });
+  }
+  if (waveformEnvelopeBipolarToggle) {
+    waveformEnvelopeBipolarToggle.addEventListener('change', function () {
+      updateUrlParameters();
+      requestUpdate();
+    });
+  }
+
+  if (waveformAudioToggle) {
+    waveformAudioToggle.addEventListener('change', function () {
+      if (this.checked && currentShader === 4 && isPlaying) {
+        startAudio();
+      } else {
+        stopAudio();
+      }
+      updateUrlParameters();
+    });
+  }
+
+  if (waveformAnimateToggle) {
+    waveformAnimateToggle.addEventListener('change', function () {
+      if (currentShader === 4) {
+        togglePlayback();
+      }
+      updateUrlParameters();
+    });
+  }
 
   // Set default values only if no URL parameters
   if (!window.location.search) {
@@ -681,6 +945,37 @@ async function setup() {
     binaryInput.value = "RPI"; // Set default value only if no URL params
   }
 
+  // Setup morse input with real-time updates
+  if (morseInput) {
+    const handleMorseInput = function () {
+      updateMorseData(morseInput.value);
+      updateUrlParameters();
+      requestUpdate();
+    };
+    morseInput.addEventListener('input', handleMorseInput);
+    morseInput.addEventListener('keyup', handleMorseInput);
+    morseInput.addEventListener('paste', handleMorseInput);
+    if (!window.location.search) {
+      morseInput.value = "RPI"; // Set default value
+    }
+  }
+
+  if (morsePlayBtn) {
+    morsePlayBtn.addEventListener('click', function () {
+      if (currentShader === 7) togglePlayback();
+    });
+  }
+
+  if (morseResetBtn) {
+    morseResetBtn.addEventListener('click', function () {
+      if (currentShader === 7) {
+        sequenceContext.currentNote = 0;
+        sequenceContext.nextNoteTime = audioContext.currentTime + 0.1;
+        if (!isPlaying) togglePlayback();
+      }
+    });
+  }
+
   // Setup numeric input with real-time updates
   numericInput.addEventListener('input', function () {
     updateNumericData(numericInput.value);
@@ -714,6 +1009,128 @@ async function setup() {
     requestUpdate();
   });
 
+  // Setup matrix input and sliders
+  if (matrixInput) {
+    matrixInput.addEventListener('input', function () { updateUrlParameters(); requestUpdate(); });
+    matrixInput.addEventListener('keyup', function () { updateUrlParameters(); requestUpdate(); });
+    if (!window.location.search) matrixInput.value = "RPI";
+  }
+  if (matrixRowsSlider) {
+    matrixRowsSlider.addEventListener('input', function () {
+      if (matrixRowsDisplay) matrixRowsDisplay.textContent = this.value;
+      updateUrlParameters(); requestUpdate();
+    });
+    if (matrixRowsDisplay && matrixRowsSlider) matrixRowsDisplay.textContent = matrixRowsSlider.value;
+  }
+  if (matrixGapSlider) {
+    matrixGapSlider.addEventListener('input', function () {
+      if (matrixGapDisplay) matrixGapDisplay.textContent = this.value;
+      updateUrlParameters(); requestUpdate();
+    });
+    if (matrixGapDisplay && matrixGapSlider) matrixGapDisplay.textContent = matrixGapSlider.value;
+  }
+
+  // Setup truss sliders
+  if (trussSegmentsSlider) {
+    trussSegmentsSlider.addEventListener('input', function () {
+      if (trussSegmentsDisplay) trussSegmentsDisplay.textContent = this.value;
+      updateUrlParameters(); requestUpdate();
+    });
+    if (trussSegmentsDisplay && trussSegmentsSlider) trussSegmentsDisplay.textContent = trussSegmentsSlider.value;
+  }
+  if (trussThicknessSlider) {
+    trussThicknessSlider.addEventListener('input', function () {
+      if (trussThicknessDisplay) trussThicknessDisplay.textContent = this.value;
+      updateUrlParameters(); requestUpdate();
+    });
+    if (trussThicknessDisplay && trussThicknessSlider) trussThicknessDisplay.textContent = trussThicknessSlider.value;
+  }
+
+  // Setup staff controls
+  if (staffTempoSlider) {
+    staffTempoSlider.addEventListener('input', function () {
+      if (staffTempoDisplay) staffTempoDisplay.textContent = this.value;
+      updateUrlParameters(); requestUpdate();
+    });
+    if (staffTempoDisplay && staffTempoSlider) staffTempoDisplay.textContent = staffTempoSlider.value;
+  }
+
+  if (staffInstrumentSelect) {
+    staffInstrumentSelect.addEventListener('change', function () {
+      updateUrlParameters(); requestUpdate();
+    });
+  }
+
+  // Setup note duration buttons
+  const durationBtns = document.querySelectorAll('#staff-duration-selector .duration-btn');
+  durationBtns.forEach(btn => {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      durationBtns.forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      currentNoteDuration = parseFloat(this.getAttribute('data-duration'));
+    });
+  });
+
+  // Setup keyboard
+  const pianoKeys = document.querySelectorAll('.piano-keyboard .key');
+  pianoKeys.forEach(key => {
+    key.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+      this.classList.add('active');
+      const noteName = this.getAttribute('data-note');
+      const totalDuration = currentStaffNotes.reduce((sum, n) => sum + n.duration, 0);
+      if (totalDuration + currentNoteDuration <= 16) {
+        currentStaffNotes.push({ note: noteName, duration: currentNoteDuration });
+        updateUrlParameters();
+        requestUpdate();
+      } else {
+        if (typeof Toast !== 'undefined') {
+          Toast.show('Maximum of 4 measures reached.', 'warning');
+        }
+      }
+    });
+    key.addEventListener('mouseup', function () { this.classList.remove('active'); });
+    key.addEventListener('mouseleave', function () { this.classList.remove('active'); });
+  });
+
+  if (staffClearBtn) {
+    staffClearBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      currentStaffNotes = [];
+      updateUrlParameters();
+      requestUpdate();
+    });
+  }
+
+  // Setup pulse controls
+  if (pulseInput) {
+    pulseInput.addEventListener('input', function () { updateUrlParameters(); requestUpdate(); });
+    pulseInput.addEventListener('keyup', function () { updateUrlParameters(); requestUpdate(); });
+    if (!window.location.search) pulseInput.value = "RPI";
+  }
+  if (pulseIntensitySlider) {
+    pulseIntensitySlider.addEventListener('input', function () {
+      if (pulseIntensityDisplay) pulseIntensityDisplay.textContent = this.value;
+      updateUrlParameters(); requestUpdate();
+    });
+    if (pulseIntensityDisplay && pulseIntensitySlider) pulseIntensityDisplay.textContent = pulseIntensitySlider.value;
+  }
+
+  // Setup graph controls
+  if (graphInput) {
+    graphInput.addEventListener('input', function () { updateUrlParameters(); requestUpdate(); });
+    graphInput.addEventListener('keyup', function () { updateUrlParameters(); requestUpdate(); });
+    if (!window.location.search) graphInput.value = "RPI";
+  }
+  if (graphScaleSlider) {
+    graphScaleSlider.addEventListener('input', function () {
+      if (graphScaleDisplay) graphScaleDisplay.textContent = this.value;
+      updateUrlParameters(); requestUpdate();
+    });
+    if (graphScaleDisplay && graphScaleSlider) graphScaleDisplay.textContent = graphScaleSlider.value;
+  }
+
   // Apply URL parameters if present, otherwise use defaults
   applyUrlParameters();
 
@@ -739,9 +1156,8 @@ async function setup() {
 
     // Handle spacebar for playback
     if (event.code === 'Space' && !event.shiftKey) {
-      // Only toggle if current style is animated
-      // Animated styles: Ticker (2), Waveform (4)
-      if (currentShader === 2 || currentShader === 4) {
+      // Allow spacebar pausing on any shader mode that supports animation
+      if (isAnimated) {
         event.preventDefault();
         togglePlayback();
       }
@@ -794,19 +1210,6 @@ async function setup() {
       console.log('Keyboard toggle - color mode:', nextColorMode);
     }
   });
-
-  // Add keyup event listener for spacebar release
-  document.addEventListener('keyup', function (event) {
-    // Only handle keyboard events on non-mobile devices
-    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-      return;
-    }
-
-    if (event.code === 'Space' && !event.shiftKey) {
-      event.preventDefault();
-      stopAudio();
-    }
-  });
 }
 
 function handleBinaryInput() {
@@ -833,6 +1236,25 @@ function updateBinaryData(text) {
     binary: textToBinary(cleanText)
   };
   binaryLength = binaryData.binary.length;
+}
+
+function updateMorseData(text) {
+  let cleanText = text || "RPI";
+  if (window.ProfanityFilter && typeof window.ProfanityFilter.sanitizeText === 'function') {
+    cleanText = window.ProfanityFilter.sanitizeText(cleanText);
+    if (cleanText !== text) {
+      console.log('Profanity filtered from morse input');
+      if (morseInput && morseInput.value === text) {
+        morseInput.value = cleanText;
+      }
+    }
+  }
+
+  morseData = {
+    text: cleanText,
+    morse: textToMorse(cleanText)
+  };
+  morseLength = morseData.morse.length;
 }
 
 function updateNumericData(numericString) {
@@ -976,30 +1398,39 @@ function updateCirclesGridOverlapDisplay() {
 }
 
 function toggleMobileMenu() {
-  const isActive = appSidebar.classList.contains('active');
+  const isMobile = window.innerWidth <= 768;
 
-  if (!isActive) {
-    // Opening sidebar
-    lastFocusedElement = document.activeElement;
-    appSidebar.classList.add('active');
-    if (mobileMenuToggle) mobileMenuToggle.setAttribute('aria-expanded', 'true');
+  if (isMobile) {
+    const isActive = appSidebar.classList.contains('active');
+    if (!isActive) {
+      // Opening sidebar on mobile
+      lastFocusedElement = document.activeElement;
+      appSidebar.classList.add('active');
+      if (mobileMenuToggle) mobileMenuToggle.setAttribute('aria-expanded', 'true');
 
-    // Move focus to first interactive element in sidebar
-    setTimeout(() => {
-      const firstFocusable = appSidebar.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-      if (firstFocusable) firstFocusable.focus();
-    }, 100);
-  } else {
-    // Closing sidebar
-    appSidebar.classList.remove('active');
-    if (mobileMenuToggle) mobileMenuToggle.setAttribute('aria-expanded', 'false');
+      setTimeout(() => {
+        const firstFocusable = appSidebar.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (firstFocusable) firstFocusable.focus();
+      }, 100);
+    } else {
+      // Closing sidebar on mobile
+      appSidebar.classList.remove('active');
+      if (mobileMenuToggle) mobileMenuToggle.setAttribute('aria-expanded', 'false');
 
-    // Restore focus
-    if (lastFocusedElement && document.body.contains(lastFocusedElement)) {
-      lastFocusedElement.focus();
-    } else if (mobileMenuToggle) {
-      mobileMenuToggle.focus();
+      if (lastFocusedElement && document.body.contains(lastFocusedElement)) {
+        lastFocusedElement.focus();
+      } else if (mobileMenuToggle) {
+        mobileMenuToggle.focus();
+      }
     }
+  } else {
+    // Desktop behavior (collapsible)
+    appSidebar.classList.toggle('sidebar-collapsed');
+
+    // Resize the canvas gracefully to fill the newfound space
+    setTimeout(() => {
+      windowResized();
+    }, 450); // Slightly longer than transition to ensure layout is done
   }
 }
 
@@ -1061,13 +1492,31 @@ function handleStyleChange() {
     case 'numeric':
       currentShader = 6;
       break;
+    case 'morse':
+      currentShader = 7;
+      break;
+    case 'matrix':
+      currentShader = 8;
+      break;
+    case 'truss':
+      currentShader = 9;
+      break;
+    case 'staff':
+      currentShader = 10;
+      break;
+    case 'pulse':
+      currentShader = 11;
+      break;
+    case 'graph':
+      currentShader = 12;
+      break;
     default:
       currentShader = 0;
       break;
   }
 
   // Safely update UI elements only if they exist
-  if (binaryGroup && rulerGroup && tickerGroup && waveformGroup && circlesGroup && numericGroup) {
+  if (binaryGroup && rulerGroup && tickerGroup && waveformGroup && circlesGroup && numericGroup && morseGroup) {
     // Hide all groups first
     binaryGroup.style.display = 'none';
     rulerGroup.style.display = 'none';
@@ -1075,6 +1524,12 @@ function handleStyleChange() {
     waveformGroup.style.display = 'none';
     circlesGroup.style.display = 'none';
     numericGroup.style.display = 'none';
+    morseGroup.style.display = 'none';
+    if (matrixGroup) matrixGroup.style.display = 'none';
+    if (trussGroup) trussGroup.style.display = 'none';
+    if (staffGroup) staffGroup.style.display = 'none';
+    if (pulseGroup) pulseGroup.style.display = 'none';
+    if (graphGroup) graphGroup.style.display = 'none';
 
     // Show the appropriate group
     // Show the appropriate group and handle playback controls
@@ -1101,6 +1556,26 @@ function handleStyleChange() {
       case 'numeric':
         numericGroup.style.display = 'block';
         break;
+      case 'morse':
+        morseGroup.style.display = 'block';
+        isAnimated = true; // Morse logic handles its own sequence looping with spacebar support
+        break;
+      case 'matrix':
+        if (matrixGroup) matrixGroup.style.display = 'block';
+        break;
+      case 'truss':
+        if (trussGroup) trussGroup.style.display = 'block';
+        break;
+      case 'staff':
+        if (staffGroup) staffGroup.style.display = 'block';
+        isAnimated = true;
+        break;
+      case 'pulse':
+        if (pulseGroup) pulseGroup.style.display = 'block';
+        break;
+      case 'graph':
+        if (graphGroup) graphGroup.style.display = 'block';
+        break;
     }
 
     // Toggle playback controls visibility
@@ -1108,10 +1583,12 @@ function handleStyleChange() {
       if (isAnimated) {
         playbackBtn.classList.remove('hidden');
         playbackDivider.classList.remove('hidden');
-        // Reset to playing state when switching to an animated mode, or keep?
-        // Let's ensure loop is on if we switch to it, or respect current state?
-        // Better to reset to playing for UX.
-        if (!isPlaying) togglePlayback();
+        // Reset to playing state when switching to an animated mode, except for Morse
+        if (selectedStyle === 'morse') {
+          if (isPlaying) togglePlayback();
+        } else {
+          if (!isPlaying) togglePlayback();
+        }
       } else {
         playbackBtn.classList.add('hidden');
         playbackDivider.classList.add('hidden');
@@ -1120,6 +1597,15 @@ function handleStyleChange() {
         // This app seems to run draw loop constantly for all modes currently.
         if (!isPlaying) togglePlayback(); // Resume loop if it was paused
       }
+    }
+
+    // Handle audio state transitions
+    if (selectedStyle === 'waveform') {
+      if (waveformAudioToggle && waveformAudioToggle.checked && isPlaying) {
+        startAudio();
+      }
+    } else {
+      stopAudio();
     }
   }
 
@@ -1156,10 +1642,6 @@ function applyColorMode(colorMode) {
       document.body.classList.add('theme-light');
   }
 
-  // Update control element colors (only needed for complex elements like sliders or SVG icons that rely on JS)
-  // Most styling is now handled by CSS variables
-  updateControlElementColors(colors[colorMode]);
-
   console.log('Color mode applied:', colorMode);
   requestUpdate();
 }
@@ -1170,15 +1652,6 @@ function requestUpdate() {
   }
 }
 
-function updateControlElementColors(colorScheme) {
-  // Update select dropdown arrows (needs JS because it's a data URI)
-  const selects = document.querySelectorAll('.control-select');
-  selects.forEach(select => {
-    const arrowColor = colorScheme.fg === '#ffffff' ? 'white' : 'black';
-    const arrowSvg = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><polygon points="6,8 2,4 10,4" fill="${arrowColor}"/></svg>')`;
-    select.style.setProperty('--dropdown-arrow', arrowSvg);
-  });
-}
 
 
 
@@ -1663,6 +2136,18 @@ function generateOptimizedGrid(barWidth, barHeight, baseRadius, minDistanceMulti
 
 
 // Audio functions
+let sequenceContext = {
+  active: false,
+  timerId: null,
+  nextNoteTime: 0,
+  currentNote: 0,
+  baseTime: 0,
+  osc1: null,
+  osc2: null,
+  gain1: null,
+  gain2: null
+};
+
 async function initializeAudio() {
   try {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -1682,8 +2167,8 @@ async function initializeAudio() {
 }
 
 async function startAudio() {
-  // Only play audio when waveform mode is selected
-  if (!audioContext || isAudioPlaying || currentShader !== 4) return;
+  // Only play audio if audioContext exists
+  if (!audioContext || isAudioPlaying) return;
 
   try {
     // Resume audio context if suspended (required by browsers)
@@ -1691,94 +2176,133 @@ async function startAudio() {
       await audioContext.resume();
     }
 
-    // Get current parameters
-    const frequency = parseInt(waveformFrequencySlider.value);
-
-    // Map frequency from 10-100 to C1-C5 (32.70Hz to 523.25Hz)
-    const minFreq = 32.70; // C1
-    const maxFreq = 523.25; // C5
-    const normalizedFreq = (frequency - 10) / 90; // Normalize 10-100 to 0-1
-    const mappedFrequency = minFreq + (normalizedFreq * (maxFreq - minFreq));
-
-    // Create basic oscillators for smooth morphing
-    const waveTypes = ['sine', 'sawtooth', 'square'];
-
-    waveTypes.forEach(type => {
-      // Create oscillator
-      oscillators[type] = audioContext.createOscillator();
-      oscillators[type].type = type;
-      oscillators[type].frequency.setValueAtTime(mappedFrequency, audioContext.currentTime);
-
-      // Create individual gain node for each oscillator
-      oscillatorGains[type] = audioContext.createGain();
-      oscillatorGains[type].gain.setValueAtTime(0, audioContext.currentTime);
-
-      // Connect oscillator -> gain -> master gain -> destination
-      oscillators[type].connect(oscillatorGains[type]);
-      oscillatorGains[type].connect(gainNode);
-
-      // Start oscillator
-      oscillators[type].start();
-    });
-
-    // Create custom pulse wave using AudioWorklet
-    try {
-      pulseWorkletNode = new AudioWorkletNode(audioContext, 'pulse-processor');
-
-      // Set initial frequency
-      pulseWorkletNode.port.postMessage({
-        type: 'frequency',
-        value: mappedFrequency
-      });
-
-      // Set initial pulse width (20% to match visual)
-      pulseWorkletNode.port.postMessage({
-        type: 'pulseWidth',
-        value: 0.2
-      });
-
-      oscillators.pulse = pulseWorkletNode;
-      oscillatorGains.pulse = audioContext.createGain();
-      oscillatorGains.pulse.gain.setValueAtTime(0, audioContext.currentTime);
-
-      oscillators.pulse.connect(oscillatorGains.pulse);
-      oscillatorGains.pulse.connect(gainNode);
-
-    } catch (error) {
-      console.error('Failed to create pulse worklet:', error);
-      // Fallback: create a square wave oscillator
-      oscillators.pulse = audioContext.createOscillator();
-      oscillators.pulse.type = 'square';
-      oscillators.pulse.frequency.setValueAtTime(mappedFrequency, audioContext.currentTime);
-
-      oscillatorGains.pulse = audioContext.createGain();
-      oscillatorGains.pulse.gain.setValueAtTime(0, audioContext.currentTime);
-
-      oscillators.pulse.connect(oscillatorGains.pulse);
-      oscillatorGains.pulse.connect(gainNode);
-      oscillators.pulse.start();
+    if (currentShader === 4) {
+      if (!waveformAudioToggle || !waveformAudioToggle.checked) return;
+      startWaveformAudio();
+    } else if (currentShader === 3) {
+      if (!binaryAudioToggle || !binaryAudioToggle.checked) return;
+      startSequenceAudio('binary');
+    } else if (currentShader === 7) {
+      startSequenceAudio('morse');
+    } else if (currentShader === 2) {
+      if (!tickerAudioToggle || !tickerAudioToggle.checked) return;
+      startSequenceAudio('ticker');
+    } else if (currentShader === 10) {
+      if (!staffAudioToggle || !staffAudioToggle.checked) return;
+      startSequenceAudio('staff');
     }
-
-    // Set master gain
-    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-    gainNode.gain.linearRampToValueAtTime(1.0, audioContext.currentTime + 0.05);
-
-    isAudioPlaying = true;
-
-    // Set initial waveform mix
-    updateAudioParameters();
-
-    console.log('Audio started - Frequency:', mappedFrequency, 'Type: morphing oscillators with pulse wave');
-
   } catch (error) {
     console.error('Failed to start audio:', error);
   }
 }
 
+async function startWaveformAudio() {
+  // Resume audio context if suspended (required by browsers)
+  if (audioContext.state === 'suspended') {
+    await audioContext.resume();
+  }
+
+  // Get current parameters
+  const frequency = parseInt(waveformFrequencySlider.value);
+
+  // Map frequency from 10-100 to C1-C5 (32.70Hz to 523.25Hz)
+  const minFreq = 32.70; // C1
+  const maxFreq = 523.25; // C5
+  const normalizedFreq = (frequency - 10) / 90; // Normalize 10-100 to 0-1
+  const mappedFrequency = minFreq + (normalizedFreq * (maxFreq - minFreq));
+
+  // Create basic oscillators for smooth morphing
+  const waveTypes = ['sine', 'sawtooth', 'square'];
+
+  waveTypes.forEach(type => {
+    // Create oscillator
+    oscillators[type] = audioContext.createOscillator();
+    oscillators[type].type = type;
+    oscillators[type].frequency.setValueAtTime(mappedFrequency, audioContext.currentTime);
+
+    // Create individual gain node for each oscillator
+    oscillatorGains[type] = audioContext.createGain();
+    oscillatorGains[type].gain.setValueAtTime(0, audioContext.currentTime);
+
+    // Connect oscillator -> gain -> master gain -> destination
+    oscillators[type].connect(oscillatorGains[type]);
+    oscillatorGains[type].connect(gainNode);
+
+    // Start oscillator
+    oscillators[type].start();
+  });
+
+  // Create custom pulse wave using AudioWorklet
+  try {
+    pulseWorkletNode = new AudioWorkletNode(audioContext, 'pulse-processor');
+
+    // Set initial frequency
+    pulseWorkletNode.port.postMessage({
+      type: 'frequency',
+      value: mappedFrequency
+    });
+
+    // Set initial pulse width (20% to match visual)
+    pulseWorkletNode.port.postMessage({
+      type: 'pulseWidth',
+      value: 0.2
+    });
+
+    oscillators.pulse = pulseWorkletNode;
+    oscillatorGains.pulse = audioContext.createGain();
+    oscillatorGains.pulse.gain.setValueAtTime(0, audioContext.currentTime);
+
+    oscillators.pulse.connect(oscillatorGains.pulse);
+    oscillatorGains.pulse.connect(gainNode);
+
+  } catch (error) {
+    console.error('Failed to create pulse worklet:', error);
+    // Fallback: create a square wave oscillator
+    oscillators.pulse = audioContext.createOscillator();
+    oscillators.pulse.type = 'square';
+    oscillators.pulse.frequency.setValueAtTime(mappedFrequency, audioContext.currentTime);
+
+    oscillatorGains.pulse = audioContext.createGain();
+    oscillatorGains.pulse.gain.setValueAtTime(0, audioContext.currentTime);
+
+    oscillators.pulse.connect(oscillatorGains.pulse);
+    oscillatorGains.pulse.connect(gainNode);
+    oscillators.pulse.start();
+  }
+
+  // Clear any previously scheduled values to fix play/pause bug
+  gainNode.gain.cancelScheduledValues(audioContext.currentTime);
+
+  // Set master gain
+  gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+  gainNode.gain.linearRampToValueAtTime(1.0, audioContext.currentTime + 0.05);
+
+  isAudioPlaying = true;
+
+  // Set initial waveform mix
+  updateAudioParameters();
+
+  console.log('Audio started - Frequency:', mappedFrequency, 'Type: morphing oscillators with pulse wave');
+}
+
 function stopAudio() {
   if (!isAudioPlaying) return;
 
+  if (currentShader === 4) {
+    stopWaveformAudio();
+  } else {
+    stopSequenceAudio();
+  }
+
+  isAudioPlaying = false;
+  console.log('Audio stopped');
+}
+
+function stopWaveformAudio() {
   try {
+    // Clear any previously scheduled values to fix play/pause bug
+    gainNode.gain.cancelScheduledValues(audioContext.currentTime);
+
     // Fade out master gain
     gainNode.gain.setValueAtTime(gainNode.gain.value, audioContext.currentTime);
     gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.05);
@@ -1805,9 +2329,266 @@ function stopAudio() {
     console.log('Audio stopped');
 
   } catch (error) {
-    console.error('Failed to stop audio:', error);
+    console.error('Failed to stop waveform audio:', error);
   }
 }
+
+function startSequenceAudio(type) {
+  if (sequenceContext.active) return;
+  sequenceContext.active = true;
+  isAudioPlaying = true;
+
+  // Set up oscillators
+  sequenceContext.osc1 = audioContext.createOscillator();
+  sequenceContext.gain1 = audioContext.createGain();
+  sequenceContext.osc1.connect(sequenceContext.gain1);
+  sequenceContext.gain1.connect(audioContext.destination);
+  sequenceContext.gain1.gain.setValueAtTime(0, audioContext.currentTime);
+
+  if (type === 'ticker') {
+    sequenceContext.osc2 = audioContext.createOscillator();
+    sequenceContext.gain2 = audioContext.createGain();
+    sequenceContext.osc2.connect(sequenceContext.gain2);
+    sequenceContext.gain2.connect(audioContext.destination);
+    sequenceContext.gain2.gain.setValueAtTime(0, audioContext.currentTime);
+
+    sequenceContext.osc1.type = 'triangle'; // Top ticker
+    sequenceContext.osc2.type = 'square';   // Bottom ticker
+    sequenceContext.osc2.start(audioContext.currentTime);
+  } else if (type === 'binary') {
+    sequenceContext.osc1.type = 'sine'; // FSK
+  } else if (type === 'morse') {
+    sequenceContext.osc1.type = 'sine'; // CW
+  } else if (type === 'staff') {
+    sequenceContext.osc1.type = 'triangle'; // Default for piano
+  }
+
+  sequenceContext.osc1.start(audioContext.currentTime);
+
+  if (sequenceContext.type !== type) {
+    sequenceContext.currentNote = 0;
+  }
+  sequenceContext.nextNoteTime = audioContext.currentTime + 0.1;
+  sequenceContext.type = type;
+
+  scheduleSequenceLoop();
+}
+
+function stopSequenceAudio() {
+  sequenceContext.active = false;
+  clearTimeout(sequenceContext.timerId);
+
+  const t = audioContext.currentTime;
+  if (sequenceContext.gain1) {
+    sequenceContext.gain1.gain.cancelScheduledValues(t);
+    sequenceContext.gain1.gain.setValueAtTime(sequenceContext.gain1.gain.value, t);
+    sequenceContext.gain1.gain.linearRampToValueAtTime(0, t + 0.05);
+  }
+  if (sequenceContext.gain2) {
+    sequenceContext.gain2.gain.cancelScheduledValues(t);
+    sequenceContext.gain2.gain.setValueAtTime(sequenceContext.gain2.gain.value, t);
+    sequenceContext.gain2.gain.linearRampToValueAtTime(0, t + 0.05);
+  }
+
+  setTimeout(() => {
+    if (sequenceContext.osc1) { sequenceContext.osc1.stop(); sequenceContext.osc1.disconnect(); sequenceContext.osc1 = null; }
+    if (sequenceContext.osc2) { sequenceContext.osc2.stop(); sequenceContext.osc2.disconnect(); sequenceContext.osc2 = null; }
+    if (sequenceContext.gain1) { sequenceContext.gain1.disconnect(); sequenceContext.gain1 = null; }
+    if (sequenceContext.gain2) { sequenceContext.gain2.disconnect(); sequenceContext.gain2 = null; }
+  }, 100);
+}
+
+function scheduleSequenceLoop() {
+  if (!sequenceContext.active) return;
+
+  const lookahead = 0.5; // schedule half a second ahead
+  const t = audioContext.currentTime;
+
+  while (sequenceContext.nextNoteTime < t + lookahead) {
+    if (sequenceContext.type === 'morse') {
+      scheduleMorseNote();
+    } else if (sequenceContext.type === 'binary') {
+      scheduleBinaryNote();
+    } else if (sequenceContext.type === 'ticker') {
+      scheduleTickerNote();
+    } else if (sequenceContext.type === 'staff') {
+      scheduleStaffNote();
+    }
+  }
+
+  sequenceContext.timerId = setTimeout(scheduleSequenceLoop, 100);
+}
+
+function scheduleMorseNote() {
+  const data = morseData.morse;
+  if (!data || data.length === 0) {
+    sequenceContext.nextNoteTime += 1.0;
+    return;
+  }
+
+  // Stop at the end of the morse sequence text naturally
+  if (sequenceContext.currentNote >= data.length) {
+    if (isPlaying) {
+      togglePlayback();
+    }
+    return;
+  }
+
+  const unitDuration = 0.08; // 80ms per morse unit
+  const idx = sequenceContext.currentNote % data.length;
+  const bit = data[idx];
+
+  const time = sequenceContext.nextNoteTime;
+  const gain = sequenceContext.gain1.gain;
+  const osc = sequenceContext.osc1;
+
+  osc.frequency.setValueAtTime(600, time); // 600 Hz CW tone
+
+  if (bit === 1) {
+    // Ramp up to avoid clicks
+    gain.setValueAtTime(0, time);
+    gain.linearRampToValueAtTime(0.5, time + 0.005);
+    // Keep sustaining
+    gain.setValueAtTime(0.5, time + unitDuration - 0.005);
+    gain.linearRampToValueAtTime(0, time + unitDuration);
+  } else {
+    gain.setValueAtTime(0, time);
+  }
+
+  sequenceContext.nextNoteTime += unitDuration;
+  sequenceContext.currentNote++;
+
+  sequenceContext.currentNote++;
+}
+
+function scheduleBinaryNote() {
+  const data = binaryData.binary;
+  if (!data || data.length === 0) {
+    sequenceContext.nextNoteTime += 1.0;
+    return;
+  }
+
+  const bitDuration = 0.15; // 150ms per bit (baud rate)
+  const idx = sequenceContext.currentNote % data.length;
+  const bit = data[idx];
+
+  const time = sequenceContext.nextNoteTime;
+  const gain = sequenceContext.gain1.gain;
+  const osc = sequenceContext.osc1.frequency;
+
+  // FSK modulation: 400Hz for 0, 800Hz for 1
+  const freq = bit === '1' ? 800 : 400;
+
+  // Small envelope for clicks and framing
+  gain.setValueAtTime(0, time);
+  gain.linearRampToValueAtTime(0.3, time + 0.01);
+  osc.setValueAtTime(freq, time);
+
+  gain.setValueAtTime(0.3, time + bitDuration - 0.01);
+  gain.linearRampToValueAtTime(0, time + bitDuration);
+
+  sequenceContext.nextNoteTime += bitDuration;
+  sequenceContext.currentNote++;
+
+  if (sequenceContext.currentNote % data.length === 0) {
+    sequenceContext.nextNoteTime += 1.5; // 1.5s pause before repeating
+  }
+}
+
+function scheduleTickerNote() {
+  // Use ratio to sync two polyrhythmic tick sequences within a total loop duration
+  const totalDuration = 4.0;
+  const topRepeats = tickerSlider ? parseInt(tickerSlider.value) : 34;
+  const countRatio = tickerRatioSlider ? parseInt(tickerRatioSlider.value) : 2;
+  const bottomRepeats = Math.max(1, Math.floor(topRepeats / countRatio));
+
+  const time = sequenceContext.nextNoteTime;
+
+  // This will play a tick for whichever stream is active.
+  // We'll manage both streams simultaneously in this tick since there's no data array.
+
+  const topInterval = totalDuration / topRepeats;
+
+  // Play top tick
+  sequenceContext.osc1.frequency.setValueAtTime(1000, time);
+  sequenceContext.osc1.frequency.exponentialRampToValueAtTime(1, time + 0.05);
+  sequenceContext.gain1.gain.setValueAtTime(0.5, time);
+  sequenceContext.gain1.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
+
+  // Determine if bottom tick should play
+  // To avoid complex dual scheduling, just map bottom ticks to when they theoretically hit
+  // Given we are moving at `topInterval` steps, bottom hits exactly when:
+  if (sequenceContext.currentNote % countRatio === 0) {
+    sequenceContext.osc2.frequency.setValueAtTime(300, time);
+    sequenceContext.osc2.frequency.exponentialRampToValueAtTime(1, time + 0.05);
+    sequenceContext.gain2.gain.setValueAtTime(0.8, time);
+    sequenceContext.gain2.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
+  }
+
+  sequenceContext.nextNoteTime += topInterval;
+  sequenceContext.currentNote++;
+
+  if (sequenceContext.currentNote % topRepeats === 0) {
+    sequenceContext.nextNoteTime += 1.0; // 1s pause
+  }
+}
+
+// Map notes to frequencies
+const NOTE_FREQUENCIES = {
+  'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13,
+  'E4': 329.63, 'F4': 349.23, 'F#4': 369.99, 'G4': 392.00,
+  'G#4': 415.30, 'A4': 440.00, 'A#4': 466.16, 'B4': 493.88,
+  'C5': 523.25
+};
+
+function scheduleStaffNote() {
+  const data = currentStaffNotes;
+  if (!data || data.length === 0) {
+    sequenceContext.nextNoteTime += 1.0;
+    return;
+  }
+
+  const tempo = staffTempoSlider ? parseInt(staffTempoSlider.value) : 120;
+  // tempo is quarter notes per minute. So 1 quarter note = 60 / tempo seconds
+  const quarterNoteDuration = 60 / tempo;
+
+  const idx = sequenceContext.currentNote % data.length;
+  const noteData = data[idx];
+  const time = sequenceContext.nextNoteTime;
+  const actualDuration = noteData.duration * quarterNoteDuration;
+
+  const gain = sequenceContext.gain1.gain;
+  const osc = sequenceContext.osc1;
+  const freq = NOTE_FREQUENCIES[noteData.note] || 440;
+
+  osc.frequency.setValueAtTime(freq, time);
+
+  const instrument = staffInstrumentSelect ? staffInstrumentSelect.value : 'piano';
+
+  // Basic release to avoid clicks
+  gain.cancelScheduledValues(time);
+  if (instrument === 'synth') {
+    osc.type = 'sawtooth';
+    gain.setValueAtTime(0, time);
+    gain.linearRampToValueAtTime(0.3, time + 0.05);
+    gain.linearRampToValueAtTime(0, time + actualDuration - 0.01);
+  } else if (instrument === 'marimba') {
+    osc.type = 'sine';
+    gain.setValueAtTime(0, time);
+    gain.linearRampToValueAtTime(0.6, time + 0.01);
+    gain.exponentialRampToValueAtTime(0.01, time + Math.min(0.2, actualDuration));
+  } else {
+    // piano
+    osc.type = 'triangle';
+    gain.setValueAtTime(0, time);
+    gain.linearRampToValueAtTime(0.4, time + 0.02);
+    gain.exponentialRampToValueAtTime(0.01, time + actualDuration);
+  }
+
+  sequenceContext.nextNoteTime += actualDuration;
+  sequenceContext.currentNote++;
+}
+
 
 // Simple single oscillator approach like the original
 
@@ -1839,6 +2620,15 @@ function getUrlParameters() {
     waveformFrequency: parseInt(params.get('waveformFrequency')) || 24,
     waveformSpeed: parseFloat(params.get('waveformSpeed')) || 0.7,
 
+    waveformEnvelope: params.get('waveformEnvelope') || 'false',
+    waveformEnvelopeType: params.get('waveformEnvelopeType') || 'sine',
+    waveformEnvelopeWaves: params.get('waveformEnvelopeWaves'),
+    waveformEnvelopeCenter: params.get('waveformEnvelopeCenter'),
+    waveformEnvelopeBipolar: params.get('waveformEnvelopeBipolar') || 'false',
+
+    waveformAudio: params.get('waveformAudio') === 'true',
+    waveformAnimate: params.get('waveformAnimate') !== 'false',
+
     // Circles parameters
     circlesMode: params.get('circlesMode') || 'packing',
     circlesFill: params.get('circlesFill') || 'stroke',
@@ -1852,7 +2642,37 @@ function getUrlParameters() {
     circlesSizeVariationY: parseInt(params.get('circlesSizeVariationY')) || 0,
     circlesSizeVariationX: parseInt(params.get('circlesSizeVariationX')) || 0,
     circlesGridOverlap: parseInt(params.get('circlesGridOverlap')) || 0,
-    circlesLayout: params.get('circlesLayout') || 'straight'
+    circlesLayout: params.get('circlesLayout') || 'straight',
+
+    // Matrix parameters
+    matrixText: params.get('matrixText') || 'RPI',
+    matrixRows: parseInt(params.get('matrixRows')) || 3,
+    matrixGap: parseInt(params.get('matrixGap')) || 1,
+
+    // Truss parameters
+    trussSegments: parseInt(params.get('trussSegments')) || 15,
+    trussThickness: parseFloat(params.get('trussThickness')) || 2,
+
+    // Staff parameters
+    staffNotes: params.get('staffNotes') || '',
+    staffTempo: parseInt(params.get('staffTempo')) || 120,
+    staffInstrument: params.get('staffInstrument') || 'piano',
+    staffAudio: params.get('staffAudio') === 'true',
+    staffAnimate: params.get('staffAnimate') !== 'false',
+
+    // Pulse parameters
+    pulseText: params.get('pulseText') || 'RPI',
+    pulseIntensity: parseFloat(params.get('pulseIntensity')) || 5,
+
+    // Graph parameters
+    graphText: params.get('graphText') || 'RPI',
+    graphScale: parseInt(params.get('graphScale')) || 10,
+
+    // Additional parameters
+    morseText: params.get('morseText') || 'RPI',
+    binaryAudio: params.get('binaryAudio') === 'true',
+    morseAudio: params.get('morseAudio') === 'true',
+    tickerAudio: params.get('tickerAudio') === 'true'
   };
 }
 
@@ -1873,6 +2693,18 @@ function updateUrlParameters() {
     if (binaryInput && binaryInput.value !== 'RPI') {
       params.set('binaryText', binaryInput.value);
     }
+    if (binaryAudioToggle && binaryAudioToggle.checked) {
+      params.set('binaryAudio', 'true');
+    }
+  }
+
+  if (styleSelect && styleSelect.value === 'morse') {
+    if (morseInput && morseInput.value !== 'RPI') {
+      params.set('morseText', morseInput.value);
+    }
+    if (morseAudioToggle && morseAudioToggle.checked) {
+      params.set('morseAudio', 'true');
+    }
   }
 
   if (styleSelect && styleSelect.value === 'numeric') {
@@ -1881,6 +2713,61 @@ function updateUrlParameters() {
     }
     if (numericModeSelect && numericModeSelect.value !== 'dotmatrix') {
       params.set('numericMode', numericModeSelect.value);
+    }
+  }
+
+  if (styleSelect && styleSelect.value === 'matrix') {
+    if (matrixInput && matrixInput.value !== 'RPI') {
+      params.set('matrixText', matrixInput.value);
+    }
+    if (matrixRowsSlider && parseInt(matrixRowsSlider.value) !== 3) {
+      params.set('matrixRows', matrixRowsSlider.value);
+    }
+    if (matrixGapSlider && parseInt(matrixGapSlider.value) !== 1) {
+      params.set('matrixGap', matrixGapSlider.value);
+    }
+  }
+
+  if (styleSelect && styleSelect.value === 'truss') {
+    if (trussSegmentsSlider && parseInt(trussSegmentsSlider.value) !== 15) {
+      params.set('trussSegments', trussSegmentsSlider.value);
+    }
+    if (trussThicknessSlider && parseFloat(trussThicknessSlider.value) !== 2) {
+      params.set('trussThickness', trussThicknessSlider.value);
+    }
+  }
+
+  if (styleSelect && styleSelect.value === 'staff') {
+    // staffNotes removed
+    if (staffTempoSlider && parseInt(staffTempoSlider.value) !== 120) {
+      params.set('staffTempo', staffTempoSlider.value);
+    }
+    if (staffInstrumentSelect && staffInstrumentSelect.value !== 'piano') {
+      params.set('staffInstrument', staffInstrumentSelect.value);
+    }
+    /* 
+    if (staffAnimateToggle && !staffAnimateToggle.checked) {
+      params.set('staffAnimate', 'false');
+    }
+    */
+    params.set('staffAnimate', 'false');
+  }
+
+  if (styleSelect && styleSelect.value === 'pulse') {
+    if (pulseInput && pulseInput.value !== 'RPI') {
+      params.set('pulseText', pulseInput.value);
+    }
+    if (pulseIntensitySlider && parseFloat(pulseIntensitySlider.value) !== 5) {
+      params.set('pulseIntensity', pulseIntensitySlider.value);
+    }
+  }
+
+  if (styleSelect && styleSelect.value === 'graph') {
+    if (graphInput && graphInput.value !== 'RPI') {
+      params.set('graphText', graphInput.value);
+    }
+    if (graphScaleSlider && parseInt(graphScaleSlider.value) !== 10) {
+      params.set('graphScale', graphScaleSlider.value);
     }
   }
 
@@ -1903,6 +2790,9 @@ function updateUrlParameters() {
     if (tickerWidthRatioSlider && parseInt(tickerWidthRatioSlider.value) !== 2) {
       params.set('tickerWidthRatio', tickerWidthRatioSlider.value);
     }
+    if (tickerAudioToggle && tickerAudioToggle.checked) {
+      params.set('tickerAudio', 'true');
+    }
   }
 
   if (styleSelect && styleSelect.value === 'waveform') {
@@ -1914,6 +2804,29 @@ function updateUrlParameters() {
     }
     if (waveformSpeedSlider && parseFloat(waveformSpeedSlider.value) !== 0.7) {
       params.set('waveformSpeed', waveformSpeedSlider.value);
+    }
+
+    if (waveformEnvelopeToggle && waveformEnvelopeToggle.checked) {
+      params.set('waveformEnvelope', 'true');
+    }
+    if (waveformEnvelopeType && waveformEnvelopeType.value !== 'sine') {
+      params.set('waveformEnvelopeType', waveformEnvelopeType.value);
+    }
+    if (waveformEnvelopeWavesSlider && parseFloat(waveformEnvelopeWavesSlider.value) !== 1) {
+      params.set('waveformEnvelopeWaves', waveformEnvelopeWavesSlider.value);
+    }
+    if (waveformEnvelopeCenterSlider && parseFloat(waveformEnvelopeCenterSlider.value) !== 0) {
+      params.set('waveformEnvelopeCenter', waveformEnvelopeCenterSlider.value);
+    }
+    if (waveformEnvelopeBipolarToggle && waveformEnvelopeBipolarToggle.checked) {
+      params.set('waveformEnvelopeBipolar', 'true');
+    }
+
+    if (waveformAudioToggle && waveformAudioToggle.checked) {
+      params.set('waveformAudio', 'true');
+    }
+    if (waveformAnimateToggle && !waveformAnimateToggle.checked) {
+      params.set('waveformAnimate', 'false');
     }
   }
 
@@ -1980,6 +2893,15 @@ function applyUrlParameters() {
   if (binaryInput) {
     binaryInput.value = params.binaryText;
   }
+  if (binaryAudioToggle) {
+    binaryAudioToggle.checked = params.binaryAudio;
+  }
+
+  // Apply morse parameters
+  if (morseInput) {
+    morseInput.value = params.morseText;
+    updateMorseData(params.morseText);
+  }
 
   // Apply numeric parameters
   if (numericInput) {
@@ -1988,6 +2910,73 @@ function applyUrlParameters() {
   }
   if (numericModeSelect) {
     numericModeSelect.value = params.numericMode;
+  }
+
+  // Apply matrix parameters
+  if (matrixInput) {
+    matrixInput.value = params.matrixText;
+  }
+  if (matrixRowsSlider) {
+    matrixRowsSlider.value = params.matrixRows;
+  }
+  if (matrixGapSlider) {
+    matrixGapSlider.value = params.matrixGap;
+  }
+
+  // Apply truss parameters
+  if (trussSegmentsSlider) {
+    trussSegmentsSlider.value = params.trussSegments;
+  }
+  if (trussThicknessSlider) {
+    trussThicknessSlider.value = params.trussThickness;
+  }
+
+  // Apply staff parameters
+  /*
+  if (params.staffNotes) {
+    currentStaffNotes = params.staffNotes.split(',').map(s => {
+      const parts = s.split('_');
+      return { note: parts[0], duration: parseFloat(parts[1]) };
+    });
+  } else {
+    currentStaffNotes = [];
+  }
+  */
+  if (staffTempoSlider) {
+    staffTempoSlider.value = params.staffTempo;
+    if (staffTempoDisplay) staffTempoDisplay.textContent = params.staffTempo;
+  }
+  if (staffInstrumentSelect) {
+    staffInstrumentSelect.value = params.staffInstrument;
+  }
+  if (staffAudioToggle) {
+    staffAudioToggle.checked = params.staffAudio;
+  }
+  if (staffAnimateToggle) {
+    staffAnimateToggle.checked = params.staffAnimate;
+    if (styleSelect && styleSelect.value === 'staff') {
+      if (!params.staffAnimate && isPlaying) {
+        togglePlayback();
+      } else if (params.staffAnimate && !isPlaying) {
+        togglePlayback();
+      }
+    }
+  }
+
+  // Apply pulse parameters
+  if (pulseInput) {
+    pulseInput.value = params.pulseText;
+  }
+  if (pulseIntensitySlider) {
+    pulseIntensitySlider.value = params.pulseIntensity;
+  }
+
+  // Apply graph parameters
+  if (graphInput) {
+    graphInput.value = params.graphText;
+  }
+  if (graphScaleSlider) {
+    graphScaleSlider.value = params.graphScale;
   }
 
   // Apply ruler parameters
@@ -2008,6 +2997,9 @@ function applyUrlParameters() {
   if (tickerWidthRatioSlider) {
     tickerWidthRatioSlider.value = params.tickerWidthRatio;
   }
+  if (tickerAudioToggle) {
+    tickerAudioToggle.checked = params.tickerAudio;
+  }
 
   // Apply waveform parameters
   if (waveformTypeSlider) {
@@ -2018,6 +3010,17 @@ function applyUrlParameters() {
   }
   if (waveformSpeedSlider) {
     waveformSpeedSlider.value = params.waveformSpeed;
+  }
+  if (waveformAudioToggle) {
+    waveformAudioToggle.checked = params.waveformAudio;
+  }
+  if (waveformAnimateToggle) {
+    waveformAnimateToggle.checked = params.waveformAnimate;
+    if (!params.waveformAnimate && isPlaying) {
+      togglePlayback();
+    } else if (params.waveformAnimate && !isPlaying) {
+      togglePlayback();
+    }
   }
 
   // Apply circles parameters
@@ -2168,45 +3171,52 @@ function updateAudioParameters() {
 
     // Use smooth ramp time for gentle transitions
     const rampTime = 0.05;
-    if (oscillatorGains.sine) {
-      oscillatorGains.sine.gain.linearRampToValueAtTime(sineGain, audioContext.currentTime + rampTime);
-    }
-    if (oscillatorGains.sawtooth) {
-      oscillatorGains.sawtooth.gain.linearRampToValueAtTime(sawGain, audioContext.currentTime + rampTime);
-    }
-    if (oscillatorGains.square) {
-      oscillatorGains.square.gain.linearRampToValueAtTime(squareGain, audioContext.currentTime + rampTime);
-    }
-    if (oscillatorGains.pulse) {
-      oscillatorGains.pulse.gain.linearRampToValueAtTime(pulseGain, audioContext.currentTime + rampTime);
-    }
+    const time = audioContext.currentTime;
+
+    // Use setTargetAtTime which cleanly and safely transitions from the current computed value
+    if (oscillatorGains.sine) oscillatorGains.sine.gain.setTargetAtTime(sineGain, time, rampTime / 3);
+    if (oscillatorGains.sawtooth) oscillatorGains.sawtooth.gain.setTargetAtTime(sawGain, time, rampTime / 3);
+    if (oscillatorGains.square) oscillatorGains.square.gain.setTargetAtTime(squareGain, time, rampTime / 3);
+    if (oscillatorGains.pulse) oscillatorGains.pulse.gain.setTargetAtTime(pulseGain, time, rampTime / 3);
 
   } catch (error) {
     console.error('Failed to update audio parameters:', error);
   }
 }
 
+let resizeTimeout;
 function windowResized() {
-  const container = document.getElementById('p5-container');
-  if (container) {
-    resizeCanvas(container.offsetWidth, container.offsetHeight);
-  } else {
-    resizeCanvas(windowWidth, windowHeight);
-  }
+  clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(() => {
+    const container = document.getElementById('p5-container');
+    if (container) {
+      resizeCanvas(container.offsetWidth, container.offsetHeight);
+    } else {
+      resizeCanvas(windowWidth, windowHeight);
+    }
+  }, 100);
 }
 
 // Frame rate limiting for performance
 let lastFrameTime = 0;
-const TARGET_FPS = 30;
+const TARGET_FPS = 60;
 const FRAME_INTERVAL = 1000 / TARGET_FPS;
 
 function draw() {
   // Limit frame rate to prevent excessive computation
   const currentTime = millis();
-  if (currentTime - lastFrameTime < FRAME_INTERVAL) {
+  const deltaTime = currentTime - lastFrameTime;
+  if (deltaTime < FRAME_INTERVAL) {
     return;
   }
   lastFrameTime = currentTime;
+
+  if (isPlaying) {
+    if (typeof window.animationTime === 'undefined') {
+      window.animationTime = 0;
+    }
+    window.animationTime += deltaTime / 1000.0;
+  }
 
   // Get current color scheme
   const colorScheme = colors[currentColorMode];
@@ -2452,7 +3462,7 @@ function drawBottomBar(currentWidth) {
     const frequency = parseInt(waveformFrequencySlider.value);
     const waveType = parseFloat(waveformTypeSlider.value);
     const speed = parseFloat(waveformSpeedSlider.value);
-    const time = millis() / 1000.0;
+    const time = typeof window.animationTime !== 'undefined' ? window.animationTime : millis() / 1000.0;
 
     // Calculate optimal number of points based on frequency and width for ultra-smooth rendering
     // Use much higher point density for high frequencies to prevent aliasing
@@ -2466,8 +3476,8 @@ function drawBottomBar(currentWidth) {
       const normalizedPhase = phase - Math.floor(phase);
       const wrappedPhase = normalizedPhase < 0 ? normalizedPhase + 1 : normalizedPhase;
 
-      // Define all wave types in proper scope
-      const sine = (Math.sin(phase * 2 * Math.PI) + 1) * 0.5;
+      // Define all wave types such that they align at 0
+      const sine = (Math.sin(wrappedPhase * 2 * Math.PI - Math.PI / 2) + 1) * 0.5;
       const saw = wrappedPhase;
       const square = wrappedPhase > 0.5 ? 1.0 : 0.0;
       const pulse = wrappedPhase > 0.8 ? 1.0 : 0.0;
@@ -2498,16 +3508,52 @@ function drawBottomBar(currentWidth) {
 
     // Generate the waveform curve
     for (let i = 0; i <= points; i++) {
-      const x = (i / points) * exactBarWidth;
+      const xPortion = i / points;
+      const x = xPortion * exactBarWidth;
 
-      // Use higher precision phase calculation
-      const rawPhase = ((x / exactBarWidth) * frequency) - (time * speed);
+      // Standard rolling phase calculation (horizontal movement only)
+      let rawPhase = (xPortion * frequency) - (time * speed);
+
+      // Fix tiny floating point inaccuracies
+      rawPhase = Math.round(rawPhase * 1000000) / 1000000;
 
       // Generate smooth waveform value
-      const wave = generateWaveValue(rawPhase, waveType);
+      let wave = generateWaveValue(rawPhase, waveType);
 
-      // Convert to y coordinate within the bar (inverted so 1 is at top)
-      const y = rectHeight * (1.0 - Math.max(0, Math.min(1, wave)));
+      const applyEnvelope = waveformEnvelopeToggle && waveformEnvelopeToggle.checked;
+      const envType = waveformEnvelopeType ? waveformEnvelopeType.value : 'sine';
+      const envWaves = waveformEnvelopeWavesSlider ? parseFloat(waveformEnvelopeWavesSlider.value) : 1;
+      const envCenter = waveformEnvelopeCenterSlider ? parseFloat(waveformEnvelopeCenterSlider.value) : 0;
+      const bipolar = waveformEnvelopeBipolarToggle && waveformEnvelopeBipolarToggle.checked;
+
+      let envelope = 1;
+      if (applyEnvelope) {
+        let ePhase = xPortion * envWaves;
+        if (envType === 'sine') {
+          envelope = Math.sin(Math.PI * ePhase);
+        } else if (envType === 'cosine') {
+          envelope = Math.cos(Math.PI * ePhase);
+        } else if (envType === 'linear') {
+          // Triangle wave mapping 0..1 to 0..1..0
+          envelope = 1.0 - Math.abs((ePhase % 1) * 2 - 1);
+        } else if (envType === 'inverse') {
+          envelope = 1.0 - Math.sin(Math.PI * ePhase);
+        }
+
+        if (!bipolar) {
+          envelope = Math.abs(envelope);
+        }
+      }
+
+      if (applyEnvelope && bipolar) {
+        wave = (wave * 2 - 1) * envelope;
+        wave = (wave + 1) * 0.5;
+      } else if (applyEnvelope) {
+        wave *= envelope;
+      }
+
+      const centerOffset = envCenter * rectHeight * 0.5;
+      const y = rectHeight * (1.0 - Math.max(0, Math.min(1, wave))) - centerOffset;
 
       vertex(barStartX + x, y);
     }
@@ -2645,6 +3691,265 @@ function drawBottomBar(currentWidth) {
         }
       }
     }
+  } else if (currentShader === 7) {
+    // Morse code mode
+    resetShader();
+    fill(fgColor);
+    noStroke();
+    rectMode(CORNER);
+
+    const text = morseInput ? morseInput.value || "RPI" : "RPI";
+    const validMorseData = textToMorse(text);
+
+    if (validMorseData && validMorseData.length > 0) {
+      const actualBitWidth = exactBarWidth / validMorseData.length;
+      let currentRunLength = 0;
+      let runStartX = 0;
+
+      for (let i = 0; i < validMorseData.length; i++) {
+        if (validMorseData[i] === 1) {
+          if (currentRunLength === 0) {
+            runStartX = barStartX + i * actualBitWidth;
+          }
+          currentRunLength++;
+        } else {
+          if (currentRunLength > 0) {
+            rect(runStartX, 0, currentRunLength * actualBitWidth, rectHeight);
+            currentRunLength = 0;
+          }
+        }
+      }
+      if (currentRunLength > 0) {
+        rect(runStartX, 0, currentRunLength * actualBitWidth, rectHeight);
+      }
+    }
+  } else if (currentShader === 8) {
+    // Matrix / Punch Card pattern
+    resetShader();
+    const text = matrixInput ? matrixInput.value || "RPI" : "RPI";
+    const rows = parseInt(matrixRowsSlider ? matrixRowsSlider.value : 3);
+    const gap = parseInt(matrixGapSlider ? matrixGapSlider.value : 1);
+
+    const numCols = text.length > 0 ? text.length * 8 : Math.floor(exactBarWidth / rectHeight);
+    const sqSize = (rectHeight - (rows - 1) * gap) / rows;
+    const colWidth = sqSize + gap;
+    const totalWidth = numCols * colWidth - gap;
+    const startXOffset = barStartX + (exactBarWidth - totalWidth) / 2;
+
+    stroke(fgColor);
+    strokeWeight(1);
+    fill(fgColor);
+
+    for (let c = 0; c < numCols; c++) {
+      const charIndex = Math.floor(c / 8);
+      let charVal = 0;
+      if (charIndex < text.length) {
+        charVal = text.charCodeAt(charIndex);
+      }
+      const bitIndex = 7 - (c % 8);
+      const isBitSet = (charVal & (1 << bitIndex)) !== 0;
+
+      for (let r = 0; r < rows; r++) {
+        const x = startXOffset + c * colWidth;
+        const y = 0 + r * (sqSize + gap);
+
+        if (isBitSet && (r % 2 === Math.floor(charVal / 10) % 2 || r === 1)) {
+          rect(x, y, sqSize, sqSize);
+        } else if (!isBitSet && (r === Math.floor(charVal / 20) % rows)) {
+          rect(x, y, sqSize, sqSize);
+        } else {
+          noFill();
+          rect(x, y, sqSize, sqSize);
+          fill(fgColor);
+        }
+      }
+    }
+  } else if (currentShader === 9) {
+    // Truss / Geometric pattern
+    resetShader();
+    const segments = parseInt(trussSegmentsSlider ? trussSegmentsSlider.value : 15);
+    const thickness = parseFloat(trussThicknessSlider ? trussThicknessSlider.value : 2);
+
+    noFill();
+    stroke(fgColor);
+    strokeWeight(thickness);
+    strokeCap(SQUARE);
+    strokeJoin(MITER);
+
+    const halfThick = thickness / 2;
+    const cw = exactBarWidth - thickness;
+    const ch = rectHeight - Math.max(0.1, thickness);
+    const segmentWidth = exactBarWidth / segments;
+
+    rect(barStartX + halfThick, 0 + halfThick, cw, ch);
+
+    for (let i = 0; i < segments; i++) {
+      const x1 = barStartX + i * segmentWidth;
+      const x2 = barStartX + (i + 1) * segmentWidth;
+
+      if (i > 0) {
+        line(x1, 0 + halfThick, x1, 0 + rectHeight - halfThick);
+      }
+      line(x1, 0 + halfThick, x2, 0 + rectHeight - halfThick);
+      line(x1, 0 + rectHeight - halfThick, x2, 0 + halfThick);
+    }
+  } else if (currentShader === 10) {
+    // Staff Notation pattern
+    resetShader();
+    const notesData = typeof currentStaffNotes !== 'undefined' ? currentStaffNotes : [];
+    const thickness = 1; // fixed stroke weight
+
+    stroke(fgColor);
+    strokeWeight(Math.max(0.5, thickness * 0.5));
+
+    const staffTop = 0 + rectHeight * 0.2;
+    const staffBottom = 0 + rectHeight * 0.8;
+    const lineSpacing = (staffBottom - staffTop) / 4;
+    const step = lineSpacing / 2;
+
+    // Draw 5 staff lines
+    for (let i = 0; i < 5; i++) {
+      const y = staffTop + i * lineSpacing;
+      line(barStartX, y, barStartX + exactBarWidth, y);
+    }
+
+    // Draw measure bar lines (4 measures = 5 barlines)
+    for (let m = 0; m <= 4; m++) {
+      const x = barStartX + exactBarWidth * (m / 4.0);
+      line(Math.min(x, barStartX + exactBarWidth), staffTop, Math.min(x, barStartX + exactBarWidth), staffBottom);
+    }
+
+    // Draw notes
+    if (notesData && notesData.length > 0) {
+      const STAFF_POSITIONS = {
+        'C4': 6, 'C#4': 6, 'D4': 5, 'D#4': 5,
+        'E4': 4, 'F4': 3, 'F#4': 3, 'G4': 2, 'G#4': 2,
+        'A4': 1, 'A#4': 1, 'B4': 0, 'C5': -1
+      };
+
+      let cumulativeBeats = 0;
+      const headRadiusWidth = lineSpacing * 0.7;
+      const headRadiusHeight = lineSpacing * 0.5;
+
+      for (let i = 0; i < notesData.length; i++) {
+        const note = notesData[i];
+        const noteX = barStartX + exactBarWidth * ((cumulativeBeats + note.duration / 2) / 16.0);
+        const pos = STAFF_POSITIONS[note.note] || 0;
+        const isSharp = note.note.includes('#');
+        const noteY = staffTop + 2 * lineSpacing + pos * step;
+        const stemUp = pos > 0;
+
+        strokeWeight(thickness * 0.5);
+
+        // Ledger lines
+        if (pos === 6) {
+          line(noteX - headRadiusWidth, noteY, noteX + headRadiusWidth, noteY);
+        }
+
+        // Sharp symbol
+        if (isSharp) {
+          const shiftX = headRadiusWidth * 1.5;
+          const shiftY = step * 0.5;
+          line(noteX - shiftX - 2, noteY - shiftY, noteX - shiftX - 2, noteY + shiftY);
+          line(noteX - shiftX + 2, noteY - shiftY, noteX - shiftX + 2, noteY + shiftY);
+          line(noteX - shiftX - 3, noteY + 1, noteX - shiftX + 3, noteY - 1);
+        }
+
+        // Note Head
+        if (note.duration >= 2) {
+          noFill();
+          ellipse(noteX, noteY, headRadiusWidth * 2, headRadiusHeight * 2);
+        } else {
+          fill(fgColor);
+          noStroke();
+          ellipse(noteX, noteY, headRadiusWidth * 2, headRadiusHeight * 2);
+          stroke(fgColor);
+        }
+
+        // Stem and Flags
+        if (note.duration < 4) {
+          const stemLength = lineSpacing * 2.5;
+          const stemX = stemUp ? noteX + headRadiusWidth * 0.8 : noteX - headRadiusWidth * 0.8;
+          const stemEndY = stemUp ? noteY - stemLength : noteY + stemLength;
+
+          strokeWeight(thickness * 0.5);
+          line(stemX, noteY, stemX, stemEndY);
+
+          if (note.duration <= 0.5) {
+            let numFlags = 1;
+            if (note.duration === 0.25) numFlags = 2;
+            if (note.duration === 0.125) numFlags = 3;
+
+            for (let f = 0; f < numFlags; f++) {
+              const flagStartY = stemUp ? stemEndY + f * (lineSpacing * 0.3) : stemEndY - f * (lineSpacing * 0.3);
+              const flagEndY = stemUp ? flagStartY + lineSpacing * 0.6 : flagStartY - lineSpacing * 0.6;
+              const flagEndX = stemX + lineSpacing * 0.8;
+              line(stemX, flagStartY, flagEndX, flagEndY);
+            }
+          }
+        }
+
+        cumulativeBeats += note.duration;
+        if (cumulativeBeats >= 16) break;
+      }
+    }
+
+  } else if (currentShader === 11) {
+    // Pulse / Centerline pattern
+    resetShader();
+    const text = pulseInput ? pulseInput.value || "RPI" : "RPI";
+    const intensity = parseFloat(pulseIntensitySlider ? pulseIntensitySlider.value : 5) / 10.0;
+
+    noStroke();
+    fill(fgColor);
+
+    const centerY = 0 + rectHeight / 2;
+    rect(barStartX, centerY - 0.5, exactBarWidth, 1);
+
+    if (text.length > 0) {
+      const spacing = exactBarWidth / text.length;
+      const pulseWidth = Math.max(1, spacing * 0.5);
+
+      for (let i = 0; i < text.length; i++) {
+        const charCode = text.charCodeAt(i);
+        const normalizedHeight = 0.1 + ((charCode % 15) / 14.0) * 0.9;
+        const h = rectHeight * normalizedHeight * intensity;
+
+        const x = barStartX + i * spacing + (spacing - pulseWidth) / 2;
+        const y = centerY - h / 2;
+
+        rect(x, y, pulseWidth, h);
+      }
+    }
+  } else if (currentShader === 12) {
+    // Data Graph / Right Triangles pattern
+    resetShader();
+    const text = graphInput ? graphInput.value || "RPI" : "RPI";
+    const scaleMax = parseInt(graphScaleSlider ? graphScaleSlider.value : 10) / 10.0;
+
+    noStroke();
+    fill(fgColor);
+
+    if (text.length > 0) {
+      const spacing = exactBarWidth / text.length;
+
+      for (let i = 0; i < text.length; i++) {
+        const charCode = text.charCodeAt(i);
+        const normalizedHeight = 0.1 + ((charCode % 15) / 14.0) * 0.9;
+        const h = rectHeight * normalizedHeight * scaleMax;
+
+        const x1 = barStartX + i * spacing;
+        const x2 = barStartX + (i + 1) * spacing;
+        const yBase = 0 + rectHeight;
+        const yTop = yBase - h;
+
+        beginShape();
+        vertex(x1, yBase);
+        vertex(x2, yBase);
+        vertex(x1, yTop);
+        endShape(CLOSE);
+      }
+    }
   } else {
     // Fallback to solid with current foreground color
     resetShader();
@@ -2668,21 +3973,74 @@ function togglePlayback() {
     if (iconPause) iconPause.classList.remove('hidden');
     if (playbackText) playbackText.textContent = "SPACE TO PAUSE";
     if (playbackBtn) playbackBtn.setAttribute('aria-label', 'Pause Animation');
+
+    // Update Morse play button explicitly
+    if (morsePlayBtn) morsePlayBtn.textContent = 'PAUSE AUDIO';
+    if (morseInfoBadge) morseInfoBadge.style.display = 'block';
+
+    if (animationInfoBadge) animationInfoBadge.textContent = "PRESS SPACEBAR TO PAUSE ANIMATION";
+    if (waveformAnimateToggle && !waveformAnimateToggle.checked) {
+      waveformAnimateToggle.checked = true;
+    }
+
+    startAudio();
   } else {
+    // Snap animation phase to mathematical zero-crossing for symmetry
+    if (currentShader === 4 && waveformSpeedSlider) {
+      const speed = parseFloat(waveformSpeedSlider.value);
+      if (speed > 0) {
+        // Round to nearest integer cycle to ensure consistent pause state
+        const currentCycles = window.animationTime * speed;
+        window.animationTime = Math.round(currentCycles) / speed;
+      }
+    }
+
     noLoop();
+    redraw(); // Force draw of the perfectly snapped frame
+
     if (iconPause) iconPause.classList.add('hidden');
     if (iconPlay) iconPlay.classList.remove('hidden');
     if (playbackText) playbackText.textContent = "SPACE TO PLAY";
     if (playbackBtn) playbackBtn.setAttribute('aria-label', 'Play Animation');
+
+    // Update Morse play button explicitly
+    if (morsePlayBtn) morsePlayBtn.textContent = 'PLAY AUDIO';
+    if (morseInfoBadge) morseInfoBadge.style.display = 'none';
+
+    if (animationInfoBadge) animationInfoBadge.textContent = "PRESS SPACEBAR TO PLAY ANIMATION";
+    if (waveformAnimateToggle && waveformAnimateToggle.checked) {
+      waveformAnimateToggle.checked = false;
+    }
+
+    stopAudio();
   }
+}
+
+function clampPanOffset() {
+  let minX = 125 * zoomLevel - width / (2 * LOGO_SCALE);
+  let maxX = width / (2 * LOGO_SCALE) - 125 * zoomLevel;
+  if (minX > maxX) {
+    let temp = minX; minX = maxX; maxX = temp;
+  }
+
+  let minY = 72 * zoomLevel - height / (2 * LOGO_SCALE);
+  let maxY = height / (2 * LOGO_SCALE) - 79 * zoomLevel;
+  if (minY > maxY) {
+    let temp = minY; minY = maxY; maxY = temp;
+  }
+
+  panOffset.x = constrain(panOffset.x, minX, maxX);
+  panOffset.y = constrain(panOffset.y, minY, maxY);
 }
 
 function zoomCanvas(amount) {
   zoomLevel += amount;
   zoomLevel = constrain(zoomLevel, 0.5, 3.0); // Limit zoom 50% to 300%
 
-  if (zoomLevelDisplay) {
-    zoomLevelDisplay.textContent = Math.round(zoomLevel * 100) + '%';
+  clampPanOffset();
+
+  if (zoomLevelDisplay && document.activeElement !== zoomLevelDisplay) {
+    zoomLevelDisplay.value = Math.round(zoomLevel * 100) + '%';
   }
 
   if (!isPlaying) redraw();
@@ -2708,6 +4066,7 @@ function mouseDragged() {
   if (isPanningMode) {
     panOffset.x += movedX;
     panOffset.y += movedY;
+    clampPanOffset();
     if (!isPlaying) redraw();
     return false; // Prevent default browser drag
   }

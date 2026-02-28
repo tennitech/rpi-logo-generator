@@ -39,7 +39,7 @@
             <span class="option-label">SVG VECTOR</span>
             <span class="option-desc">Scalable format</span>
           </button>
-          <div class="sidebar-divider" style="margin: 4px 0;"></div>
+          <div class="save-divider"></div>
           <button id="copy-embed" class="save-option" role="menuitem">
             <span class="option-label">COPY EMBED CODE</span>
             <span class="option-desc">For Frontify / Web</span>
@@ -71,9 +71,15 @@
                 <option value="ruler">RULER</option>
                 <option value="ticker">TICKER</option>
                 <option value="binary">BINARY</option>
+                <option value="morse">MORSE CODE</option>
                 <option value="waveform">WAVEFORM</option>
                 <option value="circles">CIRCLES</option>
                 <option value="numeric">NUMERIC</option>
+                <option value="matrix">MATRIX</option>
+                <option value="truss">TRUSS</option>
+                <option value="staff">STAFF</option>
+                <option value="pulse">PULSE</option>
+                <option value="graph">DATA GRAPH</option>
               </select>
             </div>
           </div>
@@ -117,6 +123,43 @@
               aria-label="Binary Text Input">
             <div class="control-hint">Type to translate to binary bars</div>
           </div>
+          <div class="control" style="display: flex; align-items: center; justify-content: space-between;">
+            <label for="binary-audio-toggle" class="control-label"
+              style="margin-bottom: 0; display: flex; align-items: center;">
+              AUDIO (FSK)
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                style="margin-left: 6px; color: var(--text-muted);">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+              </svg>
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="binary-audio-toggle">
+              <span class="slider round"></span>
+            </label>
+          </div>
+        </div>
+
+        <div id="morse-group" class="control-group" style="display: none;">
+          <div class="control-header">MORSE CODE SETTINGS</div>
+          <div class="control">
+            <label for="morse-input" class="control-label">INPUT TEXT</label>
+            <input type="text" id="morse-input" placeholder="ENTER TEXT..." class="control-input"
+              aria-label="Morse Text Input">
+            <div class="control-hint">Type to translate to morse code</div>
+          </div>
+          <div class="control" style="display: flex; gap: 8px;">
+            <button id="morse-play-btn" class="info-badge"
+              style="flex: 1; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-sidebar); transition: all 0.2s;">PLAY
+              AUDIO</button>
+            <button id="morse-reset-btn" class="info-badge"
+              style="flex: 1; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-sidebar); transition: all 0.2s;">RESET</button>
+          </div>
+          <div class="control">
+            <div id="morse-info-badge" class="info-badge" style="display: none;">PRESS SPACEBAR TO PAUSE AUDIO</div>
+          </div>
         </div>
 
         <div id="ticker-group" class="control-group" style="display: none;">
@@ -139,6 +182,23 @@
                 id="ticker-width-ratio-display">1:2</span></label>
             <input type="range" id="ticker-width-ratio-slider" min="1" max="5" value="2" class="control-slider"
               aria-label="Ticker Width Ratio">
+          </div>
+          <div class="control" style="display: flex; align-items: center; justify-content: space-between;">
+            <label for="ticker-audio-toggle" class="control-label"
+              style="margin-bottom: 0; display: flex; align-items: center;">
+              AUDIO (POLY)
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                style="margin-left: 6px; color: var(--text-muted);">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+              </svg>
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="ticker-audio-toggle">
+              <span class="slider round"></span>
+            </label>
           </div>
         </div>
 
@@ -165,8 +225,84 @@
               aria-label="Waveform Speed">
           </div>
 
+          <div class="control" style="display: flex; align-items: center; justify-content: space-between;">
+            <label for="waveform-envelope-toggle" class="control-label" style="margin-bottom: 0;">ENVELOPE</label>
+            <label class="switch">
+              <input type="checkbox" id="waveform-envelope-toggle">
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <div id="envelope-settings-group"
+            style="display: none; padding-left: 12px; border-left: 2px solid var(--border-color); margin-top: 8px; margin-bottom: 16px;">
+            <div class="control">
+              <label for="waveform-envelope-type" class="control-label">SHAPE</label>
+              <select id="waveform-envelope-type" class="control-select" aria-label="Envelope Shape">
+                <option value="sine">SINE</option>
+                <option value="cosine">COSINE</option>
+                <option value="linear">LINEAR</option>
+                <option value="inverse">INVERSE SINE</option>
+              </select>
+            </div>
+            <div class="control slider-control">
+              <label for="waveform-envelope-waves-slider" class="control-label">WAVES <span
+                  id="waveform-envelope-waves-display">1</span></label>
+              <input type="range" id="waveform-envelope-waves-slider" min="0.5" max="10" step="0.5" value="1"
+                class="control-slider" aria-label="Envelope Waves">
+            </div>
+            <div class="control slider-control">
+              <label for="waveform-envelope-center-slider" class="control-label">CENTER OFFSET <span
+                  id="waveform-envelope-center-display">0</span></label>
+              <input type="range" id="waveform-envelope-center-slider" min="-1" max="1" step="0.1" value="0"
+                class="control-slider" aria-label="Envelope Center Offset">
+            </div>
+            <div class="control"
+              style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
+              <label for="waveform-envelope-bipolar-toggle" class="control-label"
+                style="margin-bottom: 0;">BIPOLAR</label>
+              <label class="switch">
+                <input type="checkbox" id="waveform-envelope-bipolar-toggle">
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="control" style="display: flex; align-items: center; justify-content: space-between;">
+            <label for="waveform-animate-toggle" class="control-label"
+              style="margin-bottom: 0; display: flex; align-items: center;">
+              ANIMATE
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                style="margin-left: 6px; color: var(--text-muted);">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+              </svg>
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="waveform-animate-toggle" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <div class="control" style="display: flex; align-items: center; justify-content: space-between;">
+            <label for="waveform-audio-toggle" class="control-label"
+              style="margin-bottom: 0; display: flex; align-items: center;">
+              AUDIO
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                style="margin-left: 6px; color: var(--text-muted);">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+              </svg>
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="waveform-audio-toggle">
+              <span class="slider round"></span>
+            </label>
+          </div>
+
           <div class="control">
-            <div class="info-badge">PRESS SPACEBAR TO PLAY</div>
+            <div id="animation-info-badge" class="info-badge">PRESS SPACEBAR TO PAUSE ANIMATION</div>
           </div>
         </div>
 
@@ -284,8 +420,161 @@
           </div>
         </div>
 
+        <div id="matrix-group" class="control-group" style="display: none;">
+          <div class="control-header">MATRIX SETTINGS</div>
+          <div class="control">
+            <label for="matrix-input" class="control-label">INPUT TEXT</label>
+            <input type="text" id="matrix-input" placeholder="ENTER TEXT..." class="control-input" value="RPI"
+              aria-label="Matrix Text Input">
+            <div class="control-hint">Type to encode into matrix grid</div>
+          </div>
+          <div class="control slider-control">
+            <label for="matrix-rows-slider" class="control-label">ROWS <span id="matrix-rows-display">3</span></label>
+            <input type="range" id="matrix-rows-slider" min="2" max="6" value="3" class="control-slider"
+              aria-label="Matrix Rows">
+          </div>
+          <div class="control slider-control">
+            <label for="matrix-gap-slider" class="control-label">GAP <span id="matrix-gap-display">1</span>px</label>
+            <input type="range" id="matrix-gap-slider" min="0" max="5" value="1" class="control-slider"
+              aria-label="Matrix Gap">
+          </div>
+        </div>
 
+        <div id="truss-group" class="control-group" style="display: none;">
+          <div class="control-header">TRUSS SETTINGS</div>
+          <div class="control slider-control">
+            <label for="truss-segments-slider" class="control-label">SEGMENTS <span
+                id="truss-segments-display">15</span></label>
+            <input type="range" id="truss-segments-slider" min="5" max="50" value="15" class="control-slider"
+              aria-label="Truss Segments">
+          </div>
+          <div class="control slider-control">
+            <label for="truss-thickness-slider" class="control-label">THICKNESS <span
+                id="truss-thickness-display">2</span></label>
+            <input type="range" id="truss-thickness-slider" min="0.5" max="5" step="0.5" value="2"
+              class="control-slider" aria-label="Truss Thickness">
+          </div>
+        </div>
 
+        <div id="staff-group" class="control-group" style="display: none;">
+          <div class="control-header">STAFF SETTINGS</div>
+          <div class="control" style="display: flex; align-items: center; justify-content: space-between;">
+            <label for="staff-audio-toggle" class="control-label"
+              style="margin-bottom: 0; display: flex; align-items: center;">
+              AUDIO
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                style="margin-left: 6px; color: var(--text-muted);">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+              </svg>
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="staff-audio-toggle">
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class="control" style="display: flex; align-items: center; justify-content: space-between;">
+            <label for="staff-animate-toggle" class="control-label"
+              style="margin-bottom: 0; display: flex; align-items: center;">
+              ANIMATE
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                style="margin-left: 6px; color: var(--text-muted);">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+              </svg>
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="staff-animate-toggle" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class="control">
+            <label for="staff-instrument-select" class="control-label">INSTRUMENT</label>
+            <div class="select-wrapper">
+              <select id="staff-instrument-select" class="control-select">
+                <option value="piano">PIANO</option>
+                <option value="synth">SYNTH</option>
+                <option value="marimba">MARIMBA / PLUCK</option>
+              </select>
+            </div>
+          </div>
+          <div class="control slider-control">
+            <label for="staff-tempo-slider" class="control-label">TEMPO <span id="staff-tempo-display">120</span>
+              BPM</label>
+            <input type="range" id="staff-tempo-slider" min="60" max="240" step="1" value="120" class="control-slider"
+              aria-label="Staff Tempo">
+          </div>
+          <div class="control">
+            <label class="control-label">NOTE DURATION</label>
+            <div class="duration-selector" id="staff-duration-selector">
+              <button class="duration-btn" data-duration="4">1</button>
+              <button class="duration-btn" data-duration="2">1/2</button>
+              <button class="duration-btn active" data-duration="1">1/4</button>
+              <button class="duration-btn" data-duration="0.5">1/8</button>
+              <button class="duration-btn" data-duration="0.25">1/16</button>
+              <button class="duration-btn" data-duration="0.125">1/32</button>
+            </div>
+          </div>
+          <div class="control">
+            <label class="control-label" style="display:flex; justify-content:space-between; align-items:center;">
+              KEYBOARD
+              <button id="staff-clear-btn" class="workspace-btn" style="padding: 2px 6px; height: auto;"
+                aria-label="Clear Notes">CLEAR</button>
+            </label>
+            <div class="piano-keyboard">
+              <div class="keys">
+                <div class="key white" data-note="C4"></div>
+                <div class="key black" data-note="C#4"></div>
+                <div class="key white" data-note="D4"></div>
+                <div class="key black" data-note="D#4"></div>
+                <div class="key white" data-note="E4"></div>
+                <div class="key white" data-note="F4"></div>
+                <div class="key black" data-note="F#4"></div>
+                <div class="key white" data-note="G4"></div>
+                <div class="key black" data-note="G#4"></div>
+                <div class="key white" data-note="A4"></div>
+                <div class="key black" data-note="A#4"></div>
+                <div class="key white" data-note="B4"></div>
+                <div class="key white" data-note="C5"></div>
+              </div>
+            </div>
+            <div class="control-hint" style="margin-top: 8px;">Click keys to add notes (max 4 measures)</div>
+          </div>
+        </div>
+
+        <div id="pulse-group" class="control-group" style="display: none;">
+          <div class="control-header">PULSE SETTINGS</div>
+          <div class="control">
+            <label for="pulse-input" class="control-label">INPUT TEXT</label>
+            <input type="text" id="pulse-input" placeholder="ENTER TEXT..." class="control-input" value="RPI"
+              aria-label="Pulse Text Input">
+            <div class="control-hint">Type to generate pulse heights</div>
+          </div>
+          <div class="control slider-control">
+            <label for="pulse-intensity-slider" class="control-label">INTENSITY <span
+                id="pulse-intensity-display">5</span></label>
+            <input type="range" id="pulse-intensity-slider" min="1" max="10" value="5" class="control-slider"
+              aria-label="Pulse Intensity">
+          </div>
+        </div>
+
+        <div id="graph-group" class="control-group" style="display: none;">
+          <div class="control-header">GRAPH SETTINGS</div>
+          <div class="control">
+            <label for="graph-input" class="control-label">INPUT TEXT</label>
+            <input type="text" id="graph-input" placeholder="ENTER TEXT..." class="control-input" value="RPI"
+              aria-label="Graph Text Input">
+            <div class="control-hint">Type to generate graph heights</div>
+          </div>
+          <div class="control slider-control">
+            <label for="graph-scale-slider" class="control-label">SCALE MAX <span
+                id="graph-scale-display">10</span></label>
+            <input type="range" id="graph-scale-slider" min="1" max="10" value="10" class="control-slider"
+              aria-label="Graph Scale Max">
+          </div>
+        </div>
 
       </div>
     </aside>
@@ -309,7 +598,7 @@
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
         </button>
-        <span id="zoom-level" class="zoom-level">100%</span>
+        <input type="text" id="zoom-level" class="zoom-level-input" value="100%" aria-label="Zoom Level">
         <button id="zoom-in-btn" class="workspace-btn" aria-label="Zoom In">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -318,10 +607,22 @@
           </svg>
         </button>
         <div class="workspace-divider"></div>
+        <button id="zoom-reset-btn" class="workspace-btn" aria-label="Reset Zoom">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+          </svg>
+        </button>
         <button id="pan-btn" class="workspace-btn" aria-label="Pan Tool">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 11l18-5v12l-18-5z"></path>
+            <polyline points="5 9 2 12 5 15"></polyline>
+            <polyline points="9 5 12 2 15 5"></polyline>
+            <polyline points="19 9 22 12 19 15"></polyline>
+            <polyline points="9 19 12 22 15 19"></polyline>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <line x1="12" y1="2" x2="12" y2="22"></line>
           </svg>
         </button>
       </div>

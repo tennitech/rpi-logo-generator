@@ -26,4 +26,37 @@ describe('Profanity Filter', () => {
         expect(hasProfanity('class')).toBe(false);
         expect(sanitizeText('class')).toBe('class');
     });
+
+    test('should detect profanity with leet-speak (e.g., $hit, @ss, f*ck)', () => {
+        expect(hasProfanity('what a $hit')).toBe(true);
+        expect(sanitizeText('what a $hit')).toBe('what a ****');
+
+        expect(hasProfanity('f*ck off')).toBe(true);
+        expect(sanitizeText('f*ck off')).toBe('**** off');
+
+        expect(hasProfanity('b!tch')).toBe(true);
+        expect(sanitizeText('b!tch')).toBe('*****');
+
+        expect(hasProfanity('@ss')).toBe(true);
+        expect(sanitizeText('@ss')).toBe('***');
+    });
+
+    test('should detect profanity surrounded by characters', () => {
+        expect(hasProfanity('~shit~')).toBe(true);
+        expect(sanitizeText('~shit~')).toBe('~****~');
+
+        expect(hasProfanity('!fuck!')).toBe(true);
+        expect(sanitizeText('!fuck!')).toBe('!****!');
+
+        expect(hasProfanity('_ass_')).toBe(true);
+        expect(sanitizeText('_ass_')).toBe('_***_');
+    });
+
+    test('should detect profanity with spaces between characters', () => {
+        expect(hasProfanity('s h i t')).toBe(true);
+        expect(sanitizeText('s h i t')).toBe('*******'); // length 7
+
+        expect(hasProfanity('f u c k')).toBe(true);
+        expect(sanitizeText('f u c k')).toBe('*******');
+    });
 });

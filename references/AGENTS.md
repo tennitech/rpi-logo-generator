@@ -68,6 +68,9 @@ When generating text or creative copy:
 *   **Primary Logo:** "RPI" letters with the "Bar" (underscore/calibration rod).
 *   **The Bar:** A variable element. Can contain data viz, metrics, or patterns.
     *   *Constraint:* Height of bar = Width of lettering line. Fixed spacing.
+    *   Any bars should be scientifically accurate
+    *   Update the project references markdown files
+        *   Prioritize function over form (it can look cool, but MUST be accurate)
 *   **Clear Space:**
     *   Digital: Min 10px on all sides.
     *   Print: Min 0.25 inch.

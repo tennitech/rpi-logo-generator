@@ -58,6 +58,7 @@
   --neutral-100: #f5f5f5;
   --neutral-200: #e5e5e5;
   --neutral-300: #d4d4d4;
+  --neutral-400: #a3a3a3;
   --neutral-600: #525252;
   --neutral-800: #1a1a1a;
   --neutral-900: #0a0a0a;
@@ -67,15 +68,17 @@
   --bg-sidebar: var(--rpi-white);
   --bg-header: var(--rpi-black);
   --bg-canvas: var(--rpi-white);
+  --bg-app: var(--bg-canvas);
 
   --text-primary: var(--rpi-black);
   --text-secondary: var(--neutral-600);
   --text-on-header: var(--rpi-white);
 
-  --border-color: var(--neutral-200);
+  --border-color: var(--neutral-300);
   --accent-color: var(--rpi-red);
 
   --input-bg: var(--neutral-100);
+  --input-focus-bg: var(--rpi-white);
   --input-border: transparent;
 
   /* Layout */
@@ -127,6 +130,7 @@ body {
   height: var(--header-height);
   background-color: var(--bg-header);
   color: var(--text-on-header);
+  border-bottom: 1px solid #D4D4D4;
   padding: 0 20px;
   display: flex;
   align-items: center;
@@ -167,12 +171,14 @@ body {
 }
 
 .mobile-menu-toggle {
-  display: none;
+  display: flex;
   background: none;
   border: none;
   color: white;
   cursor: pointer;
   padding: 8px;
+  align-items: center;
+  justify-content: center;
 }
 
 /* App Layout */
@@ -193,7 +199,11 @@ body {
   overflow-y: auto;
   z-index: 40;
   flex-shrink: 0;
-  transition: transform 0.3s var(--ease-out-expo);
+  transition: margin-left 0.4s var(--ease-out-expo), transform 0.4s var(--ease-out-expo);
+}
+
+.app-sidebar.sidebar-collapsed {
+  margin-left: calc(var(--sidebar-width) * -1);
 }
 
 /* Thin scrollbar */
@@ -206,7 +216,7 @@ body {
 }
 
 .app-sidebar::-webkit-scrollbar-thumb {
-  background: var(--neutral-300);
+  background: var(--border-color);
   border-radius: 2px;
 }
 
@@ -263,6 +273,10 @@ body {
   justify-content: center;
 }
 
+#p5-container canvas {
+  display: block;
+}
+
 /* ────────────────────────────────────────
    Workspace Controls (Zoom Bar)
    ──────────────────────────────────────── */
@@ -311,13 +325,29 @@ body {
   background: var(--border-color);
 }
 
-.zoom-level {
+.zoom-level-input {
   font-family: 'RPIGeistMono', monospace;
   font-size: 11px;
   color: var(--text-secondary);
-  min-width: 36px;
+  width: 44px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
   text-align: center;
-  user-select: none;
+  transition: all var(--duration-fast) ease;
+  padding: 4px 0;
+}
+
+.zoom-level-input:hover {
+  background: var(--neutral-100);
+  color: var(--text-primary);
+}
+
+.zoom-level-input:focus {
+  outline: none;
+  background: var(--input-focus-bg);
+  border-color: var(--border-color);
+  color: var(--text-primary);
 }
 
 /* ────────────────────────────────────────
@@ -389,18 +419,7 @@ body {
   position: relative;
 }
 
-.select-wrapper::after {
-  content: '';
-  position: absolute;
-  right: 14px;
-  top: 50%;
-  width: 7px;
-  height: 7px;
-  border-right: 1.5px solid var(--text-secondary);
-  border-bottom: 1.5px solid var(--text-secondary);
-  transform: translateY(-70%) rotate(45deg);
-  pointer-events: none;
-}
+/* Removed .select-wrapper::after to fix double arrows on native selects */
 
 .control-input {
   width: 100%;
@@ -421,7 +440,7 @@ body {
 
 .control-input:focus {
   outline: none;
-  background-color: var(--rpi-white);
+  background-color: var(--input-focus-bg);
   box-shadow: 0 0 0 2px var(--accent-color);
 }
 
@@ -494,8 +513,8 @@ body {
 .primary-button {
   padding: 0 20px;
   height: 40px;
-  background-color: var(--accent-color);
-  color: white;
+  background-color: var(--rpi-red);
+  color: var(--rpi-white);
   border: none;
   border-radius: 2px;
   font-family: 'RPIGeist', sans-serif;
@@ -533,7 +552,7 @@ body {
   left: auto;
   min-width: 220px;
   background: var(--bg-sidebar);
-  border: 1px solid var(--border-color);
+  border: 2px solid var(--accent-color);
   border-radius: 4px;
   padding: 6px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
@@ -547,6 +566,73 @@ body {
 
 .save-menu.hidden {
   display: none;
+}
+
+/* ────────────────────────────────────────
+   Toggle Switch
+   ──────────────────────────────────────── */
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--neutral-300);
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: var(--rpi-white);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: .4s;
+}
+
+input:checked+.slider {
+  background-color: var(--accent-color);
+}
+
+input:focus+.slider {
+  box-shadow: 0 0 1px var(--accent-color);
+}
+
+input:checked+.slider:before {
+  transform: translateX(16px);
+}
+
+.slider.round {
+  border-radius: 20px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+.save-divider {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 4px 0;
+  width: 100%;
 }
 
 .save-option {
@@ -564,11 +650,12 @@ body {
 }
 
 .save-option:hover {
-  background-color: var(--neutral-100);
+  background-color: var(--accent-color);
 }
 
 .save-option:active {
-  background-color: var(--neutral-200);
+  background-color: var(--accent-color);
+  filter: brightness(0.9);
 }
 
 .save-option .option-label {
@@ -579,11 +666,22 @@ body {
   letter-spacing: 0.04em;
 }
 
+.save-option:hover .option-label,
+.save-option:active .option-label {
+  color: var(--rpi-white);
+}
+
 .save-option .option-desc {
   font-family: 'RPIGeist', sans-serif;
   font-size: 11px;
   color: var(--text-secondary);
   margin-top: 1px;
+}
+
+.save-option:hover .option-desc,
+.save-option:active .option-desc {
+  color: var(--rpi-white);
+  opacity: 0.9;
 }
 
 /* ────────────────────────────────────────
@@ -646,33 +744,36 @@ body {
 
 .custom-select-trigger::after {
   content: '';
-  width: 8px;
-  height: 5px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6H0z' fill='%23525252'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: center;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--text-secondary);
+  border-bottom: 1.5px solid var(--text-secondary);
+  transform: translateY(-2px) rotate(45deg);
   transition: transform var(--duration-fast) ease;
 }
 
 .custom-select-wrapper.open .custom-select-trigger {
-  background: var(--rpi-white);
+  background: var(--input-focus-bg);
   box-shadow: 0 0 0 2px var(--accent-color);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
 .custom-select-wrapper.open .custom-select-trigger::after {
-  transform: rotate(180deg);
+  transform: translateY(2px) rotate(-135deg);
 }
 
 .custom-select-options {
   position: absolute;
   display: block;
   top: 100%;
-  left: 0;
-  right: 0;
-  border: 1px solid var(--border-color);
+  left: -2px;
+  right: -2px;
+  border: 2px solid var(--accent-color);
   border-top: 0;
   background: var(--bg-sidebar);
-  border-radius: 0 0 2px 2px;
+  border-radius: 0 0 4px 4px;
+  padding: 4px;
   transition: all var(--duration-fast) ease;
   opacity: 0;
   visibility: hidden;
@@ -680,7 +781,7 @@ body {
   z-index: 100;
   max-height: 200px;
   overflow-y: auto;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .custom-select-wrapper.open .custom-select-options {
@@ -692,24 +793,26 @@ body {
 .custom-option {
   position: relative;
   display: block;
-  padding: 0 12px;
+  padding: 0 10px;
   font-family: 'RPIGeistMono', monospace;
   font-size: 12px;
   font-weight: 400;
   color: var(--text-primary);
-  line-height: 34px;
+  line-height: 32px;
   cursor: pointer;
+  border-radius: 2px;
   transition: all var(--duration-fast) ease;
 }
 
 .custom-option:hover {
-  background: var(--neutral-100);
-  color: var(--accent-color);
+  background: var(--accent-color);
+  color: var(--rpi-white);
 }
 
 .custom-option.selected {
   font-weight: 500;
-  color: var(--accent-color);
+  background: var(--accent-color);
+  color: var(--rpi-white);
 }
 
 /* ────────────────────────────────────────
@@ -747,7 +850,7 @@ body {
 }
 
 .toast {
-  background: var(--rpi-white);
+  background: var(--bg-sidebar);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
   padding: 12px 16px;
@@ -803,34 +906,47 @@ body {
    ──────────────────────────────────────── */
 
 body.theme-light {
-  --bg-app: var(--neutral-100);
+  --bg-app: var(--rpi-white);
   --bg-sidebar: var(--rpi-white);
   --bg-canvas: var(--rpi-white);
   --text-primary: var(--rpi-black);
+  --bg-header: var(--rpi-black);
 }
 
 body.theme-dark {
-  --bg-app: #0a0a0a;
-  --bg-sidebar: #111111;
-  --bg-canvas: #111111;
-  --text-primary: #f0f0f0;
-  --text-secondary: #888888;
-  --border-color: #222222;
+  --bg-app: #000000;
+  --bg-sidebar: #0f0f0f;
+  --bg-canvas: #000000;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --border-color: #404040;
   --input-bg: #1a1a1a;
+  --input-focus-bg: #262626;
   --input-border: #333333;
-  --bg-header: #000000;
+  --bg-header: #0a0a0a;
   --neutral-100: #1a1a1a;
   --neutral-200: #262626;
   --neutral-300: #333333;
 }
 
 body.theme-red {
-  --bg-app: var(--neutral-100);
+  --bg-app: var(--rpi-red);
+  --bg-sidebar: var(--rpi-white);
+  --bg-canvas: var(--rpi-red);
+  --text-primary: var(--rpi-red);
+  --accent-color: var(--rpi-black);
+  --bg-header: var(--rpi-black);
+  --border-color: var(--neutral-300);
+}
+
+body.theme-inverted {
+  --bg-app: var(--rpi-white);
   --bg-sidebar: var(--rpi-white);
   --bg-canvas: var(--rpi-white);
   --text-primary: var(--rpi-red);
   --accent-color: var(--rpi-black);
-  --bg-header: var(--rpi-red);
+  --bg-header: var(--rpi-black);
+  --border-color: var(--neutral-300);
 }
 
 /* ────────────────────────────────────────
@@ -886,6 +1002,140 @@ body.theme-red {
     transform: translateX(16px);
   }
 }
+
+/* ────────────────────────────────────────
+   Staff Notation Controls
+   ──────────────────────────────────────── */
+
+.duration-selector {
+  display: flex;
+  gap: 4px;
+  background: var(--input-bg);
+  padding: 4px;
+  border-radius: 4px;
+  border: 1px solid var(--input-border);
+}
+
+.duration-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-family: 'RPIGeistMono', monospace;
+  font-size: 10px;
+  color: var(--text-secondary);
+  padding: 6px 0;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all var(--duration-fast) ease;
+}
+
+.duration-btn:hover {
+  background: var(--neutral-200);
+  color: var(--text-primary);
+}
+
+.duration-btn.active {
+  background: var(--accent-color);
+  color: var(--rpi-white);
+}
+
+.piano-keyboard {
+  width: 100%;
+  height: 80px;
+  margin-top: 8px;
+  position: relative;
+  background: var(--neutral-300);
+  border: 1px solid var(--border-color);
+  border-radius: 2px 2px 4px 4px;
+  overflow: hidden;
+}
+
+.piano-keyboard .keys {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.piano-keyboard .key {
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.piano-keyboard .key.white {
+  position: relative;
+  flex: none;
+  width: 12.5%;
+  /* 8 white keys */
+  background: #fff;
+  z-index: 1;
+  height: 100%;
+  border-right: 1px solid #ccc;
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+}
+
+.piano-keyboard .key.white:last-child {
+  border-right: none;
+}
+
+.piano-keyboard .key.white:hover {
+  background: #f4f4f4;
+}
+
+.piano-keyboard .key.white:active,
+.piano-keyboard .key.white.active {
+  background: #e0e0e0;
+}
+
+.piano-keyboard .key.black {
+  background: #333;
+  z-index: 2;
+  height: 60%;
+  width: 8%;
+  position: absolute;
+  top: 0;
+  border: 1px solid #111;
+  border-top: none;
+  border-radius: 0 0 3px 3px;
+  transform: translateX(-50%);
+}
+
+.piano-keyboard .key.black:hover {
+  background: #555;
+}
+
+.piano-keyboard .key.black:active,
+.piano-keyboard .key.black.active {
+  background: #111;
+}
+
+/* Position the black keys */
+.piano-keyboard .key.black:nth-child(2) {
+  left: 12.5%;
+}
+
+/* C# */
+.piano-keyboard .key.black:nth-child(4) {
+  left: 25%;
+}
+
+/* D# */
+.piano-keyboard .key.black:nth-child(7) {
+  left: 50%;
+}
+
+/* F# */
+.piano-keyboard .key.black:nth-child(9) {
+  left: 62.5%;
+}
+
+/* G# */
+.piano-keyboard .key.black:nth-child(11) {
+  left: 75%;
+}
+
+/* A# */
 
 /* ────────────────────────────────────────
    Responsive / Mobile
