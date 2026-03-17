@@ -77,8 +77,7 @@
                 <option value="numeric">NUMERIC</option>
                 <option value="matrix">MATRIX</option>
                 <option value="truss">TRUSS</option>
-                <option value="staff">STAFF</option>
-                <option value="pulse">PULSE</option>
+                <option value="music">MUSIC</option>
                 <option value="graph">DATA GRAPH</option>
               </select>
             </div>
@@ -140,6 +139,9 @@
               <span class="slider round"></span>
             </label>
           </div>
+          <div class="control">
+            <div id="binary-audio-indicator" class="info-badge audio-status audio-indicator">AUDIO ACTIVE</div>
+          </div>
         </div>
 
         <div id="morse-group" class="control-group" style="display: none;">
@@ -150,15 +152,12 @@
               aria-label="Morse Text Input">
             <div class="control-hint">Type to translate to morse code</div>
           </div>
-          <div class="control" style="display: flex; gap: 8px;">
-            <button id="morse-play-btn" class="info-badge"
-              style="flex: 1; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-sidebar); transition: all 0.2s;">PLAY
-              AUDIO</button>
-            <button id="morse-reset-btn" class="info-badge"
-              style="flex: 1; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-sidebar); transition: all 0.2s;">RESET</button>
+          <div class="control audio-controls">
+            <button id="morse-play-btn" class="audio-control-btn">PLAY AUDIO</button>
+            <button id="morse-reset-btn" class="audio-control-btn">RESET</button>
           </div>
           <div class="control">
-            <div id="morse-info-badge" class="info-badge" style="display: none;">PRESS SPACEBAR TO PAUSE AUDIO</div>
+            <div id="morse-info-badge" class="info-badge audio-status audio-indicator">AUDIO ACTIVE - PRESS SPACEBAR TO PAUSE</div>
           </div>
         </div>
 
@@ -199,6 +198,9 @@
               <input type="checkbox" id="ticker-audio-toggle">
               <span class="slider round"></span>
             </label>
+          </div>
+          <div class="control">
+            <div id="ticker-audio-indicator" class="info-badge audio-status audio-indicator">AUDIO ACTIVE</div>
           </div>
         </div>
 
@@ -299,6 +301,9 @@
               <input type="checkbox" id="waveform-audio-toggle">
               <span class="slider round"></span>
             </label>
+          </div>
+          <div class="control">
+            <div id="waveform-audio-indicator" class="info-badge audio-status audio-indicator">AUDIO ACTIVE</div>
           </div>
 
           <div class="control">
@@ -442,6 +447,27 @@
 
         <div id="truss-group" class="control-group" style="display: none;">
           <div class="control-header">TRUSS SETTINGS</div>
+          <div class="control">
+            <label for="truss-family-select" class="control-label">TRUSS FAMILY</label>
+            <div class="select-wrapper">
+              <select id="truss-family-select" class="control-select">
+                <option value="flat">FLAT</option>
+                <option value="king-post">KING POST</option>
+                <option value="queen-post">QUEEN POST</option>
+                <option value="howe">HOWE</option>
+                <option value="scissor">SCISSOR</option>
+                <option value="fink">FINK</option>
+                <option value="attic">ATTIC</option>
+                <option value="mono">MONO</option>
+                <option value="hip">HIP</option>
+                <option value="gable">GABLE</option>
+                <option value="cathedral">CATHEDRAL</option>
+                <option value="fan">FAN</option>
+                <option value="raised-tie">RAISED TIE</option>
+              </select>
+            </div>
+            <div class="control-hint">Structural systems adapted to the bar format</div>
+          </div>
           <div class="control slider-control">
             <label for="truss-segments-slider" class="control-label">SEGMENTS <span
                 id="truss-segments-display">15</span></label>
@@ -457,38 +483,14 @@
         </div>
 
         <div id="staff-group" class="control-group" style="display: none;">
-          <div class="control-header">STAFF SETTINGS</div>
-          <div class="control" style="display: flex; align-items: center; justify-content: space-between;">
-            <label for="staff-audio-toggle" class="control-label"
-              style="margin-bottom: 0; display: flex; align-items: center;">
-              AUDIO
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                style="margin-left: 6px; color: var(--text-muted);">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-              </svg>
-            </label>
-            <label class="switch">
-              <input type="checkbox" id="staff-audio-toggle">
-              <span class="slider round"></span>
-            </label>
+          <div class="control-header">MUSIC SETTINGS</div>
+          <div class="control audio-controls">
+            <button id="staff-play-btn" class="audio-control-btn">PLAY AUDIO</button>
+            <button id="staff-reset-btn" class="audio-control-btn">RESET</button>
+            <input type="checkbox" id="staff-audio-toggle" style="display: none;" aria-hidden="true">
           </div>
-          <div class="control" style="display: flex; align-items: center; justify-content: space-between;">
-            <label for="staff-animate-toggle" class="control-label"
-              style="margin-bottom: 0; display: flex; align-items: center;">
-              ANIMATE
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                style="margin-left: 6px; color: var(--text-muted);">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-              </svg>
-            </label>
-            <label class="switch">
-              <input type="checkbox" id="staff-animate-toggle" checked>
-              <span class="slider round"></span>
-            </label>
+          <div class="control">
+            <div id="staff-info-badge" class="info-badge audio-status audio-indicator">AUDIO ACTIVE - PRESS SPACEBAR TO PAUSE</div>
           </div>
           <div class="control">
             <label for="staff-instrument-select" class="control-label">INSTRUMENT</label>
@@ -499,6 +501,31 @@
                 <option value="marimba">MARIMBA / PLUCK</option>
               </select>
             </div>
+          </div>
+          <div class="control">
+            <label for="staff-note-shape-select" class="control-label">NOTE SHAPE</label>
+            <div class="select-wrapper">
+              <select id="staff-note-shape-select" class="control-select">
+                <option value="circle">CIRCLES</option>
+                <option value="square">SQUARES</option>
+                <option value="diamond">DIAMONDS</option>
+                <option value="triangle">TRIANGLES</option>
+              </select>
+            </div>
+          </div>
+          <div class="control" style="display: flex; align-items: center; justify-content: space-between;">
+            <label for="staff-reverb-toggle" class="control-label" style="margin-bottom: 0;">REVERB</label>
+            <label class="switch">
+              <input type="checkbox" id="staff-reverb-toggle">
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div class="control" style="display: flex; align-items: center; justify-content: space-between;">
+            <label for="staff-tremolo-toggle" class="control-label" style="margin-bottom: 0;">TREMOLO</label>
+            <label class="switch">
+              <input type="checkbox" id="staff-tremolo-toggle">
+              <span class="slider round"></span>
+            </label>
           </div>
           <div class="control slider-control">
             <label for="staff-tempo-slider" class="control-label">TEMPO <span id="staff-tempo-display">120</span>
@@ -544,34 +571,48 @@
           </div>
         </div>
 
-        <div id="pulse-group" class="control-group" style="display: none;">
-          <div class="control-header">PULSE SETTINGS</div>
-          <div class="control">
-            <label for="pulse-input" class="control-label">INPUT TEXT</label>
-            <input type="text" id="pulse-input" placeholder="ENTER TEXT..." class="control-input" value="RPI"
-              aria-label="Pulse Text Input">
-            <div class="control-hint">Type to generate pulse heights</div>
-          </div>
-          <div class="control slider-control">
-            <label for="pulse-intensity-slider" class="control-label">INTENSITY <span
-                id="pulse-intensity-display">5</span></label>
-            <input type="range" id="pulse-intensity-slider" min="1" max="10" value="5" class="control-slider"
-              aria-label="Pulse Intensity">
-          </div>
-        </div>
-
         <div id="graph-group" class="control-group" style="display: none;">
           <div class="control-header">GRAPH SETTINGS</div>
           <div class="control">
-            <label for="graph-input" class="control-label">INPUT TEXT</label>
+            <label for="graph-input" class="control-label">STREAM 1</label>
             <input type="text" id="graph-input" placeholder="ENTER TEXT..." class="control-input" value="RPI"
               aria-label="Graph Text Input">
-            <div class="control-hint">Type to generate graph heights</div>
+            <div class="control-hint">Type to generate line graph values</div>
+          </div>
+          <div class="control" style="display: flex; align-items: center; justify-content: space-between;">
+            <label for="graph-multi-toggle" class="control-label" style="margin-bottom: 0;">MULTI STREAMS (NO FILL)</label>
+            <label class="switch">
+              <input type="checkbox" id="graph-multi-toggle">
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <div id="graph-multi-inputs" class="graph-multi-inputs" style="display: none;">
+            <div class="control">
+              <label for="graph-input-2" class="control-label">STREAM 2</label>
+              <input type="text" id="graph-input-2" placeholder="OPTIONAL..." class="control-input"
+                aria-label="Graph Stream 2 Input">
+            </div>
+            <div class="control">
+              <label for="graph-input-3" class="control-label">STREAM 3</label>
+              <input type="text" id="graph-input-3" placeholder="OPTIONAL..." class="control-input"
+                aria-label="Graph Stream 3 Input">
+            </div>
+            <div class="control">
+              <label for="graph-input-4" class="control-label">STREAM 4</label>
+              <input type="text" id="graph-input-4" placeholder="OPTIONAL..." class="control-input"
+                aria-label="Graph Stream 4 Input">
+            </div>
+            <div class="control">
+              <label for="graph-input-5" class="control-label">STREAM 5</label>
+              <input type="text" id="graph-input-5" placeholder="OPTIONAL..." class="control-input"
+                aria-label="Graph Stream 5 Input">
+            </div>
+            <div class="control-hint">Up to 5 streams</div>
           </div>
           <div class="control slider-control">
             <label for="graph-scale-slider" class="control-label">SCALE MAX <span
                 id="graph-scale-display">10</span></label>
-            <input type="range" id="graph-scale-slider" min="1" max="10" value="10" class="control-slider"
+            <input type="range" id="graph-scale-slider" min="4" max="14" value="10" class="control-slider"
               aria-label="Graph Scale Max">
           </div>
         </div>
@@ -584,6 +625,28 @@
       <div class="canvas-viewport">
         <div class="logo-container">
           <div id="p5-container"></div>
+        </div>
+      </div>
+
+      <div id="easter-egg-hint" class="easter-egg-hint" aria-hidden="true">
+        <div class="easter-egg-hint-track"></div>
+        <div class="easter-egg-hint-copy">
+          <span class="easter-egg-hint-kicker">SECRET RINK</span>
+          <span id="easter-egg-hint-label" class="easter-egg-hint-label">HOLD TO ENTER</span>
+        </div>
+      </div>
+
+      <div id="easter-egg-overlay" class="easter-egg-overlay hidden" aria-hidden="true">
+        <div class="easter-egg-overlay-chrome">
+          <div class="easter-egg-pill">RPI AFTER HOURS</div>
+          <div id="easter-egg-live-status" class="easter-egg-pill secondary" aria-live="polite">BULLET TIME ON ICE</div>
+          <button id="easter-egg-close" class="easter-egg-close" aria-label="Close hidden game">Exit Rink</button>
+        </div>
+        <canvas id="easter-egg-canvas" class="easter-egg-canvas" aria-label="Hidden retro game"></canvas>
+        <div class="easter-egg-touch-controls" aria-label="Game Controls">
+          <button class="easter-egg-touch-btn" data-control="duck" aria-label="Duck">TUCK</button>
+          <button class="easter-egg-touch-btn focus" data-control="bullet" aria-label="Bullet time">FOCUS</button>
+          <button class="easter-egg-touch-btn jump" data-control="jump" aria-label="Jump">JUMP</button>
         </div>
       </div>
 
@@ -632,8 +695,10 @@
   <div id="toast-container"></div>
   <script src="js/utils/profanityFilter.js"></script>
   <script src="js/utils/tickerDisplay.js"></script>
+  <script src="js/utils/musicStyle.js"></script>
   <script src="js/utils/barPattern.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/easter-egg.js"></script>
   <script src="js/main.js"></script>
   <script src="js/drawing.js"></script>
 </body>

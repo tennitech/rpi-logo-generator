@@ -35,6 +35,276 @@ function generateWaveValue(phase, type) {
   return square + (pulse - square) * t;
 }
 
+function createMusicHeadSVG(shape, x, y, rx, ry, filled, fgColor, lineThickness) {
+  const normalizedShape = normalizeMusicNoteShape(shape);
+  const fill = filled ? fgColor : 'none';
+  const strokeAttr = filled ? '' : ` stroke="${fgColor}" stroke-width="${lineThickness}"`;
+
+  if (normalizedShape === 'circle') {
+    return `<circle cx="${x}" cy="${y}" r="${rx}" fill="${fill}"${strokeAttr}/>`;
+  }
+
+  if (normalizedShape === 'square') {
+    return `<rect x="${x - rx}" y="${y - ry}" width="${rx * 2}" height="${ry * 2}" fill="${fill}"${strokeAttr}/>`;
+  }
+
+  const points = normalizedShape === 'diamond'
+    ? `${x},${y - ry} ${x + rx},${y} ${x},${y + ry} ${x - rx},${y}`
+    : `${x},${y - ry} ${x + rx},${y + ry} ${x - rx},${y + ry}`;
+  return `<polygon points="${points}" fill="${fill}"${strokeAttr}/>`;
+}
+
+function normalizeTrussFamily(family) {
+  const normalized = String(family || 'flat').toLowerCase();
+  switch (normalized) {
+    case 'flat':
+    case 'king-post':
+    case 'queen-post':
+    case 'howe':
+    case 'scissor':
+    case 'fink':
+    case 'attic':
+    case 'mono':
+    case 'hip':
+    case 'gable':
+    case 'cathedral':
+    case 'fan':
+    case 'raised-tie':
+      return normalized;
+    case 'cross':
+    case 'warren':
+    case 'vierendeel':
+      return 'flat';
+    case 'pratt':
+      return 'queen-post';
+    default:
+      return 'flat';
+  }
+}
+
+function createTrussPatternGeometry(options = {}) {
+  const barStartX = Number(options.barStartX || 0);
+  const barY = Number(options.barY || 0);
+  const exactBarWidth = Math.max(1, Number(options.exactBarWidth || 250));
+  const barHeight = Math.max(1, Number(options.barHeight || 18));
+  const thickness = Math.max(0.5, parseFloat(options.thickness || 2));
+  const segments = Math.max(2, parseInt(options.segments || 15, 10));
+  const family = normalizeTrussFamily(options.family);
+
+  const halfThick = thickness / 2;
+  const xLeft = barStartX + halfThick;
+  const yTop = barY + halfThick;
+  const xRight = barStartX + exactBarWidth - halfThick;
+  const yBottom = barY + barHeight - halfThick;
+  const innerWidth = Math.max(0.1, xRight - xLeft);
+  const innerHeight = Math.max(0.1, yBottom - yTop);
+
+  const lines = [];
+  const toAbsolute = (point) => ({
+    x: xLeft + point.x * innerWidth,
+    y: yTop + point.y * innerHeight
+  });
+  const addLine = (pointA, pointB) => {
+    const a = toAbsolute(pointA);
+    const b = toAbsolute(pointB);
+    lines.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+  };
+  const addPolyline = (points, closed = false) => {
+    for (let i = 0; i < points.length - 1; i++) {
+      addLine(points[i], points[i + 1]);
+    }
+    if (closed && points.length > 2) {
+      addLine(points[points.length - 1], points[0]);
+    }
+  };
+  const point = (x, y) => ({ x, y });
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const lerpPoint = (a, b, t) => point(lerp(a.x, b.x, t), lerp(a.y, b.y, t));
+  const lineYAtX = (a, b, x) => {
+    if (Math.abs(b.x - a.x) < 1e-6) return a.y;
+    const t = (x - a.x) / (b.x - a.x);
+    return lerp(a.y, b.y, t);
+  };
+  const roofPointAt = (x, leftBase, ridge, rightBase) => {
+    if (x <= ridge.x) {
+      return point(x, lineYAtX(leftBase, ridge, x));
+    }
+    return point(x, lineYAtX(ridge, rightBase, x));
+  };
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+  const leftBase = point(0.04, 1.0);
+  const ridge = point(0.5, 0.04);
+  const rightBase = point(0.96, 1.0);
+  const bottomCenter = point(0.5, 1.0);
+
+  if (family === 'flat') {
+    const panels = clamp(segments, 4, 16);
+    const corners = [
+      point(0, 0),
+      point(1, 0),
+      point(1, 1),
+      point(0, 1)
+    ];
+    addPolyline(corners, true);
+
+    for (let i = 1; i < panels; i++) {
+      const x = i / panels;
+      addLine(point(x, 0), point(x, 1));
+    }
+
+    const middleIndex = Math.floor(panels / 2);
+    const hasCenterPanel = panels % 2 === 1;
+    for (let i = 0; i < panels; i++) {
+      const x0 = i / panels;
+      const x1 = (i + 1) / panels;
+      if (hasCenterPanel && i === middleIndex) {
+        addLine(point(x0, 0), point(x1, 1));
+        addLine(point(x0, 1), point(x1, 0));
+      } else if (i < middleIndex) {
+        addLine(point(x0, 0), point(x1, 1));
+      } else {
+        addLine(point(x0, 1), point(x1, 0));
+      }
+    }
+  } else if (family === 'king-post') {
+    addPolyline([leftBase, ridge, rightBase]);
+    addLine(leftBase, rightBase);
+    addLine(ridge, bottomCenter);
+  } else if (family === 'queen-post') {
+    const leftWeb = roofPointAt(0.32, leftBase, ridge, rightBase);
+    const rightWeb = roofPointAt(0.68, leftBase, ridge, rightBase);
+    addPolyline([leftBase, ridge, rightBase]);
+    addLine(leftBase, rightBase);
+    addLine(ridge, bottomCenter);
+    addLine(leftWeb, bottomCenter);
+    addLine(bottomCenter, rightWeb);
+  } else if (family === 'howe') {
+    const leftTop = roofPointAt(0.26, leftBase, ridge, rightBase);
+    const rightTop = roofPointAt(0.74, leftBase, ridge, rightBase);
+    addPolyline([leftBase, ridge, rightBase]);
+    addLine(leftBase, rightBase);
+    addLine(leftTop, point(0.26, 1));
+    addLine(ridge, bottomCenter);
+    addLine(rightTop, point(0.74, 1));
+    addLine(leftTop, bottomCenter);
+    addLine(bottomCenter, rightTop);
+  } else if (family === 'scissor') {
+    const lowerApex = point(0.5, 0.5);
+    const leftLower = point(0.28, lineYAtX(leftBase, lowerApex, 0.28));
+    const rightLower = point(0.72, lineYAtX(lowerApex, rightBase, 0.72));
+    addPolyline([leftBase, ridge, rightBase]);
+    addPolyline([leftBase, lowerApex, rightBase]);
+    addLine(ridge, lowerApex);
+    addLine(leftLower, roofPointAt(leftLower.x, leftBase, ridge, rightBase));
+    addLine(rightLower, roofPointAt(rightLower.x, leftBase, ridge, rightBase));
+  } else if (family === 'fink') {
+    const bottomLeft = point(0.3, 1);
+    const bottomRight = point(0.7, 1);
+    const roofLeft = roofPointAt(0.18, leftBase, ridge, rightBase);
+    const roofRight = roofPointAt(0.82, leftBase, ridge, rightBase);
+    addPolyline([leftBase, ridge, rightBase]);
+    addLine(leftBase, rightBase);
+    addLine(bottomCenter, ridge);
+    addLine(ridge, bottomLeft);
+    addLine(ridge, bottomRight);
+    addLine(roofLeft, bottomCenter);
+    addLine(bottomCenter, roofRight);
+  } else if (family === 'attic') {
+    const leftWallTop = roofPointAt(0.24, leftBase, ridge, rightBase);
+    const rightWallTop = roofPointAt(0.76, leftBase, ridge, rightBase);
+    const leftWallBottom = point(0.24, 1);
+    const rightWallBottom = point(0.76, 1);
+    const atticLeft = point(0.39, 0.28);
+    const atticRight = point(0.61, 0.28);
+    const atticMid = point(0.5, 0.28);
+    addPolyline([leftBase, ridge, rightBase]);
+    addLine(leftBase, rightBase);
+    addLine(leftWallTop, leftWallBottom);
+    addLine(rightWallTop, rightWallBottom);
+    addLine(atticLeft, atticRight);
+    addLine(atticLeft, ridge);
+    addLine(ridge, atticRight);
+    addLine(ridge, atticMid);
+    addLine(point(0.12, 1), leftWallTop);
+    addLine(rightWallTop, point(0.88, 1));
+  } else if (family === 'mono') {
+    const monoLeft = point(0.04, 1);
+    const monoTop = point(0.92, 0.08);
+    const monoRight = point(0.92, 1);
+    const centerTop = lerpPoint(monoLeft, monoTop, 0.64);
+    addPolyline([monoLeft, monoTop, monoRight]);
+    addLine(monoLeft, monoRight);
+    addLine(centerTop, point(centerTop.x, 1));
+    addLine(centerTop, monoRight);
+  } else if (family === 'hip') {
+    const leftKnee = point(0.28, 0.22);
+    const rightKnee = point(0.72, 0.22);
+    const centerTop = point(0.5, 0.22);
+    addPolyline([leftBase, leftKnee, rightKnee, rightBase]);
+    addLine(leftBase, rightBase);
+    addLine(leftKnee, point(leftKnee.x, 1));
+    addLine(centerTop, bottomCenter);
+    addLine(rightKnee, point(rightKnee.x, 1));
+    addLine(leftKnee, bottomCenter);
+    addLine(bottomCenter, rightKnee);
+    addLine(point(0.14, 1), point(0.2, 0.62));
+    addLine(point(0.8, 0.62), point(0.86, 1));
+  } else if (family === 'gable') {
+    const postCount = clamp(segments, 6, 18);
+    addPolyline([leftBase, ridge, rightBase]);
+    addLine(leftBase, rightBase);
+    for (let i = 1; i < postCount; i++) {
+      const x = i / postCount;
+      addLine(point(x, 1), roofPointAt(x, leftBase, ridge, rightBase));
+    }
+  } else if (family === 'cathedral') {
+    const cathedralRidge = point(0.48, 0.04);
+    const valley = point(0.56, 1.0);
+    const wingPeak = point(0.74, 0.44);
+    const wingEnd = point(0.96, 0.78);
+    const leftBraceX = 0.24;
+    const leftBraceTop = roofPointAt(leftBraceX, leftBase, cathedralRidge, valley);
+    const rightBraceStart = lerpPoint(valley, wingPeak, 0.62);
+    const rightBraceEnd = lerpPoint(wingPeak, wingEnd, 0.38);
+    addPolyline([leftBase, cathedralRidge, valley]);
+    addLine(leftBase, valley);
+    addPolyline([valley, wingPeak, wingEnd]);
+    addLine(cathedralRidge, valley);
+    addLine(leftBraceTop, point(leftBraceX, 1));
+    addLine(leftBraceTop, valley);
+    addLine(rightBraceStart, rightBraceEnd);
+  } else if (family === 'fan') {
+    const rayCount = clamp(Math.round(segments / 2), 3, 7);
+    addPolyline([leftBase, ridge, rightBase]);
+    addLine(leftBase, rightBase);
+    addLine(bottomCenter, ridge);
+    for (let i = 1; i <= rayCount; i++) {
+      const x = 0.5 - (0.38 * i) / (rayCount + 1);
+      addLine(bottomCenter, roofPointAt(x, leftBase, ridge, rightBase));
+      addLine(bottomCenter, roofPointAt(1 - x, leftBase, ridge, rightBase));
+    }
+  } else if (family === 'raised-tie') {
+    const tieLeft = point(0.28, 0.62);
+    const tieRight = point(0.72, 0.62);
+    const tieMid = point(0.5, 0.62);
+    const roofLeft = roofPointAt(0.34, leftBase, ridge, rightBase);
+    const roofRight = roofPointAt(0.66, leftBase, ridge, rightBase);
+    addPolyline([leftBase, ridge, rightBase]);
+    addLine(tieLeft, tieRight);
+    addLine(ridge, tieMid);
+    addLine(roofLeft, tieMid);
+    addLine(tieMid, roofRight);
+  }
+
+  return {
+    family,
+    thickness,
+    segments,
+    lines
+  };
+}
+
 function createBarPatternSVG(config) {
   const {
     currentShader,
@@ -313,127 +583,61 @@ function createBarPatternSVG(config) {
   }
 
   if (currentShader === 9) {
-    const segments = parseInt(values.trussSegments || 15, 10);
-    const thickness = parseFloat(values.trussThickness || 2);
-
-    const halfThick = thickness / 2;
-    const cw = exactBarWidth - thickness;
-    const ch = barHeight - thickness;
-    const segmentWidth = exactBarWidth / segments;
-
-    pattern += `\n    <rect x="${barStartX + halfThick}" y="${barY + halfThick}" width="${cw}" height="${ch}" fill="none" stroke="${fgColor}" stroke-width="${thickness}" stroke-linecap="square" stroke-linejoin="miter"/>`;
+    const trussGeometry = createTrussPatternGeometry({
+      barStartX,
+      barY,
+      exactBarWidth,
+      barHeight,
+      segments: values.trussSegments,
+      thickness: values.trussThickness,
+      family: values.trussFamily
+    });
 
     let pathData = '';
-    for (let i = 0; i < segments; i++) {
-      const x1 = barStartX + i * segmentWidth;
-      const x2 = barStartX + (i + 1) * segmentWidth;
-
-      if (i > 0) {
-        pathData += ` M ${x1} ${barY + halfThick} L ${x1} ${barY + barHeight - halfThick}`;
-      }
-      pathData += ` M ${x1} ${barY + halfThick} L ${x2} ${barY + barHeight - halfThick}`;
-      pathData += ` M ${x1} ${barY + barHeight - halfThick} L ${x2} ${barY + halfThick}`;
+    for (let i = 0; i < trussGeometry.lines.length; i++) {
+      const line = trussGeometry.lines[i];
+      pathData += ` M ${line.x1} ${line.y1} L ${line.x2} ${line.y2}`;
     }
 
     if (pathData) {
-      pattern += `\n    <path d="${pathData}" fill="none" stroke="${fgColor}" stroke-width="${thickness}" stroke-linecap="square" stroke-linejoin="miter"/>`;
+      pattern += `\n    <path d="${pathData}" fill="none" stroke="${fgColor}" stroke-width="${trussGeometry.thickness}" stroke-linecap="square" stroke-linejoin="miter"/>`;
     }
 
     return pattern;
   }
 
   if (currentShader === 10) {
-    const thickness = parseFloat(values.staffThickness || 1);
     const notesData = values.staffNotes || [];
+    const renderData = buildMusicBarRenderData(notesData, {
+      barStartX,
+      exactBarWidth,
+      rectTop: barY,
+      rectHeight: barHeight,
+      thickness: parseFloat(values.staffThickness || 1),
+      noteShape: values.staffNoteShape || 'circle'
+    });
 
-    const lineThickness = Math.max(0.5, thickness * 0.5);
-    const staffTop = barY + barHeight * 0.2;
-    const staffBottom = barY + barHeight * 0.8;
-    const lineSpacing = (staffBottom - staffTop) / 4;
-    const step = lineSpacing / 2;
-
-    for (let i = 0; i < 5; i++) {
-      const y = staffTop + i * lineSpacing;
-      pattern += `\n    <line x1="${barStartX}" y1="${y}" x2="${barStartX + exactBarWidth}" y2="${y}" stroke="${fgColor}" stroke-width="${lineThickness}"/>`;
-    }
-
-    // Draw measure bar lines
-    for (let m = 0; m <= 4; m++) {
-      const x = barStartX + exactBarWidth * (m / 4.0);
-      pattern += `\n    <line x1="${Math.min(x, barStartX + exactBarWidth)}" y1="${staffTop}" x2="${Math.min(x, barStartX + exactBarWidth)}" y2="${staffBottom}" stroke="${fgColor}" stroke-width="${lineThickness}"/>`;
-    }
-
-    if (notesData && notesData.length > 0) {
-      const STAFF_POSITIONS = {
-        'C4': 6, 'C#4': 6, 'D4': 5, 'D#4': 5,
-        'E4': 4, 'F4': 3, 'F#4': 3, 'G4': 2, 'G#4': 2,
-        'A4': 1, 'A#4': 1, 'B4': 0, 'C5': -1
-      };
-
-      let cumulativeBeats = 0;
-      const headRadiusWidth = lineSpacing * 0.7; // slightly oval
-      const headRadiusHeight = lineSpacing * 0.5;
-
-      for (let i = 0; i < notesData.length; i++) {
-        const note = notesData[i];
-
-        // Note X position
-        const noteX = barStartX + exactBarWidth * ((cumulativeBeats + note.duration / 2) / 16.0);
-
-        const pos = STAFF_POSITIONS[note.note] || 0;
-        const isSharp = note.note.includes('#');
-        const noteY = staffTop + 2 * lineSpacing + pos * step;
-        const stemUp = pos > 0;
-
-        // Ledger lines
-        if (pos === 6) { // C4
-          pattern += `\n    <line x1="${noteX - headRadiusWidth}" y1="${noteY}" x2="${noteX + headRadiusWidth}" y2="${noteY}" stroke="${fgColor}" stroke-width="${lineThickness}"/>`;
-        }
-
-        // Sharp symbol
-        if (isSharp) {
-          const shiftX = headRadiusWidth * 1.5;
-          const shiftY = step * 0.5;
-          pattern += `\n    <line x1="${noteX - shiftX - 2}" y1="${noteY - shiftY}" x2="${noteX - shiftX - 2}" y2="${noteY + shiftY}" stroke="${fgColor}" stroke-width="${lineThickness}"/>`;
-          pattern += `\n    <line x1="${noteX - shiftX + 2}" y1="${noteY - shiftY}" x2="${noteX - shiftX + 2}" y2="${noteY + shiftY}" stroke="${fgColor}" stroke-width="${lineThickness}"/>`;
-          pattern += `\n    <line x1="${noteX - shiftX - 3}" y1="${noteY + 1}" x2="${noteX - shiftX + 3}" y2="${noteY - 1}" stroke="${fgColor}" stroke-width="${lineThickness}"/>`;
-        }
-
-        // Note Head
-        if (note.duration >= 2) {
-          // Half or Whole note (hollow)
-          pattern += `\n    <ellipse cx="${noteX}" cy="${noteY}" rx="${headRadiusWidth}" ry="${headRadiusHeight}" fill="none" stroke="${fgColor}" stroke-width="${lineThickness}"/>`;
-        } else {
-          // Filled note
-          pattern += `\n    <ellipse cx="${noteX}" cy="${noteY}" rx="${headRadiusWidth}" ry="${headRadiusHeight}" fill="${fgColor}"/>`;
-        }
-
-        // Stem and Flags
-        if (note.duration < 4) {
-          const stemLength = lineSpacing * 2.5;
-          const stemX = stemUp ? noteX + headRadiusWidth * 0.8 : noteX - headRadiusWidth * 0.8;
-          const stemEndY = stemUp ? noteY - stemLength : noteY + stemLength;
-
-          pattern += `\n    <line x1="${stemX}" y1="${noteY}" x2="${stemX}" y2="${stemEndY}" stroke="${fgColor}" stroke-width="${lineThickness}"/>`;
-
-          if (note.duration <= 0.5) {
-            let numFlags = 1;
-            if (note.duration === 0.25) numFlags = 2; // 16th
-            if (note.duration === 0.125) numFlags = 3; // 32nd
-
-            for (let f = 0; f < numFlags; f++) {
-              const flagStartY = stemUp ? stemEndY + f * (lineSpacing * 0.3) : stemEndY - f * (lineSpacing * 0.3);
-              const flagEndY = stemUp ? flagStartY + lineSpacing * 0.6 : flagStartY - lineSpacing * 0.6;
-              const flagEndX = stemX + lineSpacing * 0.8;
-              pattern += `\n    <line x1="${stemX}" y1="${flagStartY}" x2="${flagEndX}" y2="${flagEndY}" stroke="${fgColor}" stroke-width="${lineThickness}"/>`;
-            }
-          }
-        }
-
-        cumulativeBeats += note.duration;
-        if (cumulativeBeats >= 16) break;
+    renderData.staffLines.forEach(segment => {
+      pattern += `\n    <line x1="${segment.x1}" y1="${segment.y1}" x2="${segment.x2}" y2="${segment.y2}" stroke="${fgColor}" stroke-width="${renderData.lineThickness}"/>`;
+    });
+    renderData.barLines.forEach(segment => {
+      pattern += `\n    <line x1="${segment.x1}" y1="${segment.y1}" x2="${segment.x2}" y2="${segment.y2}" stroke="${fgColor}" stroke-width="${renderData.lineThickness}"/>`;
+    });
+    renderData.notes.forEach(noteRender => {
+      noteRender.ledgerLines.forEach(segment => {
+        pattern += `\n    <line x1="${segment.x1}" y1="${segment.y1}" x2="${segment.x2}" y2="${segment.y2}" stroke="${fgColor}" stroke-width="${renderData.lineThickness}"/>`;
+      });
+      noteRender.accidentalLines.forEach(segment => {
+        pattern += `\n    <line x1="${segment.x1}" y1="${segment.y1}" x2="${segment.x2}" y2="${segment.y2}" stroke="${fgColor}" stroke-width="${renderData.lineThickness}"/>`;
+      });
+      pattern += `\n    ${createMusicHeadSVG(noteRender.noteShape, noteRender.noteX, noteRender.noteY, noteRender.rx, noteRender.ry, noteRender.headFill, fgColor, renderData.lineThickness)}`;
+      if (noteRender.stem) {
+        pattern += `\n    <line x1="${noteRender.stem.x1}" y1="${noteRender.stem.y1}" x2="${noteRender.stem.x2}" y2="${noteRender.stem.y2}" stroke="${fgColor}" stroke-width="${renderData.lineThickness}"/>`;
       }
-    }
+      noteRender.flags.forEach(segment => {
+        pattern += `\n    <line x1="${segment.x1}" y1="${segment.y1}" x2="${segment.x2}" y2="${segment.y2}" stroke="${fgColor}" stroke-width="${renderData.lineThickness}"/>`;
+      });
+    });
     return pattern;
   }
 
@@ -463,25 +667,70 @@ function createBarPatternSVG(config) {
   }
 
   if (currentShader === 12) {
-    const text = values.graphText || 'RPI';
-    const scaleMax = parseInt(values.graphScale || 10) / 10.0;
-
-    if (text.length > 0) {
-      const spacing = exactBarWidth / text.length;
-
-      for (let i = 0; i < text.length; i++) {
-        const charCode = text.charCodeAt(i);
-        const normalizedHeight = 0.1 + ((charCode % 15) / 14.0) * 0.9;
-        const h = barHeight * normalizedHeight * scaleMax;
-
-        const x1 = barStartX + i * spacing;
-        const x2 = barStartX + (i + 1) * spacing;
-        const yBase = barY + barHeight;
-        const yTop = yBase - h;
-
-        const pathData = `M ${x1} ${yBase} L ${x2} ${yBase} L ${x1} ${yTop} Z`;
-        pattern += `\n    <path d="${pathData}" fill="${fgColor}"/>`;
+    const streamTexts = [];
+    const primaryText = (values.graphText || 'RPI').trim() || 'RPI';
+    const multiEnabled = values.graphMulti === true || values.graphMulti === 'true';
+    if (!multiEnabled) {
+      streamTexts.push(primaryText);
+    } else {
+      const candidateStreams = [
+        values.graphText,
+        values.graphText2,
+        values.graphText3,
+        values.graphText4,
+        values.graphText5
+      ];
+      for (let i = 0; i < candidateStreams.length; i++) {
+        const value = (candidateStreams[i] || '').trim();
+        if (value.length > 0) {
+          streamTexts.push(value);
+        }
       }
+      if (streamTexts.length === 0) {
+        streamTexts.push(primaryText);
+      }
+    }
+
+    const scaleFactor = Math.max(0.4, parseInt(values.graphScale || 10, 10) / 10.0);
+    const seriesList = streamTexts.map(text => {
+      const source = (text || 'RPI').slice(0, 200);
+      const valuesList = [];
+      for (let i = 0; i < source.length; i++) {
+        valuesList.push(source.charCodeAt(i));
+      }
+      if (valuesList.length === 1) {
+        valuesList.push(valuesList[0]);
+      }
+      return valuesList;
+    });
+
+    let minValue = Infinity;
+    let maxValue = -Infinity;
+    for (let i = 0; i < seriesList.length; i++) {
+      for (let j = 0; j < seriesList[i].length; j++) {
+        minValue = Math.min(minValue, seriesList[i][j]);
+        maxValue = Math.max(maxValue, seriesList[i][j]);
+      }
+    }
+    if (!isFinite(minValue) || !isFinite(maxValue) || minValue === maxValue) {
+      minValue = 0;
+      maxValue = 1;
+    }
+
+    for (let streamIndex = 0; streamIndex < seriesList.length; streamIndex++) {
+      const series = seriesList[streamIndex];
+      if (!series || series.length < 2) continue;
+
+      const opacity = seriesList.length > 1 ? Math.max(0.35, 1 - streamIndex * 0.14) : 1;
+      const steps = series.length - 1;
+      let pathData = '';
+      for (let i = 0; i < series.length; i++) {
+        const normalized = (series[i] - minValue) / (maxValue - minValue);
+        const x = barStartX + (steps === 0 ? 0 : (i / steps) * exactBarWidth);
+        const y = barY + barHeight - normalized * barHeight * scaleFactor;
+        pathData += `${i === 0 ? 'M' : ' L'} ${x} ${y}`;
+      }
+      pattern += `\n    <path d="${pathData}" fill="none" stroke="${fgColor}" stroke-width="${seriesList.length > 1 ? 1.6 : 2.2}" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="${opacity}"/>`;
     }
     return pattern;
   }
@@ -490,9 +739,10 @@ function createBarPatternSVG(config) {
 }
 
 if (typeof window !== 'undefined') {
+  window.createTrussPatternGeometry = createTrussPatternGeometry;
   window.createBarPatternSVG = createBarPatternSVG;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { createBarPatternSVG };
+  module.exports = { createBarPatternSVG, createTrussPatternGeometry, normalizeTrussFamily };
 }

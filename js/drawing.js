@@ -124,6 +124,43 @@ function drawSVGPathOnGraphics(pg, pathData) {
   pg.endShape(CLOSE);
 }
 
+function drawMusicHeadOnGraphics(pg, shape, x, y, rx, ry, filled, fgColor) {
+  const normalizedShape = normalizeMusicNoteShape(shape);
+
+  if (filled) {
+    pg.fill(fgColor);
+    pg.noStroke();
+  } else {
+    pg.noFill();
+    pg.stroke(fgColor);
+  }
+
+  if (normalizedShape === 'circle') {
+    pg.circle(x, y, rx * 2);
+    return;
+  }
+
+  if (normalizedShape === 'square') {
+    pg.rectMode(CENTER);
+    pg.rect(x, y, rx * 2, ry * 2);
+    pg.rectMode(CORNER);
+    return;
+  }
+
+  pg.beginShape();
+  if (normalizedShape === 'diamond') {
+    pg.vertex(x, y - ry);
+    pg.vertex(x + rx, y);
+    pg.vertex(x, y + ry);
+    pg.vertex(x - rx, y);
+  } else {
+    pg.vertex(x, y - ry);
+    pg.vertex(x + rx, y + ry);
+    pg.vertex(x - rx, y + ry);
+  }
+  pg.endShape(CLOSE);
+}
+
 function drawBarPatternOnGraphics(pg, barStartX, barY, exactBarWidth, rectHeight) {
   // Get current foreground color
   const colorScheme = colors[currentColorMode];
@@ -465,157 +502,55 @@ function drawBarPatternOnGraphics(pg, barStartX, barY, exactBarWidth, rectHeight
     }
   } else if (currentShader === 9) {
     // Truss / Geometric pattern
-    const segments = parseInt(trussSegmentsSlider ? trussSegmentsSlider.value : 15);
-    const thickness = parseFloat(trussThicknessSlider ? trussThicknessSlider.value : 2);
+    const trussGeometry = createTrussPatternGeometry({
+      barStartX,
+      barY,
+      exactBarWidth,
+      barHeight: rectHeight,
+      segments: trussSegmentsSlider ? trussSegmentsSlider.value : 15,
+      thickness: trussThicknessSlider ? trussThicknessSlider.value : 2,
+      family: trussFamilySelect ? trussFamilySelect.value : 'flat'
+    });
 
     pg.noFill();
     pg.stroke(fgColor);
-    pg.strokeWeight(thickness);
+    pg.strokeWeight(trussGeometry.thickness);
     pg.strokeCap(pg.SQUARE);
     pg.strokeJoin(pg.MITER);
 
-    const halfThick = thickness / 2;
-    const cw = exactBarWidth - thickness;
-    const ch = rectHeight - Math.max(0.1, thickness);
-    const segmentWidth = exactBarWidth / segments;
-
-    // Draw frame
-    pg.rect(barStartX + halfThick, barY + halfThick, cw, ch);
-
-    // Draw internal bracing
-    for (let i = 0; i < segments; i++) {
-      const x1 = barStartX + i * segmentWidth;
-      const x2 = barStartX + (i + 1) * segmentWidth;
-
-      if (i > 0) {
-        pg.line(x1, barY + halfThick, x1, barY + rectHeight - halfThick);
-      }
-      pg.line(x1, barY + halfThick, x2, barY + rectHeight - halfThick);
-      pg.line(x1, barY + rectHeight - halfThick, x2, barY + halfThick);
+    for (let i = 0; i < trussGeometry.lines.length; i++) {
+      const lineSegment = trussGeometry.lines[i];
+      pg.line(lineSegment.x1, lineSegment.y1, lineSegment.x2, lineSegment.y2);
     }
   } else if (currentShader === 10) {
     // Staff Notation pattern
-    const _staffThicknessSlider = typeof staffThicknessSlider !== 'undefined' ? staffThicknessSlider : document.getElementById('staff-thickness-slider');
-    const thickness = parseFloat(_staffThicknessSlider ? _staffThicknessSlider.value : 1);
     const notesData = typeof currentStaffNotes !== 'undefined' ? currentStaffNotes : [];
+    const renderData = buildMusicBarRenderData(notesData, {
+      barStartX,
+      exactBarWidth,
+      rectTop: barY,
+      rectHeight,
+      thickness: 1,
+      noteShape: typeof getSelectedMusicNoteShape === 'function' ? getSelectedMusicNoteShape() : 'circle'
+    });
 
     pg.stroke(fgColor);
-    pg.strokeWeight(Math.max(0.5, thickness * 0.5));
-
-    const staffTop = barY + rectHeight * 0.2;
-    const staffBottom = barY + rectHeight * 0.8;
-    const lineSpacing = (staffBottom - staffTop) / 4;
-    const step = lineSpacing / 2;
-
-    // Draw 5 staff lines
-    for (let i = 0; i < 5; i++) {
-      const y = staffTop + i * lineSpacing;
-      pg.line(barStartX, y, barStartX + exactBarWidth, y);
-    }
-
-    // Draw measure bar lines (every 4 quarter notes = 1 measure, max 4 measures)
-    // 4 measures = 5 bar lines total (at 0, 4, 8, 12, 16 beats)
-    for (let m = 0; m <= 4; m++) {
-      const x = barStartX + exactBarWidth * (m / 4.0);
-      pg.line(Math.min(x, barStartX + exactBarWidth), staffTop, Math.min(x, barStartX + exactBarWidth), staffBottom);
-    }
-
-    // Draw notes
-    if (notesData && notesData.length > 0) {
-      const STAFF_POSITIONS = {
-        'C4': 6, 'C#4': 6, 'D4': 5, 'D#4': 5,
-        'E4': 4, 'F4': 3, 'F#4': 3, 'G4': 2, 'G#4': 2,
-        'A4': 1, 'A#4': 1, 'B4': 0, 'C5': -1
-      };
-
-      let cumulativeBeats = 0;
-      const headRadiusWidth = lineSpacing * 0.7; // slightly oval
-      const headRadiusHeight = lineSpacing * 0.5;
-
-      for (let i = 0; i < notesData.length; i++) {
-        const note = notesData[i];
-
-        // Note X position (centered in its duration window)
-        const noteX = barStartX + exactBarWidth * ((cumulativeBeats + note.duration / 2) / 16.0);
-
-        const pos = STAFF_POSITIONS[note.note] || 0;
-        const isSharp = note.note.includes('#');
-        // pos 0 is middle line (B4). E4 is pos 4 (bottom line).
-        // Wait, staffLines are at i=0..4. i=0 is top line (F5), i=4 is bottom line (E4).
-        // Middle line is i=2 (B4).
-        // Pos offsets from middle line (B4):
-        // C5 = 3rd space. B4 = 3rd line. 
-        // B4: pos = 0
-        // A4: pos = 1 (space below middle)
-        // G4: pos = 2 (2nd line from bottom)
-        // F4: pos = 3 (space above bottom line)
-        // E4: pos = 4 (bottom line)
-        // D4: pos = 5 (space below bottom)
-        // C4: pos = 6 (ledger line)
-
-        const noteY = staffTop + 2 * lineSpacing + pos * step; // staffTop + 2*lineSpacing is middle line
-
-        // Is stem up or down?
-        const stemUp = pos > 0; // Down stems for B4 and above (C5)
-
-        pg.strokeWeight(thickness * 0.5);
-
-        // Ledger lines
-        if (pos === 6) { // C4
-          pg.line(noteX - headRadiusWidth, noteY, noteX + headRadiusWidth, noteY);
-        }
-
-        // Sharp accidental symbol
-        if (isSharp) {
-          const shiftX = headRadiusWidth * 1.5;
-          const shiftY = step * 0.5;
-          pg.line(noteX - shiftX - 2, noteY - shiftY, noteX - shiftX - 2, noteY + shiftY);
-          pg.line(noteX - shiftX + 2, noteY - shiftY, noteX - shiftX + 2, noteY + shiftY);
-          pg.line(noteX - shiftX - 3, noteY + 1, noteX - shiftX + 3, noteY - 1);
-        }
-
-        // Draw Note Head
-        if (note.duration >= 2) {
-          // Half or Whole note (hollow)
-          pg.noFill();
-          pg.ellipse(noteX, noteY, headRadiusWidth * 2, headRadiusHeight * 2);
-        } else {
-          // Filled note
-          pg.fill(fgColor);
-          pg.noStroke();
-          pg.ellipse(noteX, noteY, headRadiusWidth * 2, headRadiusHeight * 2);
-          pg.stroke(fgColor);
-        }
-
-        // Draw Stem and Flags
-        if (note.duration < 4) {
-          const stemLength = lineSpacing * 2.5;
-          const stemX = stemUp ? noteX + headRadiusWidth * 0.8 : noteX - headRadiusWidth * 0.8;
-          const stemEndY = stemUp ? noteY - stemLength : noteY + stemLength;
-
-          pg.strokeWeight(thickness * 0.5);
-          pg.line(stemX, noteY, stemX, stemEndY);
-
-          // Draw Flags (for 8th, 16th, 32nd)
-          if (note.duration <= 0.5) {
-            let numFlags = 1;
-            if (note.duration === 0.25) numFlags = 2; // 16th
-            if (note.duration === 0.125) numFlags = 3; // 32nd
-
-            for (let f = 0; f < numFlags; f++) {
-              const flagStartY = stemUp ? stemEndY + f * (lineSpacing * 0.3) : stemEndY - f * (lineSpacing * 0.3);
-              const flagEndY = stemUp ? flagStartY + lineSpacing * 0.6 : flagStartY - lineSpacing * 0.6;
-              const flagEndX = stemX + lineSpacing * 0.8;
-
-              pg.line(stemX, flagStartY, flagEndX, flagEndY);
-            }
-          }
-        }
-
-        cumulativeBeats += note.duration;
-        if (cumulativeBeats >= 16) break; // Max 4 measures
+    pg.strokeWeight(renderData.lineThickness);
+    renderData.staffLines.forEach(segment => pg.line(segment.x1, segment.y1, segment.x2, segment.y2));
+    renderData.barLines.forEach(segment => pg.line(segment.x1, segment.y1, segment.x2, segment.y2));
+    renderData.notes.forEach(noteRender => {
+      pg.stroke(fgColor);
+      pg.strokeWeight(renderData.lineThickness);
+      noteRender.ledgerLines.forEach(segment => pg.line(segment.x1, segment.y1, segment.x2, segment.y2));
+      noteRender.accidentalLines.forEach(segment => pg.line(segment.x1, segment.y1, segment.x2, segment.y2));
+      drawMusicHeadOnGraphics(pg, noteRender.noteShape, noteRender.noteX, noteRender.noteY, noteRender.rx, noteRender.ry, noteRender.headFill, fgColor);
+      pg.stroke(fgColor);
+      pg.strokeWeight(renderData.lineThickness);
+      if (noteRender.stem) {
+        pg.line(noteRender.stem.x1, noteRender.stem.y1, noteRender.stem.x2, noteRender.stem.y2);
       }
-    }
+      noteRender.flags.forEach(segment => pg.line(segment.x1, segment.y1, segment.x2, segment.y2));
+    });
   } else if (currentShader === 11) {
     // Pulse / Centerline pattern
     const text = pulseInput ? pulseInput.value || "RPI" : "RPI";
@@ -643,32 +578,68 @@ function drawBarPatternOnGraphics(pg, barStartX, barY, exactBarWidth, rectHeight
       }
     }
   } else if (currentShader === 12) {
-    // Data Graph / Right Triangles pattern
-    const text = graphInput ? graphInput.value || "RPI" : "RPI";
-    const scaleMax = parseInt(graphScaleSlider ? graphScaleSlider.value : 10) / 10.0;
-
-    pg.noStroke();
-    pg.fill(fgColor);
-
-    if (text.length > 0) {
-      const spacing = exactBarWidth / text.length;
-
-      for (let i = 0; i < text.length; i++) {
-        const charCode = text.charCodeAt(i);
-        const normalizedHeight = 0.1 + ((charCode % 15) / 14.0) * 0.9;
-        const h = rectHeight * normalizedHeight * scaleMax;
-
-        const x1 = barStartX + i * spacing;
-        const x2 = barStartX + (i + 1) * spacing;
-        const yBase = barY + rectHeight;
-        const yTop = yBase - h;
-
-        pg.beginShape();
-        pg.vertex(x1, yBase);
-        pg.vertex(x2, yBase);
-        pg.vertex(x1, yTop);
-        pg.endShape(pg.CLOSE);
+    // Data Graph / Continuous line graph
+    const inputElements = [graphInput, graphInput2, graphInput3, graphInput4, graphInput5].filter(Boolean);
+    const multiEnabled = graphMultiToggle && graphMultiToggle.checked;
+    const streamTexts = [];
+    if (inputElements.length > 0) {
+      const primaryText = (inputElements[0].value || 'RPI').trim() || 'RPI';
+      if (!multiEnabled) {
+        streamTexts.push(primaryText);
+      } else {
+        for (let i = 0; i < inputElements.length; i++) {
+          const value = (inputElements[i].value || '').trim();
+          if (value.length > 0) streamTexts.push(value);
+        }
+        if (streamTexts.length === 0) streamTexts.push(primaryText);
       }
+    } else {
+      streamTexts.push('RPI');
+    }
+
+    const scaleFactor = Math.max(0.4, parseInt(graphScaleSlider ? graphScaleSlider.value : 10, 10) / 10.0);
+    const seriesList = streamTexts.map(text => {
+      const chars = (text || 'RPI').slice(0, 200);
+      const values = [];
+      for (let i = 0; i < chars.length; i++) values.push(chars.charCodeAt(i));
+      if (values.length === 1) values.push(values[0]);
+      return values;
+    });
+
+    let minValue = Infinity;
+    let maxValue = -Infinity;
+    for (let i = 0; i < seriesList.length; i++) {
+      for (let j = 0; j < seriesList[i].length; j++) {
+        minValue = Math.min(minValue, seriesList[i][j]);
+        maxValue = Math.max(maxValue, seriesList[i][j]);
+      }
+    }
+    if (!isFinite(minValue) || !isFinite(maxValue) || minValue === maxValue) {
+      minValue = 0;
+      maxValue = 1;
+    }
+
+    pg.noFill();
+    const baseColor = color(fgColor);
+    for (let streamIndex = 0; streamIndex < seriesList.length; streamIndex++) {
+      const series = seriesList[streamIndex];
+      if (!series || series.length < 2) continue;
+
+      const alpha = seriesList.length > 1 ? Math.max(80, 255 - streamIndex * 30) : 255;
+      baseColor.setAlpha(alpha);
+      pg.stroke(baseColor);
+      pg.strokeWeight(seriesList.length > 1 ? 1.6 : 2.2);
+      pg.strokeJoin(ROUND);
+
+      const steps = series.length - 1;
+      pg.beginShape();
+      for (let i = 0; i < series.length; i++) {
+        const normalized = (series[i] - minValue) / (maxValue - minValue);
+        const x = barStartX + (steps === 0 ? 0 : (i / steps) * exactBarWidth);
+        const y = barY + rectHeight - normalized * rectHeight * scaleFactor;
+        pg.vertex(x, y);
+      }
+      pg.endShape();
     }
   }
 }
@@ -938,14 +909,21 @@ function saveSVG() {
           matrixText: matrixInput ? matrixInput.value : 'RPI',
           matrixRows: matrixRowsSlider ? matrixRowsSlider.value : 3,
           matrixGap: matrixGapSlider ? matrixGapSlider.value : 1,
+          trussFamily: trussFamilySelect ? trussFamilySelect.value : 'flat',
           trussSegments: trussSegmentsSlider ? trussSegmentsSlider.value : 15,
           trussThickness: trussThicknessSlider ? trussThicknessSlider.value : 2,
           staffText: staffInput ? staffInput.value : 'RPI',
           staffThickness: staffThicknessSlider ? staffThicknessSlider.value : 1,
           staffNotes: typeof currentStaffNotes !== 'undefined' ? currentStaffNotes : [],
+          staffNoteShape: typeof getSelectedMusicNoteShape === 'function' ? getSelectedMusicNoteShape() : 'circle',
           pulseText: pulseInput ? pulseInput.value : 'RPI',
           pulseIntensity: pulseIntensitySlider ? pulseIntensitySlider.value : 5,
           graphText: graphInput ? graphInput.value : 'RPI',
+          graphText2: graphInput2 ? graphInput2.value : '',
+          graphText3: graphInput3 ? graphInput3.value : '',
+          graphText4: graphInput4 ? graphInput4.value : '',
+          graphText5: graphInput5 ? graphInput5.value : '',
+          graphMulti: graphMultiToggle ? graphMultiToggle.checked : false,
           graphScale: graphScaleSlider ? graphScaleSlider.value : 10
         }
       });

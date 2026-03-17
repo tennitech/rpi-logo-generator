@@ -47,6 +47,12 @@ let morseGroup;
 let morsePlayBtn;
 let morseResetBtn;
 let morseInfoBadge;
+let staffPlayBtn;
+let staffResetBtn;
+let staffInfoBadge;
+let binaryAudioIndicator;
+let tickerAudioIndicator;
+let waveformAudioIndicator;
 let rulerGroup;
 let rulerRepeatsSlider;
 let rulerRepeatsDisplay;
@@ -110,23 +116,67 @@ let matrixRowsDisplay;
 let matrixGapSlider;
 let matrixGapDisplay;
 let trussGroup;
+let trussFamilySelect;
 let trussSegmentsSlider;
 let trussSegmentsDisplay;
 let trussThicknessSlider;
 let trussThicknessDisplay;
 let staffGroup;
 let staffInstrumentSelect;
+let staffNoteShapeSelect;
 let staffClearBtn;
 let staffAudioToggle;
-let staffAnimateToggle;
+let staffReverbToggle;
+let staffTremoloToggle;
 let staffTempoSlider;
 let staffTempoDisplay;
 let morseAudioToggle;
 let currentStaffNotes = [];
 let currentNoteDuration = 1; // quarter note by default
+let pulseGroup;
+let pulseInput;
+let pulseIntensitySlider;
+let pulseIntensityDisplay;
+let graphGroup;
 let graphInput;
+let graphInput2;
+let graphInput3;
+let graphInput4;
+let graphInput5;
+let graphMultiToggle;
+let graphMultiInputs;
 let graphScaleSlider;
 let graphScaleDisplay;
+
+const TRUSS_FAMILY_OPTIONS = [
+  'flat',
+  'king-post',
+  'queen-post',
+  'howe',
+  'scissor',
+  'fink',
+  'attic',
+  'mono',
+  'hip',
+  'gable',
+  'cathedral',
+  'fan',
+  'raised-tie'
+];
+const TRUSS_FAMILY_ALIASES = {
+  cross: 'flat',
+  warren: 'flat',
+  pratt: 'queen-post',
+  vierendeel: 'flat'
+};
+
+function normalizeTrussFamilyValue(value) {
+  const normalized = String(value || 'flat').toLowerCase();
+  if (TRUSS_FAMILY_OPTIONS.includes(normalized)) {
+    return normalized;
+  }
+  return TRUSS_FAMILY_ALIASES[normalized] || 'flat';
+}
 
 // Static circle data cache
 let staticCircleData = null;
@@ -135,6 +185,30 @@ let appSidebar;
 let mobileMenuToggle;
 let saveButton;
 let saveMenu;
+let appMain;
+let easterEggHint;
+let easterEggHintLabel;
+let easterEggOverlay;
+let easterEggCanvas;
+let easterEggLiveStatus;
+let easterEggCloseButton;
+let easterEggTouchButtons = [];
+let easterEggGame = null;
+let easterEggHotspotBounds = null;
+let easterEggHoldRaf = 0;
+let easterEggHoldState = {
+  pointerId: null,
+  startedAt: 0,
+  progress: 0,
+  active: false
+};
+let easterEggKeyBuffer = '';
+let easterEggKeyBufferTimer = null;
+let easterEggPreviousPlaybackState = true;
+let easterEggResumeAudio = false;
+let easterEggLastFocusedElement = null;
+let easterEggProfile = null;
+let easterEggRunState = null;
 let tickerShader1, tickerShader2, binaryShader;
 let currentShader = 1;
 let barBuffer;
@@ -153,6 +227,7 @@ window.animationTime = 0;
 let audioContext;
 let gainNode;
 let isAudioPlaying = false;
+let hasShownAudioHintToast = false;
 
 // Crossfader audio system - multiple simultaneous oscillators
 let oscillators = {
@@ -235,13 +310,39 @@ function textToMorse(text) {
 
 // Viewport & Playback State
 let isPlaying = true;
-let zoomLevel = 1.0;
+const DEFAULT_ZOOM_LEVEL = 1.2;
+const MIN_DISPLAY_ZOOM_PERCENT = 50;
+const MAX_DISPLAY_ZOOM_PERCENT = 250;
+const MIN_ZOOM_LEVEL = DEFAULT_ZOOM_LEVEL * (MIN_DISPLAY_ZOOM_PERCENT / 100);
+const MAX_ZOOM_LEVEL = DEFAULT_ZOOM_LEVEL * (MAX_DISPLAY_ZOOM_PERCENT / 100);
+
+let zoomLevel = DEFAULT_ZOOM_LEVEL;
 let panOffset = { x: 0, y: 0 };
 let isPanningMode = false;
+let isAnimated = false;
 
 // Zoom/Pan/Playback UI references
 let playbackBtn, iconPause, iconPlay, playbackText, playbackDivider;
 let zoomInBtn, zoomOutBtn, zoomResetBtn, panBtn, zoomLevelDisplay;
+
+const AVAILABLE_STYLE_VALUES = new Set([
+  'solid', 'ruler', 'ticker', 'binary', 'waveform', 'circles',
+  'numeric', 'morse', 'matrix', 'truss', 'music', 'graph'
+]);
+
+function normalizeStyleValue(style) {
+  if (style === 'staff') return 'music';
+  return AVAILABLE_STYLE_VALUES.has(style) ? style : 'solid';
+}
+
+function zoomLevelToDisplayPercent(level) {
+  return Math.round((level / DEFAULT_ZOOM_LEVEL) * 100);
+}
+
+function displayPercentToZoomLevel(percent) {
+  const constrainedPercent = constrain(percent, MIN_DISPLAY_ZOOM_PERCENT, MAX_DISPLAY_ZOOM_PERCENT);
+  return DEFAULT_ZOOM_LEVEL * (constrainedPercent / 100);
+}
 
 // Convert text to binary
 function textToBinary(text) {
@@ -331,6 +432,47 @@ function evaluateFormula(formula) {
   }
 }
 
+function getSelectedMusicNoteShape() {
+  return normalizeMusicNoteShape(staffNoteShapeSelect ? staffNoteShapeSelect.value : 'circle');
+}
+
+function drawMusicHeadP5(shape, x, y, rx, ry, filled, noteColor) {
+  const normalizedShape = normalizeMusicNoteShape(shape);
+
+  if (filled) {
+    fill(noteColor);
+    noStroke();
+  } else {
+    noFill();
+    stroke(noteColor);
+  }
+
+  if (normalizedShape === 'circle') {
+    circle(x, y, rx * 2);
+    return;
+  }
+
+  if (normalizedShape === 'square') {
+    rectMode(CENTER);
+    rect(x, y, rx * 2, ry * 2);
+    rectMode(CORNER);
+    return;
+  }
+
+  beginShape();
+  if (normalizedShape === 'diamond') {
+    vertex(x, y - ry);
+    vertex(x + rx, y);
+    vertex(x, y + ry);
+    vertex(x - rx, y);
+  } else {
+    vertex(x, y - ry);
+    vertex(x + rx, y + ry);
+    vertex(x - rx, y + ry);
+  }
+  endShape(CLOSE);
+}
+
 // Convert numeric string to digit array
 function parseNumericString(numericString) {
   if (!numericString || typeof numericString !== 'string') {
@@ -353,6 +495,77 @@ function parseNumericString(numericString) {
 
   // Limit to reasonable length to prevent performance issues
   return digits.slice(0, 200);
+}
+
+const GRAPH_MAX_STREAMS = 5;
+const GRAPH_SCALE_MIN = 4;
+const GRAPH_SCALE_DEFAULT = 10;
+
+function getGraphScaleFactor() {
+  const sliderValue = parseInt(graphScaleSlider ? graphScaleSlider.value : GRAPH_SCALE_DEFAULT, 10);
+  const clampedValue = Math.max(GRAPH_SCALE_MIN, isNaN(sliderValue) ? GRAPH_SCALE_DEFAULT : sliderValue);
+  return clampedValue / 10.0;
+}
+
+function getGraphInputElements() {
+  return [graphInput, graphInput2, graphInput3, graphInput4, graphInput5].filter(Boolean).slice(0, GRAPH_MAX_STREAMS);
+}
+
+function getGraphStreamTexts() {
+  const inputs = getGraphInputElements();
+  if (inputs.length === 0) return ['RPI'];
+
+  const primaryText = (inputs[0].value || 'RPI').trim();
+  const multiEnabled = graphMultiToggle && graphMultiToggle.checked;
+  if (!multiEnabled) {
+    return [primaryText || 'RPI'];
+  }
+
+  const streams = [];
+  for (let i = 0; i < inputs.length; i++) {
+    const value = (inputs[i].value || '').trim();
+    if (value.length > 0) {
+      streams.push(value);
+    }
+  }
+
+  return streams.length > 0 ? streams : [primaryText || 'RPI'];
+}
+
+function graphTextToSeries(text) {
+  const source = (text && text.length > 0 ? text : 'RPI').slice(0, 200);
+  const values = [];
+  for (let i = 0; i < source.length; i++) {
+    values.push(source.charCodeAt(i));
+  }
+  if (values.length === 1) {
+    values.push(values[0]);
+  }
+  return values;
+}
+
+function buildGraphSeriesData(streamTexts) {
+  const seriesList = streamTexts.map(graphTextToSeries);
+  let minValue = Infinity;
+  let maxValue = -Infinity;
+
+  for (let i = 0; i < seriesList.length; i++) {
+    const series = seriesList[i];
+    for (let j = 0; j < series.length; j++) {
+      minValue = Math.min(minValue, series[j]);
+      maxValue = Math.max(maxValue, series[j]);
+    }
+  }
+
+  if (!isFinite(minValue) || !isFinite(maxValue)) {
+    minValue = 0;
+    maxValue = 1;
+  }
+  if (maxValue === minValue) {
+    maxValue = minValue + 1;
+  }
+
+  return { seriesList, minValue, maxValue };
 }
 
 // Create texture from numeric data
@@ -430,6 +643,7 @@ async function setup() {
   binaryInput = document.getElementById('binary-input');
   binaryGroup = document.getElementById('binary-group');
   binaryAudioToggle = document.getElementById('binary-audio-toggle');
+  binaryAudioIndicator = document.getElementById('binary-audio-indicator');
   morseInput = document.getElementById('morse-input');
   morseGroup = document.getElementById('morse-group');
   morsePlayBtn = document.getElementById('morse-play-btn');
@@ -449,6 +663,7 @@ async function setup() {
   tickerWidthRatioSlider = document.getElementById('ticker-width-ratio-slider');
   tickerWidthRatioDisplay = document.getElementById('ticker-width-ratio-display');
   tickerAudioToggle = document.getElementById('ticker-audio-toggle');
+  tickerAudioIndicator = document.getElementById('ticker-audio-indicator');
   waveformGroup = document.getElementById('waveform-group');
   waveformTypeSlider = document.getElementById('waveform-type-slider');
   waveformTypeDisplay = document.getElementById('waveform-type-display');
@@ -457,6 +672,7 @@ async function setup() {
   waveformSpeedSlider = document.getElementById('waveform-speed-slider');
   waveformSpeedDisplay = document.getElementById('waveform-speed-display');
   waveformAudioToggle = document.getElementById('waveform-audio-toggle');
+  waveformAudioIndicator = document.getElementById('waveform-audio-indicator');
   waveformEnvelopeToggle = document.getElementById('waveform-envelope-toggle');
   envelopeSettingsGroup = document.getElementById('envelope-settings-group');
   waveformEnvelopeType = document.getElementById('waveform-envelope-type');
@@ -521,7 +737,7 @@ async function setup() {
   }
   if (zoomResetBtn) {
     zoomResetBtn.addEventListener('click', () => {
-      zoomLevel = 1.0;
+      zoomLevel = DEFAULT_ZOOM_LEVEL;
       panOffset = { x: 0, y: 0 };
       if (zoomLevelDisplay) {
         zoomLevelDisplay.value = '100%';
@@ -536,12 +752,11 @@ async function setup() {
       let val = zoomLevelDisplay.value.replace('%', '');
       let num = parseFloat(val);
       if (!isNaN(num)) {
-        zoomLevel = num / 100;
-        zoomLevel = constrain(zoomLevel, 0.5, 3.0);
+        zoomLevel = displayPercentToZoomLevel(num);
         clampPanOffset();
         if (!isPlaying) redraw();
       }
-      zoomLevelDisplay.value = Math.round(zoomLevel * 100) + '%';
+      zoomLevelDisplay.value = zoomLevelToDisplayPercent(zoomLevel) + '%';
     };
     zoomLevelDisplay.addEventListener('change', handleZoomInput);
     zoomLevelDisplay.addEventListener('keydown', (e) => {
@@ -552,12 +767,12 @@ async function setup() {
     });
     // On focus, select the number for easy editing
     zoomLevelDisplay.addEventListener('focus', () => {
-      zoomLevelDisplay.value = Math.round(zoomLevel * 100);
+      zoomLevelDisplay.value = zoomLevelToDisplayPercent(zoomLevel);
       zoomLevelDisplay.select();
     });
     // On blur, revert to % format if unchanged
     zoomLevelDisplay.addEventListener('blur', () => {
-      zoomLevelDisplay.value = Math.round(zoomLevel * 100) + '%';
+      zoomLevelDisplay.value = zoomLevelToDisplayPercent(zoomLevel) + '%';
     });
   }
 
@@ -594,15 +809,21 @@ async function setup() {
   matrixGapSlider = document.getElementById('matrix-gap-slider');
   matrixGapDisplay = document.getElementById('matrix-gap-display');
   trussGroup = document.getElementById('truss-group');
+  trussFamilySelect = document.getElementById('truss-family-select');
   trussSegmentsSlider = document.getElementById('truss-segments-slider');
   trussSegmentsDisplay = document.getElementById('truss-segments-display');
   trussThicknessSlider = document.getElementById('truss-thickness-slider');
   trussThicknessDisplay = document.getElementById('truss-thickness-display');
   staffGroup = document.getElementById('staff-group');
+  staffPlayBtn = document.getElementById('staff-play-btn');
+  staffResetBtn = document.getElementById('staff-reset-btn');
+  staffInfoBadge = document.getElementById('staff-info-badge');
   staffInstrumentSelect = document.getElementById('staff-instrument-select');
+  staffNoteShapeSelect = document.getElementById('staff-note-shape-select');
   staffClearBtn = document.getElementById('staff-clear-btn');
   staffAudioToggle = document.getElementById('staff-audio-toggle');
-  staffAnimateToggle = document.getElementById('staff-animate-toggle');
+  staffReverbToggle = document.getElementById('staff-reverb-toggle');
+  staffTremoloToggle = document.getElementById('staff-tremolo-toggle');
   staffTempoSlider = document.getElementById('staff-tempo-slider');
   staffTempoDisplay = document.getElementById('staff-tempo-display');
   pulseGroup = document.getElementById('pulse-group');
@@ -611,10 +832,24 @@ async function setup() {
   pulseIntensityDisplay = document.getElementById('pulse-intensity-display');
   graphGroup = document.getElementById('graph-group');
   graphInput = document.getElementById('graph-input');
+  graphInput2 = document.getElementById('graph-input-2');
+  graphInput3 = document.getElementById('graph-input-3');
+  graphInput4 = document.getElementById('graph-input-4');
+  graphInput5 = document.getElementById('graph-input-5');
+  graphMultiToggle = document.getElementById('graph-multi-toggle');
+  graphMultiInputs = document.getElementById('graph-multi-inputs');
   graphScaleSlider = document.getElementById('graph-scale-slider');
   graphScaleDisplay = document.getElementById('graph-scale-display');
+  appMain = document.querySelector('.app-main');
   appSidebar = document.getElementById('app-sidebar');
   mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+  easterEggHint = document.getElementById('easter-egg-hint');
+  easterEggHintLabel = document.getElementById('easter-egg-hint-label');
+  easterEggOverlay = document.getElementById('easter-egg-overlay');
+  easterEggCanvas = document.getElementById('easter-egg-canvas');
+  easterEggLiveStatus = document.getElementById('easter-egg-live-status');
+  easterEggCloseButton = document.getElementById('easter-egg-close');
+  easterEggTouchButtons = Array.from(document.querySelectorAll('.easter-egg-touch-btn'));
 
   // Get save control references (globals declared at top so toggleSaveMenu can access them)
   saveButton = document.getElementById('save-button');
@@ -962,7 +1197,13 @@ async function setup() {
 
   if (morsePlayBtn) {
     morsePlayBtn.addEventListener('click', function () {
-      if (currentShader === 7) togglePlayback();
+      if (currentShader !== 7) return;
+
+      if (isAudioPlaying) {
+        stopAudio();
+      } else {
+        startAudio();
+      }
     });
   }
 
@@ -970,8 +1211,79 @@ async function setup() {
     morseResetBtn.addEventListener('click', function () {
       if (currentShader === 7) {
         sequenceContext.currentNote = 0;
+        if (audioContext) {
+          sequenceContext.nextNoteTime = audioContext.currentTime + 0.1;
+        }
+        if (isAudioPlaying && !sequenceContext.active) {
+          startAudio();
+        }
+      }
+    });
+  }
+
+  if (binaryAudioToggle) {
+    binaryAudioToggle.addEventListener('change', function () {
+      if (currentShader === 3) {
+        if (this.checked) {
+          startAudio();
+        } else {
+          stopAudio();
+        }
+      }
+      updateUrlParameters();
+    });
+  }
+
+  if (tickerAudioToggle) {
+    tickerAudioToggle.addEventListener('change', function () {
+      if (currentShader === 2) {
+        if (this.checked) {
+          startAudio();
+        } else {
+          stopAudio();
+        }
+      }
+      updateUrlParameters();
+    });
+  }
+
+  if (staffAudioToggle) {
+    staffAudioToggle.addEventListener('change', function () {
+      if (currentShader === 10) {
+        if (this.checked) {
+          startAudio();
+        } else {
+          stopAudio();
+        }
+      }
+      updateUrlParameters();
+    });
+  }
+
+  if (staffPlayBtn) {
+    staffPlayBtn.addEventListener('click', function () {
+      if (currentShader !== 10) return;
+
+      if (isAudioPlaying) {
+        stopAudio();
+      } else {
+        if (staffAudioToggle) staffAudioToggle.checked = true;
+        startAudio();
+      }
+      updateUrlParameters();
+    });
+  }
+
+  if (staffResetBtn) {
+    staffResetBtn.addEventListener('click', function () {
+      if (currentShader !== 10) return;
+
+      sequenceContext.currentNote = 0;
+      if (audioContext) {
         sequenceContext.nextNoteTime = audioContext.currentTime + 0.1;
-        if (!isPlaying) togglePlayback();
+      }
+      if (isAudioPlaying && !sequenceContext.active) {
+        startAudio();
       }
     });
   }
@@ -1031,6 +1343,11 @@ async function setup() {
   }
 
   // Setup truss sliders
+  if (trussFamilySelect) {
+    trussFamilySelect.addEventListener('change', function () {
+      updateUrlParameters(); requestUpdate();
+    });
+  }
   if (trussSegmentsSlider) {
     trussSegmentsSlider.addEventListener('input', function () {
       if (trussSegmentsDisplay) trussSegmentsDisplay.textContent = this.value;
@@ -1058,6 +1375,26 @@ async function setup() {
   if (staffInstrumentSelect) {
     staffInstrumentSelect.addEventListener('change', function () {
       updateUrlParameters(); requestUpdate();
+    });
+  }
+
+  if (staffNoteShapeSelect) {
+    staffNoteShapeSelect.addEventListener('change', function () {
+      updateUrlParameters(); requestUpdate();
+    });
+  }
+
+  if (staffReverbToggle) {
+    staffReverbToggle.addEventListener('change', function () {
+      updateStaffEffects();
+      updateUrlParameters();
+    });
+  }
+
+  if (staffTremoloToggle) {
+    staffTremoloToggle.addEventListener('change', function () {
+      updateStaffEffects();
+      updateUrlParameters();
     });
   }
 
@@ -1123,11 +1460,29 @@ async function setup() {
     graphInput.addEventListener('keyup', function () { updateUrlParameters(); requestUpdate(); });
     if (!window.location.search) graphInput.value = "RPI";
   }
+  const graphAdditionalInputs = [graphInput2, graphInput3, graphInput4, graphInput5].filter(Boolean);
+  graphAdditionalInputs.forEach(input => {
+    input.addEventListener('input', function () { updateUrlParameters(); requestUpdate(); });
+    input.addEventListener('keyup', function () { updateUrlParameters(); requestUpdate(); });
+  });
+  if (graphMultiToggle) {
+    graphMultiToggle.addEventListener('change', function () {
+      if (graphMultiInputs) graphMultiInputs.style.display = this.checked ? 'block' : 'none';
+      updateUrlParameters();
+      requestUpdate();
+    });
+    if (graphMultiInputs) graphMultiInputs.style.display = graphMultiToggle.checked ? 'block' : 'none';
+  }
   if (graphScaleSlider) {
     graphScaleSlider.addEventListener('input', function () {
-      if (graphScaleDisplay) graphScaleDisplay.textContent = this.value;
+      const value = Math.max(GRAPH_SCALE_MIN, parseInt(this.value, 10) || GRAPH_SCALE_DEFAULT);
+      this.value = value;
+      if (graphScaleDisplay) graphScaleDisplay.textContent = value;
       updateUrlParameters(); requestUpdate();
     });
+    if (graphScaleSlider) {
+      graphScaleSlider.value = Math.max(GRAPH_SCALE_MIN, parseInt(graphScaleSlider.value, 10) || GRAPH_SCALE_DEFAULT);
+    }
     if (graphScaleDisplay && graphScaleSlider) graphScaleDisplay.textContent = graphScaleSlider.value;
   }
 
@@ -1147,15 +1502,37 @@ async function setup() {
   // Initialize custom dropdowns
   setupCustomDropdowns();
 
+  // Initialize the hidden retro rink experience.
+  setupEasterEggExperience();
+
   // Add global keyboard event listener for more reliable shift detection
   document.addEventListener('keydown', function (event) {
+    if (handleEasterEggGameKeydown(event)) {
+      return;
+    }
+
     // Only handle keyboard events on non-mobile devices
     if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
       return; // Skip keyboard shortcuts on mobile
     }
 
+    if (handleEasterEggShortcut(event)) {
+      return;
+    }
+
     // Handle spacebar for playback
     if (event.code === 'Space' && !event.shiftKey) {
+      // Morse uses spacebar for audio transport only (do not freeze rendering).
+      if (currentShader === 7) {
+        event.preventDefault();
+        if (isAudioPlaying) {
+          stopAudio();
+        } else {
+          startAudio();
+        }
+        return;
+      }
+
       // Allow spacebar pausing on any shader mode that supports animation
       if (isAnimated) {
         event.preventDefault();
@@ -1209,6 +1586,28 @@ async function setup() {
 
       console.log('Keyboard toggle - color mode:', nextColorMode);
     }
+  });
+
+  document.addEventListener('keyup', function (event) {
+    handleEasterEggGameKeyup(event);
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden && isAudioPlaying) {
+      stopAudio();
+    }
+
+    if (document.hidden) {
+      releaseEasterEggControls();
+    }
+  });
+
+  window.addEventListener('blur', function () {
+    if (isAudioPlaying) {
+      stopAudio();
+    }
+
+    releaseEasterEggControls();
   });
 }
 
@@ -1437,6 +1836,7 @@ function toggleMobileMenu() {
 function handleClickOutside(event) {
   // Only apply on mobile where sidebar overlays content
   if (window.innerWidth > 768) return;
+  if (isEasterEggActive()) return;
 
   // Prevent duplicate events on mobile
   if (event.type === 'touchend' && event.cancelable) {
@@ -1467,7 +1867,10 @@ function toggleSaveMenu(e) {
 
 function handleStyleChange() {
   // Get the selected style from dropdown
-  const selectedStyle = styleSelect ? styleSelect.value : 'solid';
+  const selectedStyle = normalizeStyleValue(styleSelect ? styleSelect.value : 'solid');
+  if (styleSelect && styleSelect.value !== selectedStyle) {
+    styleSelect.value = selectedStyle;
+  }
 
   // Set currentShader based on selected style
   switch (selectedStyle) {
@@ -1501,11 +1904,8 @@ function handleStyleChange() {
     case 'truss':
       currentShader = 9;
       break;
-    case 'staff':
+    case 'music':
       currentShader = 10;
-      break;
-    case 'pulse':
-      currentShader = 11;
       break;
     case 'graph':
       currentShader = 12;
@@ -1533,7 +1933,7 @@ function handleStyleChange() {
 
     // Show the appropriate group
     // Show the appropriate group and handle playback controls
-    let isAnimated = false;
+    isAnimated = false;
 
     switch (selectedStyle) {
       case 'ruler':
@@ -1566,12 +1966,9 @@ function handleStyleChange() {
       case 'truss':
         if (trussGroup) trussGroup.style.display = 'block';
         break;
-      case 'staff':
+      case 'music':
         if (staffGroup) staffGroup.style.display = 'block';
         isAnimated = true;
-        break;
-      case 'pulse':
-        if (pulseGroup) pulseGroup.style.display = 'block';
         break;
       case 'graph':
         if (graphGroup) graphGroup.style.display = 'block';
@@ -1583,12 +1980,8 @@ function handleStyleChange() {
       if (isAnimated) {
         playbackBtn.classList.remove('hidden');
         playbackDivider.classList.remove('hidden');
-        // Reset to playing state when switching to an animated mode, except for Morse
-        if (selectedStyle === 'morse') {
-          if (isPlaying) togglePlayback();
-        } else {
-          if (!isPlaying) togglePlayback();
-        }
+        // Ensure the render loop is active when entering animated styles.
+        if (!isPlaying) togglePlayback();
       } else {
         playbackBtn.classList.add('hidden');
         playbackDivider.classList.add('hidden');
@@ -1600,16 +1993,15 @@ function handleStyleChange() {
     }
 
     // Handle audio state transitions
-    if (selectedStyle === 'waveform') {
-      if (waveformAudioToggle && waveformAudioToggle.checked && isPlaying) {
-        startAudio();
-      }
+    if (shouldAutoStartAudioForStyle(selectedStyle) && isPlaying) {
+      startAudio();
     } else {
       stopAudio();
     }
   }
 
   console.log('Style changed to:', selectedStyle, 'currentShader:', currentShader);
+  updateAudioControlsUI();
   requestUpdate();
 }
 
@@ -1650,6 +2042,1040 @@ function requestUpdate() {
   if (!isPlaying) {
     redraw();
   }
+}
+
+function getEasterEggHelpers() {
+  return window.RPIRinkRush || {};
+}
+
+function formatEasterEggScore(value, digits = 3) {
+  const helpers = getEasterEggHelpers();
+  if (typeof helpers.formatArcadeScore === 'function') {
+    return helpers.formatArcadeScore(value, digits);
+  }
+  return String(Math.max(0, Math.round(value || 0))).padStart(digits, '0');
+}
+
+function getEasterEggDifficulty(score) {
+  const helpers = getEasterEggHelpers();
+  if (typeof helpers.computeDifficulty === 'function') {
+    return helpers.computeDifficulty(score);
+  }
+  return { speed: 560, spawnEvery: 1.1, spawnJitter: 0.35, pickupEvery: 2.2, bulletDrain: 24 };
+}
+
+function getEasterEggRank(score, combo) {
+  const helpers = getEasterEggHelpers();
+  if (typeof helpers.scoreToRank === 'function') {
+    return helpers.scoreToRank(score, combo);
+  }
+  return combo >= 10 ? 'PUCKMAN LEGEND' : 'FRESH ICE';
+}
+
+function getEasterEggScoreboardExtension(score) {
+  const helpers = getEasterEggHelpers();
+  if (typeof helpers.getScoreboardExtension === 'function') {
+    return helpers.getScoreboardExtension(score);
+  }
+  return score > 999 ? 1 : 0;
+}
+
+function loadEasterEggProfile() {
+  const helpers = getEasterEggHelpers();
+  const defaults = helpers.DEFAULT_PROFILE || {
+    highScore: 0,
+    bestCombo: 0,
+    runs: 0,
+    totalPickups: 0
+  };
+  const key = helpers.STORAGE_KEY || 'rpi-rink-rush-profile';
+
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return { ...defaults };
+    const parsed = JSON.parse(raw);
+    return {
+      highScore: Math.max(0, parseInt(parsed.highScore, 10) || 0),
+      bestCombo: Math.max(0, parseInt(parsed.bestCombo, 10) || 0),
+      runs: Math.max(0, parseInt(parsed.runs, 10) || 0),
+      totalPickups: Math.max(0, parseInt(parsed.totalPickups, 10) || 0)
+    };
+  } catch (error) {
+    return { ...defaults };
+  }
+}
+
+function saveEasterEggProfile() {
+  const helpers = getEasterEggHelpers();
+  const key = helpers.STORAGE_KEY || 'rpi-rink-rush-profile';
+
+  try {
+    window.localStorage.setItem(key, JSON.stringify(easterEggProfile));
+  } catch (error) {
+    // Ignore local storage failures.
+  }
+}
+
+function createEasterEggRunState() {
+  return {
+    active: false,
+    phase: 'idle',
+    lastTime: 0,
+    score: 0,
+    displayScore: 0,
+    combo: 0,
+    bestCombo: 0,
+    meter: 66,
+    slowBlend: 0,
+    message: '',
+    spawnTimer: 0.8,
+    pickupTimer: 1.3,
+    worldTime: 0,
+    player: {
+      lift: 0,
+      velocity: 0,
+      jumpBuffer: 0,
+      duckBlend: 0
+    },
+    controls: {
+      duck: false,
+      bullet: false
+    },
+    obstacles: [],
+    pickups: [],
+    particles: []
+  };
+}
+
+function resetEasterEggRun() {
+  easterEggRunState = createEasterEggRunState();
+  easterEggRunState.active = true;
+  easterEggRunState.phase = 'boot';
+  easterEggRunState.message = 'READY';
+}
+
+function getEasterEggPlayerBox() {
+  const floorY = 15.5;
+  const standHeight = 11;
+  const duckHeight = 7;
+  const width = 10;
+  const x = 22;
+  const height = standHeight + (duckHeight - standHeight) * easterEggRunState.player.duckBlend;
+  return {
+    x,
+    y: floorY - easterEggRunState.player.lift - height,
+    width,
+    height
+  };
+}
+
+function spawnEasterEggObstacle() {
+  const roll = Math.random();
+  let type = 'puck';
+
+  if (roll > 0.82) {
+    type = 'beam';
+  } else if (roll > 0.56) {
+    type = 'post';
+  }
+
+  if (easterEggRunState.score > 420 && roll > 0.9) {
+    type = 'double';
+  }
+
+  let obstacle;
+  if (type === 'beam') {
+    obstacle = { type, x: 256, y: 2, width: 14, height: 3, speed: 0, closest: 999, passed: false };
+  } else if (type === 'post') {
+    obstacle = { type, x: 256, y: 4, width: 6, height: 11, speed: 0, closest: 999, passed: false };
+  } else if (type === 'double') {
+    obstacle = { type, x: 256, y: 0, width: 11, height: 15, speed: 0, closest: 999, passed: false, boxes: [{ x: 0, y: 0, width: 11, height: 4 }, { x: 0, y: 10, width: 11, height: 5 }] };
+  } else {
+    obstacle = { type, x: 256, y: 11, width: 7, height: 4, speed: 0, closest: 999, passed: false };
+  }
+
+  easterEggRunState.obstacles.push(obstacle);
+}
+
+function spawnEasterEggPickup() {
+  easterEggRunState.pickups.push({
+    x: 256,
+    y: Math.random() > 0.55 ? 5 : 9,
+    width: 4,
+    height: 4,
+    drift: Math.random() * Math.PI * 2
+  });
+}
+
+function addEasterEggParticles(x, y, color, count = 6) {
+  for (let index = 0; index < count; index += 1) {
+    easterEggRunState.particles.push({
+      x,
+      y,
+      vx: (Math.random() - 0.5) * 28,
+      vy: -Math.random() * 28,
+      life: 0.2 + Math.random() * 0.25,
+      size: 1 + Math.random() * 1.8,
+      color
+    });
+  }
+}
+
+function boxesOverlap(boxA, boxB) {
+  return boxA.x < boxB.x + boxB.width &&
+    boxA.x + boxA.width > boxB.x &&
+    boxA.y < boxB.y + boxB.height &&
+    boxA.y + boxA.height > boxB.y;
+}
+
+function updateEasterEggRun() {
+  if (!easterEggRunState || !easterEggRunState.active) return;
+
+  const now = millis() / 1000;
+  if (!easterEggRunState.lastTime) {
+    easterEggRunState.lastTime = now;
+    return;
+  }
+
+  const delta = Math.min(0.033, Math.max(0.001, now - easterEggRunState.lastTime));
+  easterEggRunState.lastTime = now;
+
+  if (easterEggRunState.phase === 'boot') {
+    easterEggRunState.worldTime += delta;
+    if (easterEggRunState.worldTime > 0.9) {
+      easterEggRunState.phase = 'running';
+      easterEggRunState.worldTime = 0;
+      easterEggRunState.message = 'GO';
+    }
+    return;
+  }
+
+  if (easterEggRunState.phase === 'gameover') {
+    easterEggRunState.displayScore += (easterEggRunState.score - easterEggRunState.displayScore) * 0.15;
+    easterEggRunState.slowBlend += (0 - easterEggRunState.slowBlend) * 0.15;
+    easterEggRunState.particles = easterEggRunState.particles.filter((particle) => {
+      particle.life -= delta;
+      particle.x += particle.vx * delta * 0.4;
+      particle.y += particle.vy * delta * 0.4;
+      particle.vy += 24 * delta;
+      return particle.life > 0;
+    });
+    return;
+  }
+
+  const difficulty = getEasterEggDifficulty(easterEggRunState.score);
+  const wantsBullet = easterEggRunState.controls.bullet && easterEggRunState.meter > 0;
+  const worldFactor = wantsBullet ? 0.42 : 1;
+  const playerFactor = wantsBullet ? 0.82 : 1;
+  const speed = difficulty.speed / 10.5;
+
+  easterEggRunState.slowBlend += ((wantsBullet ? 1 : 0) - easterEggRunState.slowBlend) * 0.14;
+  easterEggRunState.score += delta * 18 * (1 + easterEggRunState.combo * 0.05);
+  easterEggRunState.displayScore += (easterEggRunState.score - easterEggRunState.displayScore) * 0.22;
+  easterEggRunState.player.jumpBuffer = Math.max(0, easterEggRunState.player.jumpBuffer - delta);
+  easterEggRunState.player.duckBlend += ((easterEggRunState.controls.duck ? 1 : 0) - easterEggRunState.player.duckBlend) * 0.25;
+
+  if (wantsBullet) {
+    easterEggRunState.meter = Math.max(0, easterEggRunState.meter - difficulty.bulletDrain * delta);
+  }
+
+  if (easterEggRunState.player.lift <= 0.001 && easterEggRunState.player.jumpBuffer > 0) {
+    easterEggRunState.player.velocity = 48;
+    easterEggRunState.player.jumpBuffer = 0;
+    addEasterEggParticles(24, 15.5, '#ffffff', 5);
+  }
+
+  easterEggRunState.player.velocity -= 120 * delta * playerFactor;
+  easterEggRunState.player.lift += easterEggRunState.player.velocity * delta * playerFactor;
+  if (easterEggRunState.player.lift <= 0) {
+    easterEggRunState.player.lift = 0;
+    easterEggRunState.player.velocity = 0;
+  }
+
+  easterEggRunState.spawnTimer -= delta * worldFactor;
+  easterEggRunState.pickupTimer -= delta * (wantsBullet ? 0.72 : 1);
+
+  if (easterEggRunState.spawnTimer <= 0) {
+    spawnEasterEggObstacle();
+    easterEggRunState.spawnTimer = difficulty.spawnEvery + Math.random() * difficulty.spawnJitter;
+  }
+
+  if (easterEggRunState.pickupTimer <= 0) {
+    spawnEasterEggPickup();
+    easterEggRunState.pickupTimer = difficulty.pickupEvery * 0.55;
+  }
+
+  const playerBox = getEasterEggPlayerBox();
+
+  easterEggRunState.obstacles = easterEggRunState.obstacles.filter((obstacle) => {
+    obstacle.x -= speed * delta * worldFactor;
+    const boxes = obstacle.boxes
+      ? obstacle.boxes.map((box) => ({ x: obstacle.x + box.x, y: obstacle.y + box.y, width: box.width, height: box.height }))
+      : [{ x: obstacle.x, y: obstacle.y, width: obstacle.width, height: obstacle.height }];
+
+    boxes.forEach((box) => {
+      const dx = Math.abs((box.x + box.width * 0.5) - (playerBox.x + playerBox.width * 0.5));
+      const dy = Math.abs((box.y + box.height * 0.5) - (playerBox.y + playerBox.height * 0.5));
+      obstacle.closest = Math.min(obstacle.closest, dx + dy);
+    });
+
+    if (boxes.some((box) => boxesOverlap(playerBox, box))) {
+      easterEggRunState.phase = 'gameover';
+      easterEggRunState.message = 'RESET';
+      easterEggProfile.highScore = Math.max(easterEggProfile.highScore, Math.floor(easterEggRunState.score));
+      easterEggProfile.bestCombo = Math.max(easterEggProfile.bestCombo, easterEggRunState.bestCombo);
+      easterEggProfile.runs += 1;
+      saveEasterEggProfile();
+      addEasterEggParticles(playerBox.x + 5, playerBox.y + 5, '#ff4264', 10);
+      return false;
+    }
+
+    if (!obstacle.passed && obstacle.x + obstacle.width < playerBox.x) {
+      obstacle.passed = true;
+      if (obstacle.closest < 7) {
+        easterEggRunState.combo += 1;
+        easterEggRunState.bestCombo = Math.max(easterEggRunState.bestCombo, easterEggRunState.combo);
+        easterEggRunState.meter = Math.min(100, easterEggRunState.meter + 8);
+        easterEggRunState.score += 18;
+      } else {
+        easterEggRunState.combo = 0;
+      }
+    }
+
+    return obstacle.x + obstacle.width > -16;
+  });
+
+  easterEggRunState.pickups = easterEggRunState.pickups.filter((pickup) => {
+    pickup.x -= speed * delta * worldFactor;
+    pickup.y += Math.sin(now * 8 + pickup.drift) * delta * 2.8;
+    const pickupBox = { x: pickup.x, y: pickup.y, width: pickup.width, height: pickup.height };
+    if (boxesOverlap(playerBox, pickupBox)) {
+      easterEggRunState.score += 24;
+      easterEggRunState.combo += 1;
+      easterEggRunState.bestCombo = Math.max(easterEggRunState.bestCombo, easterEggRunState.combo);
+      easterEggRunState.meter = Math.min(100, easterEggRunState.meter + 14);
+      easterEggProfile.totalPickups += 1;
+      addEasterEggParticles(pickup.x + 2, pickup.y + 2, '#9fe7ff', 7);
+      return false;
+    }
+    return pickup.x + pickup.width > -12;
+  });
+
+  easterEggRunState.particles = easterEggRunState.particles.filter((particle) => {
+    particle.life -= delta;
+    particle.x += particle.vx * delta * (wantsBullet ? 0.55 : 1);
+    particle.y += particle.vy * delta * (wantsBullet ? 0.55 : 1);
+    particle.vy += 42 * delta;
+    return particle.life > 0;
+  });
+}
+
+function drawEasterEggPixelSprite(rows, x, y, pixelSize, ink, accent = null, eye = null) {
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+    const row = rows[rowIndex];
+    for (let columnIndex = 0; columnIndex < row.length; columnIndex += 1) {
+      const cell = row[columnIndex];
+      if (cell === '0') continue;
+
+      if (cell === '2' && accent !== null) {
+        fill(accent);
+      } else if (cell === '3' && eye !== null) {
+        fill(eye);
+      } else {
+        fill(ink);
+      }
+
+      rect(x + columnIndex * pixelSize, y + rowIndex * pixelSize, pixelSize, pixelSize);
+    }
+  }
+}
+
+function drawEasterEggCloud(x, y, ink, alpha = 70) {
+  noFill();
+  stroke(ink, alpha);
+  strokeWeight(0.65);
+  beginShape();
+  vertex(x, y + 2);
+  bezierVertex(x + 1, y - 0.5, x + 4, y - 0.5, x + 5, y + 2);
+  bezierVertex(x + 5.6, y + 0.5, x + 8, y + 0.2, x + 8.6, y + 2);
+  vertex(x + 11, y + 2);
+  endShape();
+  noStroke();
+}
+
+function drawEasterEggRunInBar(barWidth, barHeight) {
+  if (!easterEggGame || !easterEggGame.active) return false;
+
+  const game = easterEggGame;
+  const stadiumHeight = barHeight * 0.84;
+  const stadiumTop = -stadiumHeight;
+  const boardY = -2.2;
+  const boardHeight = 3.1;
+  const scoreboardWidth = barWidth * 0.16;
+  const scoreboardHeight = stadiumHeight * 0.9;
+  const scoreboardX = barWidth * 0.5 - scoreboardWidth * 0.5;
+  const scoreText = formatEasterEggScore(game.displayScore || game.score || 0, 4);
+  const bestText = formatEasterEggScore((game.profile && game.profile.highScore) || 0, 4);
+  const worldScale = barWidth / (game.width * 1.68);
+  const worldShift = 0;
+  const runnerGroundY = barHeight - 3.1;
+  const jumpLift = game.player ? game.player.lift * 0.25 : 0;
+  const ducking = !!(game.player && game.player.duckBlend > 0.45);
+  const jumping = !!(game.player && game.player.lift > 2);
+  const runFrame = floor((game.worldTime || game.elapsed || 0) * 10) % 2;
+
+  noStroke();
+
+  fill('#56626e');
+  rect(0, stadiumTop, barWidth, stadiumHeight);
+  fill('#72808d');
+  rect(0, stadiumTop + 1.1, barWidth, 1.4);
+  fill('#3f4750');
+  rect(0, stadiumTop + 2.5, barWidth, 1.2);
+
+  fill('#8ea0ad');
+  rect(0, stadiumTop + 3.7, scoreboardX - 1.8, 7.9);
+  rect(scoreboardX + scoreboardWidth + 1.8, stadiumTop + 3.7, barWidth - (scoreboardX + scoreboardWidth + 1.8), 7.9);
+
+  const crowdBands = [
+    { y: stadiumTop + 4.2, h: 6.9, seed: 0.9 },
+    { y: stadiumTop + 4.6, h: 6.3, seed: 1.7 }
+  ];
+
+  crowdBands.forEach((band) => {
+    for (let x = 2; x < barWidth - 2; x += 1.6) {
+      if (x > scoreboardX - 2 && x < scoreboardX + scoreboardWidth + 2) continue;
+      const sway = sin((x * 0.18) + (game.distance || 0) * 0.03 + band.seed);
+      const bodyTop = band.y + ((floor(x) % 3) * 0.4);
+      fill(sway > 0.45 ? '#d24a48' : (sway < -0.35 ? '#384858' : '#5a6977'));
+      rect(x, bodyTop + 1.2, 1.1, band.h - 1.4);
+      fill('#d2b48c');
+      rect(x + 0.1, bodyTop, 0.9, 1.3);
+    }
+  });
+
+  stroke('#d9e1e7');
+  strokeWeight(0.6);
+  line(0, boardY, scoreboardX - 1.2, boardY);
+  line(scoreboardX + scoreboardWidth + 1.2, boardY, barWidth, boardY);
+  noStroke();
+
+  fill('#1d2227');
+  rect(scoreboardX, stadiumTop + 0.6, scoreboardWidth, scoreboardHeight);
+  fill('#2f363d');
+  rect(scoreboardX, stadiumTop + 1.2, scoreboardWidth, 1.1);
+  fill('#f5f5f5');
+  textFont('RPIGeistMono');
+  textAlign(CENTER, TOP);
+  textSize(4.2);
+  text('PUCK RUNNER', scoreboardX + scoreboardWidth * 0.5, stadiumTop + 1.8);
+  textSize(2.4);
+  textAlign(LEFT, TOP);
+  text('SCORE', scoreboardX + 2.4, stadiumTop + 6.5);
+  text('HIGH', scoreboardX + scoreboardWidth * 0.58, stadiumTop + 6.5);
+  textSize(4.7);
+  text(scoreText, scoreboardX + 2.4, stadiumTop + 9.2);
+  text(bestText, scoreboardX + scoreboardWidth * 0.58, stadiumTop + 9.2);
+
+  fill('#f7fbff');
+  rect(0, 0, barWidth, barHeight);
+  fill('#e5f2fa');
+  rect(0, 1.2, barWidth, barHeight - 1.2);
+  fill('#d7ebf7');
+  rect(0, 6.5, barWidth, 4.2);
+  fill('#c8e0f1');
+  rect(0, 12.8, barWidth, barHeight - 12.8);
+
+  fill('#c3322c');
+  rect(0, boardY + 0.2, barWidth, 0.45);
+  fill('#e7c64a');
+  rect(0, boardY + boardHeight - 0.55, barWidth, 0.55);
+  fill('#d6001c');
+  rect(barWidth * 0.499, 0, 0.9, barHeight);
+
+  stroke('#5aa0c8');
+  strokeWeight(0.5);
+  noFill();
+  ellipse(barWidth * 0.2, barHeight * 0.56, 22, 12);
+  ellipse(barWidth * 0.8, barHeight * 0.56, 22, 12);
+  noStroke();
+
+  const runnerX = game.playerX * worldScale + worldShift;
+  const runnerY = runnerGroundY - jumpLift - (ducking ? 6.5 : 8.4);
+  const jumpSprite = [
+    '00022222000',
+    '00211111200',
+    '02111111120',
+    '21113131112',
+    '21111111112',
+    '02111111120',
+    '00211111200',
+    '00001100000',
+    '00010001000'
+  ];
+  const duckSprite = [
+    '00022220000',
+    '00211112000',
+    '02111111200',
+    '21113111120',
+    '21111111120',
+    '02111111200',
+    '00011110000'
+  ];
+  const runSpriteA = [
+    '00022222000',
+    '00211111200',
+    '02111111120',
+    '21113131112',
+    '21111111112',
+    '02111111120',
+    '00211111200',
+    '00011001000',
+    '00100000100'
+  ];
+  const runSpriteB = [
+    '00022222000',
+    '00211111200',
+    '02111111120',
+    '21113131112',
+    '21111111112',
+    '02111111120',
+    '00211111200',
+    '00001110000',
+    '00010000100'
+  ];
+  drawEasterEggPixelSprite(
+    ducking ? duckSprite : (jumping ? jumpSprite : (runFrame === 0 ? runSpriteA : runSpriteB)),
+    round(runnerX),
+    round(runnerY),
+    1,
+    color('#111111'),
+    color('#d8241f'),
+    color('#ffffff')
+  );
+
+  if (!jumping) {
+    fill('#111111');
+    rect(runnerX + 9, runnerGroundY - 1.4, 11.5, 0.95);
+    fill('#6d5329');
+    rect(runnerX + 19.6, runnerGroundY - 1.55, 3.6, 1.1);
+  }
+
+  const obstacleBaseY = barHeight - 2.1;
+  const obstacleScaleY = 0.25;
+  (game.obstacles || []).forEach((obstacle) => {
+    const x = obstacle.x * worldScale + worldShift;
+    if (x > barWidth + 30 || x < -30) return;
+
+    if (obstacle.type === 'puck') {
+      fill('#6c4e26');
+      rect(x, obstacleBaseY - 1.2, 12.5, 0.95);
+      fill('#1b1b1b');
+      rect(x + 10.6, obstacleBaseY - 1.65, 2.4, 1.85);
+      fill('#c82722');
+      rect(x + 5.8, obstacleBaseY - 1.15, 2.4, 0.4);
+    } else if (obstacle.type === 'check') {
+      fill('#e7d6ab');
+      rect(x + 0.5, obstacleBaseY - 5.2, 6.4, 4.8);
+      fill('#111111');
+      rect(x + 4.6, obstacleBaseY - 4.6, 3.6, 3.6);
+      fill('#d8241f');
+      rect(x + 1.6, obstacleBaseY - 4.8, 1.4, 4);
+    } else if (obstacle.type === 'stick') {
+      fill('#111111');
+      rect(x, obstacleBaseY - 9.5, 14.5, 1.2);
+      fill('#6c4e26');
+      rect(x + 13.2, obstacleBaseY - 12.8, 1.3, 4.5);
+      fill('#d8241f');
+      rect(x + 9.5, obstacleBaseY - 9.35, 2.4, 0.35);
+    } else if (obstacle.type === 'split') {
+      fill('#d9dde2');
+      rect(x + 1, obstacleBaseY - 8.2, 8.4, 0.9);
+      rect(x + 1, obstacleBaseY - 8.2, 0.9, 7.2);
+      rect(x + 8.5, obstacleBaseY - 8.2, 0.9, 7.2);
+      stroke('#c81f1f');
+      strokeWeight(0.7);
+      line(x + 9.1, obstacleBaseY - 8.2, x + 12.1, obstacleBaseY - 12.2);
+      line(x + 12.1, obstacleBaseY - 12.2, x + 12.1, obstacleBaseY - 1.2);
+      noStroke();
+    }
+  });
+
+  (game.pickups || []).forEach((pickup) => {
+    const x = pickup.x * worldScale + worldShift;
+    const y = obstacleBaseY - (pickup.y * obstacleScaleY) + 2;
+    fill('#d8241f');
+    rect(x + 1, y, 1, 4);
+    rect(x, y + 1, 4, 1);
+    fill('#ffffff');
+    rect(x + 1, y + 1, 1, 1);
+  });
+
+  (game.particles || []).forEach((particle) => {
+    const x = runnerX + (particle.x - game.playerX) * 0.06;
+    const y = obstacleBaseY - (particle.y - (game.playerFloorY || 0)) * 0.1;
+    fill(color(particle.color || '#d8241f'));
+    rect(x, y, 0.8, 0.8);
+  });
+
+  fill('#a31d1b');
+  textAlign(CENTER, TOP);
+  textSize(5.1);
+  text('R P I  E N G I N E E R S', barWidth * 0.5, -0.35);
+
+  if (game.phase === 'boot' || game.phase === 'gameover') {
+    fill('#ffffff');
+    textSize(3.2);
+    text(game.phase === 'boot' ? 'GET READY' : 'SPACE TO RETRY', barWidth * 0.5, stadiumTop + 13.6);
+  }
+
+  return true;
+}
+
+function isTextFieldElement(element) {
+  if (!element) return false;
+  const tagName = element.tagName ? element.tagName.toUpperCase() : '';
+  return tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || element.isContentEditable;
+}
+
+function isEasterEggActive() {
+  return !!(easterEggGame && easterEggGame.active);
+}
+
+function setEasterEggHintProgress(progress) {
+  if (!easterEggHint) return;
+  const clampedProgress = Math.max(0, Math.min(1, progress || 0));
+  easterEggHint.style.setProperty('--hold-progress', clampedProgress.toFixed(3));
+}
+
+function setEasterEggHintState(visible, arming = false, label = 'HOLD TO ENTER') {
+  if (!easterEggHint) return;
+
+  if (!visible) {
+    easterEggHint.classList.remove('is-visible', 'is-arming');
+    setEasterEggHintProgress(0);
+    if (easterEggHintLabel) {
+      easterEggHintLabel.textContent = label;
+    }
+    return;
+  }
+
+  if (isEasterEggActive() || isPanningMode) return;
+
+  easterEggHint.classList.toggle('is-visible', !!visible);
+  easterEggHint.classList.toggle('is-arming', !!arming);
+
+  if (easterEggHintLabel) {
+    easterEggHintLabel.textContent = label;
+  }
+}
+
+function getEasterEggBarBounds() {
+  if (!appMain) return null;
+
+  const appWidth = appMain.clientWidth || 0;
+  const appHeight = appMain.clientHeight || 0;
+  if (!appWidth || !appHeight) return null;
+
+  const actualWidth = REFERENCE_WIDTH * LOGO_SCALE * zoomLevel;
+  const actualHeight = 18 * LOGO_SCALE * zoomLevel;
+  const actualLeft = appWidth / 2 + LOGO_SCALE * (panOffset.x + zoomLevel * (-REFERENCE_WIDTH / 2));
+  const actualTop = appHeight / 2 + LOGO_SCALE * (panOffset.y + zoomLevel * (LOGO_VERTICAL_OFFSET + 132.911));
+  const paddingX = Math.max(18, actualHeight * 1.4);
+  const paddingY = Math.max(14, actualHeight * 1.7);
+
+  return {
+    left: actualLeft - paddingX,
+    top: actualTop - paddingY,
+    width: actualWidth + paddingX * 2,
+    height: actualHeight + paddingY * 2,
+    actualLeft,
+    actualTop,
+    actualWidth,
+    actualHeight,
+    hintX: actualLeft + actualWidth / 2,
+    hintY: actualTop - Math.max(30, actualHeight * 2.1)
+  };
+}
+
+function updateEasterEggHotspotBounds() {
+  easterEggHotspotBounds = getEasterEggBarBounds();
+  if (!easterEggHotspotBounds || !easterEggHint) return;
+
+  easterEggHint.style.left = `${easterEggHotspotBounds.hintX}px`;
+  easterEggHint.style.top = `${easterEggHotspotBounds.hintY}px`;
+}
+
+function isPointInEasterEggHotspot(clientX, clientY) {
+  if (!easterEggHotspotBounds || !appMain) return false;
+  const appRect = appMain.getBoundingClientRect();
+  const localX = clientX - appRect.left;
+  const localY = clientY - appRect.top;
+
+  return localX >= easterEggHotspotBounds.left &&
+    localX <= easterEggHotspotBounds.left + easterEggHotspotBounds.width &&
+    localY >= easterEggHotspotBounds.top &&
+    localY <= easterEggHotspotBounds.top + easterEggHotspotBounds.height;
+}
+
+function cancelEasterEggHold(keepVisible = false) {
+  if (easterEggHoldRaf) {
+    cancelAnimationFrame(easterEggHoldRaf);
+    easterEggHoldRaf = 0;
+  }
+
+  easterEggHoldState.pointerId = null;
+  easterEggHoldState.startedAt = 0;
+  easterEggHoldState.progress = 0;
+  easterEggHoldState.active = false;
+
+  if (keepVisible) {
+    setEasterEggHintState(true, false, 'HOLD TO ENTER');
+  } else if (easterEggHint) {
+    easterEggHint.classList.remove('is-arming');
+    setEasterEggHintProgress(0);
+  }
+}
+
+function runEasterEggHoldFrame(timestamp) {
+  if (!easterEggHoldState.active) return;
+
+  const progress = Math.max(0, Math.min(1, (timestamp - easterEggHoldState.startedAt) / 900));
+  easterEggHoldState.progress = progress;
+  setEasterEggHintProgress(progress);
+
+  if (easterEggHintLabel) {
+    easterEggHintLabel.textContent = `THAWING ${Math.round(progress * 100)}%`;
+  }
+
+  if (progress >= 1) {
+    cancelEasterEggHold(false);
+    openEasterEggExperience('hold');
+    return;
+  }
+
+  easterEggHoldRaf = requestAnimationFrame(runEasterEggHoldFrame);
+}
+
+function beginEasterEggHold(pointerId) {
+  if (isEasterEggActive() || isPanningMode) return;
+
+  cancelEasterEggHold(true);
+  easterEggHoldState.pointerId = pointerId;
+  easterEggHoldState.startedAt = performance.now();
+  easterEggHoldState.progress = 0;
+  easterEggHoldState.active = true;
+  setEasterEggHintState(true, true, 'THAWING 0%');
+  easterEggHoldRaf = requestAnimationFrame(runEasterEggHoldFrame);
+}
+
+function handleEasterEggPointerMove(event) {
+  if (!appMain || isEasterEggActive() || isPanningMode) {
+    setEasterEggHintState(false);
+    return;
+  }
+
+  updateEasterEggHotspotBounds();
+  const inside = isPointInEasterEggHotspot(event.clientX, event.clientY);
+
+  if (inside && !easterEggHoldState.active) {
+    setEasterEggHintState(true, false, 'HOLD TO ENTER');
+  } else if (!inside && !easterEggHoldState.active) {
+    setEasterEggHintState(false);
+  } else if (!inside && easterEggHoldState.active && easterEggHoldState.pointerId === event.pointerId) {
+    cancelEasterEggHold(false);
+    setEasterEggHintState(false);
+  }
+}
+
+function handleEasterEggPointerDown(event) {
+  if (isEasterEggActive() || isPanningMode) return;
+
+  updateEasterEggHotspotBounds();
+  if (!isPointInEasterEggHotspot(event.clientX, event.clientY)) return;
+
+  event.preventDefault();
+  beginEasterEggHold(event.pointerId);
+}
+
+function handleEasterEggPointerUp(event) {
+  if (!easterEggHoldState.active) return;
+  if (easterEggHoldState.pointerId !== null && event.pointerId !== easterEggHoldState.pointerId) return;
+
+  const shouldStayVisible = isPointInEasterEggHotspot(event.clientX, event.clientY);
+  cancelEasterEggHold(shouldStayVisible);
+  if (!shouldStayVisible) {
+    setEasterEggHintState(false);
+  }
+}
+
+function handleEasterEggPointerLeave() {
+  if (easterEggHoldState.active) {
+    cancelEasterEggHold(false);
+  }
+  setEasterEggHintState(false);
+}
+
+function resizeEasterEggCanvas() {
+  return;
+}
+
+function setEasterEggScoreboardVisibility(active) {
+  if (workspaceDefaultControls) {
+    workspaceDefaultControls.hidden = !!active;
+  }
+  if (easterEggScoreboard) {
+    easterEggScoreboard.hidden = !active;
+  }
+}
+
+function handleEasterEggGameStateChange(state) {
+  const safeState = state || {};
+  const score = formatEasterEggScore(safeState.displayScore || safeState.score || 0, 4);
+  const best = formatEasterEggScore(safeState.highScore || 0, 4);
+  const combo = formatEasterEggScore(safeState.combo || 0, 2);
+  const status = !safeState.active
+    ? 'Ready'
+    : (safeState.phase === 'boot'
+      ? (safeState.message || 'Rink warming up')
+      : (safeState.gameOver ? 'Press space to retry' : (safeState.rank || 'Skating')));
+  const meter = Math.max(0, Math.min(100, Math.round(safeState.meter || 0)));
+
+  if (easterEggScoreValue) easterEggScoreValue.textContent = score;
+  if (easterEggBestValue) easterEggBestValue.textContent = best;
+  if (easterEggComboValue) easterEggComboValue.textContent = combo;
+  if (easterEggStatusValue) easterEggStatusValue.textContent = status;
+  if (easterEggMeterFill) easterEggMeterFill.style.width = `${meter}%`;
+  if (easterEggLiveStatus) easterEggLiveStatus.textContent = status;
+  if (easterEggLaunchButton) {
+    easterEggLaunchButton.textContent = safeState.active ? 'Exit Rink Rush' : 'Activate Rink Rush';
+  }
+
+  return safeState;
+}
+
+function releaseEasterEggControls() {
+  if (!easterEggGame) return;
+  easterEggGame.setControl('duck', false);
+  easterEggGame.setControl('bullet', false);
+}
+
+function openEasterEggExperience(source = 'secret') {
+  if (isEasterEggActive() || !easterEggGame) return;
+
+  easterEggLastFocusedElement = document.activeElement;
+  easterEggPreviousPlaybackState = isPlaying;
+  easterEggResumeAudio = isAudioPlaying;
+
+  stopAudio();
+  document.body.classList.add('easter-egg-active');
+  setEasterEggScoreboardVisibility(true);
+  easterEggGame.open(source);
+  loop();
+}
+
+function closeEasterEggExperience() {
+  if (!isEasterEggActive() || !easterEggGame) return;
+
+  releaseEasterEggControls();
+  easterEggGame.close();
+  document.body.classList.remove('easter-egg-active');
+  setEasterEggScoreboardVisibility(false);
+  handleEasterEggGameStateChange({
+    active: false,
+    phase: 'idle',
+    displayScore: 0,
+    score: 0,
+    combo: 0,
+    meter: 0,
+    highScore: easterEggGame.profile ? easterEggGame.profile.highScore : 0
+  });
+
+  if (easterEggPreviousPlaybackState) {
+    loop();
+  } else {
+    noLoop();
+    redraw();
+  }
+
+  if (easterEggResumeAudio && styleSupportsAudio(styleSelect ? styleSelect.value : 'solid')) {
+    startAudio();
+  }
+  easterEggResumeAudio = false;
+  if (easterEggLastFocusedElement && document.body.contains(easterEggLastFocusedElement)) {
+    easterEggLastFocusedElement.focus();
+  }
+}
+
+function setupEasterEggTouchControls() {
+  return;
+}
+
+function setupEasterEggExperience() {
+  if (!appMain) return;
+
+  easterEggProfile = loadEasterEggProfile();
+  if (typeof window.RPIRinkRush === 'undefined' || typeof window.RPIRinkRush.RinkRushGame !== 'function') {
+    return;
+  }
+
+  easterEggGame = new window.RPIRinkRush.RinkRushGame(null, {
+    audio: true,
+    onStateChange: handleEasterEggGameStateChange
+  });
+  setEasterEggScoreboardVisibility(false);
+  handleEasterEggGameStateChange({
+    active: false,
+    phase: 'idle',
+    displayScore: 0,
+    score: 0,
+    combo: 0,
+    meter: 0,
+    highScore: easterEggGame.profile ? easterEggGame.profile.highScore : 0
+  });
+
+  if (easterEggLaunchButton) {
+    easterEggLaunchButton.addEventListener('click', function () {
+      if (isEasterEggActive()) {
+        closeEasterEggExperience();
+      } else {
+        openEasterEggExperience('sidebar');
+      }
+    });
+  }
+}
+
+function handleEasterEggShortcut(event) {
+  if (isEasterEggActive() || event.ctrlKey || event.metaKey || event.altKey) return false;
+  if (isTextFieldElement(document.activeElement)) return false;
+  if (!event.key || event.key.length !== 1) return false;
+
+  const character = event.key.toUpperCase().replace(/[^A-Z]/g, '');
+  if (!character) return false;
+
+  easterEggKeyBuffer = (easterEggKeyBuffer + character).slice(-8);
+  if (easterEggKeyBufferTimer) {
+    clearTimeout(easterEggKeyBufferTimer);
+  }
+  easterEggKeyBufferTimer = setTimeout(() => {
+    easterEggKeyBuffer = '';
+  }, 1200);
+
+  if (!easterEggKeyBuffer.endsWith('PUCK')) {
+    return false;
+  }
+
+  event.preventDefault();
+  easterEggKeyBuffer = '';
+  if (typeof Toast !== 'undefined' && Toast && typeof Toast.show === 'function') {
+    Toast.show('Secret rink unlocked.', 'success');
+  }
+  openEasterEggExperience('sequence');
+  return true;
+}
+
+function handleEasterEggGameKeydown(event) {
+  if (!isEasterEggActive() || !easterEggGame) return false;
+
+  switch (event.code) {
+    case 'Escape':
+      event.preventDefault();
+      closeEasterEggExperience();
+      return true;
+    case 'ArrowUp':
+    case 'KeyW':
+    case 'Space':
+      event.preventDefault();
+      if (!event.repeat) {
+        easterEggGame.setControl('jump', true);
+      }
+      return true;
+    case 'ArrowDown':
+    case 'KeyS':
+      event.preventDefault();
+      easterEggGame.setControl('duck', true);
+      return true;
+    case 'ShiftLeft':
+    case 'ShiftRight':
+      event.preventDefault();
+      easterEggGame.setControl('bullet', true);
+      return true;
+    case 'Enter':
+    case 'KeyR':
+      event.preventDefault();
+      if (easterEggGame.isGameOver()) {
+        easterEggGame.restart();
+      }
+      return true;
+    default:
+      return false;
+  }
+}
+
+function handleEasterEggGameKeyup(event) {
+  if (!isEasterEggActive() || !easterEggGame) return false;
+
+  switch (event.code) {
+    case 'ArrowDown':
+    case 'KeyS':
+      easterEggGame.setControl('duck', false);
+      return true;
+    case 'ShiftLeft':
+    case 'ShiftRight':
+      easterEggGame.setControl('bullet', false);
+      return true;
+    default:
+      return false;
+  }
+}
+
+function styleSupportsAudio(style) {
+  return style === 'binary' || style === 'ticker' || style === 'waveform' || style === 'morse' || style === 'music';
+}
+
+function shouldAutoStartAudioForStyle(style) {
+  if (style === 'binary') return !!(binaryAudioToggle && binaryAudioToggle.checked);
+  if (style === 'ticker') return !!(tickerAudioToggle && tickerAudioToggle.checked);
+  if (style === 'waveform') return !!(waveformAudioToggle && waveformAudioToggle.checked);
+  if (style === 'music') return !!(staffAudioToggle && staffAudioToggle.checked);
+  return false;
+}
+
+function setAudioIndicator(indicator, isActive) {
+  if (!indicator) return;
+  if (isActive) {
+    indicator.classList.add('active');
+  } else {
+    indicator.classList.remove('active');
+  }
+}
+
+function showAudioToast(message, type = 'info') {
+  if (typeof Toast !== 'undefined' && Toast && typeof Toast.show === 'function') {
+    Toast.show(message, type);
+  }
+}
+
+function updateMorseAudioUI() {
+  if (morsePlayBtn) {
+    morsePlayBtn.textContent = (currentShader === 7 && isAudioPlaying) ? 'PAUSE AUDIO' : 'PLAY AUDIO';
+  }
+  setAudioIndicator(morseInfoBadge, currentShader === 7 && isAudioPlaying);
+}
+
+function updateStaffAudioUI() {
+  if (staffPlayBtn) {
+    staffPlayBtn.textContent = (currentShader === 10 && isAudioPlaying) ? 'PAUSE AUDIO' : 'PLAY AUDIO';
+  }
+  setAudioIndicator(staffInfoBadge, currentShader === 10 && isAudioPlaying);
+}
+
+function updateAudioControlsUI() {
+  setAudioIndicator(binaryAudioIndicator, currentShader === 3 && isAudioPlaying);
+  setAudioIndicator(tickerAudioIndicator, currentShader === 2 && isAudioPlaying);
+  setAudioIndicator(waveformAudioIndicator, currentShader === 4 && isAudioPlaying);
+  updateMorseAudioUI();
+  updateStaffAudioUI();
 }
 
 
@@ -2142,11 +3568,55 @@ let sequenceContext = {
   nextNoteTime: 0,
   currentNote: 0,
   baseTime: 0,
+  type: null,
   osc1: null,
   osc2: null,
   gain1: null,
-  gain2: null
+  gain2: null,
+  inputGain: null,
+  dryGain: null,
+  wetGain: null,
+  convolver: null,
+  tremoloGain: null,
+  tremoloLfo: null,
+  tremoloDepth: null,
+  activeVoices: []
 };
+
+let staffReverbImpulse = null;
+let noiseBuffer = null;
+
+function createNoiseBuffer(context, duration = 0.12) {
+  const frameCount = Math.max(1, Math.floor(context.sampleRate * duration));
+  const buffer = context.createBuffer(1, frameCount, context.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < frameCount; i++) {
+    data[i] = (Math.random() * 2 - 1) * (1 - (i / frameCount));
+  }
+  return buffer;
+}
+
+function createReverbImpulse(context, duration = 1.8, decay = 2.6) {
+  const frameCount = Math.floor(context.sampleRate * duration);
+  const impulse = context.createBuffer(2, frameCount, context.sampleRate);
+  for (let channel = 0; channel < impulse.numberOfChannels; channel++) {
+    const data = impulse.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      const t = i / frameCount;
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay);
+    }
+  }
+  return impulse;
+}
+
+function disconnectNode(node) {
+  if (!node) return;
+  try {
+    node.disconnect();
+  } catch (error) {
+    console.warn('Node disconnect skipped:', error);
+  }
+}
 
 async function initializeAudio() {
   try {
@@ -2160,15 +3630,68 @@ async function initializeAudio() {
     gainNode.connect(audioContext.destination);
     gainNode.gain.value = 0;
 
+    noiseBuffer = createNoiseBuffer(audioContext);
+    staffReverbImpulse = createReverbImpulse(audioContext);
+
     console.log('Audio context initialized successfully');
   } catch (error) {
     console.error('Failed to initialize audio context:', error);
   }
 }
 
+function updateStaffEffects(time = audioContext ? audioContext.currentTime : 0) {
+  if (!audioContext || sequenceContext.type !== 'staff' || !sequenceContext.active) return;
+
+  if (sequenceContext.wetGain) {
+    sequenceContext.wetGain.gain.cancelScheduledValues(time);
+    sequenceContext.wetGain.gain.setValueAtTime(staffReverbToggle && staffReverbToggle.checked ? 0.5 : 0, time);
+  }
+
+  if (sequenceContext.dryGain) {
+    sequenceContext.dryGain.gain.cancelScheduledValues(time);
+    sequenceContext.dryGain.gain.setValueAtTime(0.9, time);
+  }
+
+  if (sequenceContext.tremoloDepth) {
+    sequenceContext.tremoloDepth.gain.cancelScheduledValues(time);
+    sequenceContext.tremoloDepth.gain.setValueAtTime(staffTremoloToggle && staffTremoloToggle.checked ? 0.38 : 0, time);
+  }
+}
+
+function setupStaffEffectsChain() {
+  sequenceContext.inputGain = audioContext.createGain();
+  sequenceContext.dryGain = audioContext.createGain();
+  sequenceContext.wetGain = audioContext.createGain();
+  sequenceContext.convolver = audioContext.createConvolver();
+  sequenceContext.tremoloGain = audioContext.createGain();
+  sequenceContext.tremoloLfo = audioContext.createOscillator();
+  sequenceContext.tremoloDepth = audioContext.createGain();
+
+  sequenceContext.convolver.buffer = staffReverbImpulse;
+  sequenceContext.tremoloGain.gain.setValueAtTime(0.75, audioContext.currentTime);
+  sequenceContext.tremoloLfo.type = 'sine';
+  sequenceContext.tremoloLfo.frequency.setValueAtTime(6.5, audioContext.currentTime);
+  sequenceContext.tremoloDepth.gain.setValueAtTime(0, audioContext.currentTime);
+
+  sequenceContext.inputGain.connect(sequenceContext.dryGain);
+  sequenceContext.dryGain.connect(sequenceContext.tremoloGain);
+  sequenceContext.inputGain.connect(sequenceContext.convolver);
+  sequenceContext.convolver.connect(sequenceContext.wetGain);
+  sequenceContext.wetGain.connect(sequenceContext.tremoloGain);
+  sequenceContext.tremoloLfo.connect(sequenceContext.tremoloDepth);
+  sequenceContext.tremoloDepth.connect(sequenceContext.tremoloGain.gain);
+  sequenceContext.tremoloGain.connect(audioContext.destination);
+
+  updateStaffEffects(audioContext.currentTime);
+  sequenceContext.tremoloLfo.start(audioContext.currentTime);
+}
+
 async function startAudio() {
   // Only play audio if audioContext exists
-  if (!audioContext || isAudioPlaying) return;
+  if (!audioContext || isAudioPlaying) {
+    updateAudioControlsUI();
+    return;
+  }
 
   try {
     // Resume audio context if suspended (required by browsers)
@@ -2176,23 +3699,48 @@ async function startAudio() {
       await audioContext.resume();
     }
 
+    if (audioContext.state !== 'running') {
+      showAudioToast('Audio is blocked by the browser. Click the page and try again.', 'warning');
+      updateAudioControlsUI();
+      return;
+    }
+
     if (currentShader === 4) {
-      if (!waveformAudioToggle || !waveformAudioToggle.checked) return;
+      if (!waveformAudioToggle || !waveformAudioToggle.checked) {
+        updateAudioControlsUI();
+        return;
+      }
       startWaveformAudio();
     } else if (currentShader === 3) {
-      if (!binaryAudioToggle || !binaryAudioToggle.checked) return;
+      if (!binaryAudioToggle || !binaryAudioToggle.checked) {
+        updateAudioControlsUI();
+        return;
+      }
       startSequenceAudio('binary');
     } else if (currentShader === 7) {
       startSequenceAudio('morse');
     } else if (currentShader === 2) {
-      if (!tickerAudioToggle || !tickerAudioToggle.checked) return;
+      if (!tickerAudioToggle || !tickerAudioToggle.checked) {
+        updateAudioControlsUI();
+        return;
+      }
       startSequenceAudio('ticker');
     } else if (currentShader === 10) {
-      if (!staffAudioToggle || !staffAudioToggle.checked) return;
+      if (!staffAudioToggle || !staffAudioToggle.checked) {
+        updateAudioControlsUI();
+        return;
+      }
       startSequenceAudio('staff');
     }
+    if (isAudioPlaying && !hasShownAudioHintToast) {
+      showAudioToast('Audio started. If you do not hear sound, check your device volume.', 'info');
+      hasShownAudioHintToast = true;
+    }
+    updateAudioControlsUI();
   } catch (error) {
     console.error('Failed to start audio:', error);
+    showAudioToast('Could not start audio. Check browser audio permissions.', 'error');
+    updateAudioControlsUI();
   }
 }
 
@@ -2296,6 +3844,7 @@ function stopAudio() {
 
   isAudioPlaying = false;
   console.log('Audio stopped');
+  updateAudioControlsUI();
 }
 
 function stopWaveformAudio() {
@@ -2335,15 +3884,22 @@ function stopWaveformAudio() {
 
 function startSequenceAudio(type) {
   if (sequenceContext.active) return;
+  const previousType = sequenceContext.type;
   sequenceContext.active = true;
   isAudioPlaying = true;
+  sequenceContext.type = type;
+  sequenceContext.activeVoices = [];
 
-  // Set up oscillators
-  sequenceContext.osc1 = audioContext.createOscillator();
-  sequenceContext.gain1 = audioContext.createGain();
-  sequenceContext.osc1.connect(sequenceContext.gain1);
-  sequenceContext.gain1.connect(audioContext.destination);
-  sequenceContext.gain1.gain.setValueAtTime(0, audioContext.currentTime);
+  if (type === 'staff') {
+    setupStaffEffectsChain();
+  } else {
+    // Set up oscillators
+    sequenceContext.osc1 = audioContext.createOscillator();
+    sequenceContext.gain1 = audioContext.createGain();
+    sequenceContext.osc1.connect(sequenceContext.gain1);
+    sequenceContext.gain1.connect(audioContext.destination);
+    sequenceContext.gain1.gain.setValueAtTime(0, audioContext.currentTime);
+  }
 
   if (type === 'ticker') {
     sequenceContext.osc2 = audioContext.createOscillator();
@@ -2359,17 +3915,19 @@ function startSequenceAudio(type) {
     sequenceContext.osc1.type = 'sine'; // FSK
   } else if (type === 'morse') {
     sequenceContext.osc1.type = 'sine'; // CW
-  } else if (type === 'staff') {
-    sequenceContext.osc1.type = 'triangle'; // Default for piano
   }
 
-  sequenceContext.osc1.start(audioContext.currentTime);
+  if (sequenceContext.osc1) {
+    sequenceContext.osc1.start(audioContext.currentTime);
+  }
 
-  if (sequenceContext.type !== type) {
+  if (
+    previousType !== type ||
+    (type === 'morse' && sequenceContext.currentNote >= ((morseData && morseData.morse) ? morseData.morse.length : 0))
+  ) {
     sequenceContext.currentNote = 0;
   }
   sequenceContext.nextNoteTime = audioContext.currentTime + 0.1;
-  sequenceContext.type = type;
 
   scheduleSequenceLoop();
 }
@@ -2379,7 +3937,30 @@ function stopSequenceAudio() {
   clearTimeout(sequenceContext.timerId);
 
   const t = audioContext.currentTime;
-  if (sequenceContext.gain1) {
+  if (sequenceContext.type === 'staff') {
+    sequenceContext.activeVoices.forEach(voice => {
+      if (voice.output) {
+        voice.output.gain.cancelScheduledValues(t);
+        voice.output.gain.setValueAtTime(Math.max(voice.output.gain.value, 0.0001), t);
+        voice.output.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+      }
+    });
+    if (sequenceContext.tremoloDepth) {
+      sequenceContext.tremoloDepth.gain.cancelScheduledValues(t);
+      sequenceContext.tremoloDepth.gain.setValueAtTime(sequenceContext.tremoloDepth.gain.value, t);
+      sequenceContext.tremoloDepth.gain.linearRampToValueAtTime(0, t + 0.05);
+    }
+    if (sequenceContext.dryGain) {
+      sequenceContext.dryGain.gain.cancelScheduledValues(t);
+      sequenceContext.dryGain.gain.setValueAtTime(sequenceContext.dryGain.gain.value, t);
+      sequenceContext.dryGain.gain.linearRampToValueAtTime(0, t + 0.08);
+    }
+    if (sequenceContext.wetGain) {
+      sequenceContext.wetGain.gain.cancelScheduledValues(t);
+      sequenceContext.wetGain.gain.setValueAtTime(sequenceContext.wetGain.gain.value, t);
+      sequenceContext.wetGain.gain.linearRampToValueAtTime(0, t + 0.12);
+    }
+  } else if (sequenceContext.gain1) {
     sequenceContext.gain1.gain.cancelScheduledValues(t);
     sequenceContext.gain1.gain.setValueAtTime(sequenceContext.gain1.gain.value, t);
     sequenceContext.gain1.gain.linearRampToValueAtTime(0, t + 0.05);
@@ -2391,10 +3972,27 @@ function stopSequenceAudio() {
   }
 
   setTimeout(() => {
-    if (sequenceContext.osc1) { sequenceContext.osc1.stop(); sequenceContext.osc1.disconnect(); sequenceContext.osc1 = null; }
-    if (sequenceContext.osc2) { sequenceContext.osc2.stop(); sequenceContext.osc2.disconnect(); sequenceContext.osc2 = null; }
-    if (sequenceContext.gain1) { sequenceContext.gain1.disconnect(); sequenceContext.gain1 = null; }
-    if (sequenceContext.gain2) { sequenceContext.gain2.disconnect(); sequenceContext.gain2 = null; }
+    sequenceContext.activeVoices.forEach(voice => {
+      voice.oscillators.forEach(osc => {
+        try { osc.stop(); } catch (error) { }
+        disconnectNode(osc);
+      });
+      if (voice.noise) {
+        try { voice.noise.stop(); } catch (error) { }
+        disconnectNode(voice.noise);
+      }
+      voice.filters.forEach(filter => disconnectNode(filter));
+      disconnectNode(voice.output);
+    });
+    sequenceContext.activeVoices = [];
+
+    if (sequenceContext.tremoloLfo) {
+      try { sequenceContext.tremoloLfo.stop(); } catch (error) { }
+    }
+    ['osc1', 'osc2', 'gain1', 'gain2', 'inputGain', 'dryGain', 'wetGain', 'convolver', 'tremoloGain', 'tremoloLfo', 'tremoloDepth'].forEach(key => {
+      disconnectNode(sequenceContext[key]);
+      sequenceContext[key] = null;
+    });
   }, 100);
 }
 
@@ -2404,7 +4002,7 @@ function scheduleSequenceLoop() {
   const lookahead = 0.5; // schedule half a second ahead
   const t = audioContext.currentTime;
 
-  while (sequenceContext.nextNoteTime < t + lookahead) {
+  while (sequenceContext.active && sequenceContext.nextNoteTime < t + lookahead) {
     if (sequenceContext.type === 'morse') {
       scheduleMorseNote();
     } else if (sequenceContext.type === 'binary') {
@@ -2416,7 +4014,9 @@ function scheduleSequenceLoop() {
     }
   }
 
-  sequenceContext.timerId = setTimeout(scheduleSequenceLoop, 100);
+  if (sequenceContext.active) {
+    sequenceContext.timerId = setTimeout(scheduleSequenceLoop, 100);
+  }
 }
 
 function scheduleMorseNote() {
@@ -2428,9 +4028,8 @@ function scheduleMorseNote() {
 
   // Stop at the end of the morse sequence text naturally
   if (sequenceContext.currentNote >= data.length) {
-    if (isPlaying) {
-      togglePlayback();
-    }
+    sequenceContext.nextNoteTime = audioContext.currentTime + 1.0;
+    stopAudio();
     return;
   }
 
@@ -2456,8 +4055,6 @@ function scheduleMorseNote() {
   }
 
   sequenceContext.nextNoteTime += unitDuration;
-  sequenceContext.currentNote++;
-
   sequenceContext.currentNote++;
 }
 
@@ -2541,6 +4138,134 @@ const NOTE_FREQUENCIES = {
   'C5': 523.25
 };
 
+function registerStaffVoiceCleanup(voice, releaseAt) {
+  sequenceContext.activeVoices.push(voice);
+  const cleanupDelay = Math.max(0, (releaseAt - audioContext.currentTime) * 1000 + 250);
+  window.setTimeout(() => {
+    const index = sequenceContext.activeVoices.indexOf(voice);
+    if (index >= 0) sequenceContext.activeVoices.splice(index, 1);
+    voice.oscillators.forEach(osc => {
+      try { osc.stop(); } catch (error) { }
+      disconnectNode(osc);
+    });
+    if (voice.noise) {
+      try { voice.noise.stop(); } catch (error) { }
+      disconnectNode(voice.noise);
+    }
+    voice.filters.forEach(filter => disconnectNode(filter));
+    disconnectNode(voice.output);
+  }, cleanupDelay);
+}
+
+function triggerPianoVoice(freq, time, actualDuration) {
+  const output = audioContext.createGain();
+  const bodyFilter = audioContext.createBiquadFilter();
+  const toneFilter = audioContext.createBiquadFilter();
+  const cleanupNodes = [bodyFilter, toneFilter];
+  const voiceDuration = Math.max(0.7, actualDuration * 1.5);
+
+  bodyFilter.type = 'lowpass';
+  bodyFilter.frequency.setValueAtTime(Math.min(5200, freq * 10), time);
+  bodyFilter.frequency.exponentialRampToValueAtTime(Math.max(1200, freq * 3), time + 0.22);
+  toneFilter.type = 'highpass';
+  toneFilter.frequency.setValueAtTime(90, time);
+
+  output.gain.setValueAtTime(0.0001, time);
+  output.gain.linearRampToValueAtTime(0.38, time + 0.006);
+  output.gain.exponentialRampToValueAtTime(0.12, time + 0.09);
+  output.gain.exponentialRampToValueAtTime(0.0001, time + voiceDuration);
+
+  const partialSpecs = [
+    { type: 'sine', ratio: 1, gain: 0.42, detune: 0 },
+    { type: 'triangle', ratio: 2, gain: 0.13, detune: 3 },
+    { type: 'triangle', ratio: 3, gain: 0.07, detune: -4 }
+  ];
+
+  const oscillators = partialSpecs.map(spec => {
+    const osc = audioContext.createOscillator();
+    const partialGain = audioContext.createGain();
+    cleanupNodes.push(partialGain);
+    osc.type = spec.type;
+    osc.frequency.setValueAtTime(freq * spec.ratio, time);
+    osc.detune.setValueAtTime(spec.detune, time);
+    partialGain.gain.setValueAtTime(spec.gain, time);
+    partialGain.gain.exponentialRampToValueAtTime(0.0001, time + voiceDuration);
+    osc.connect(partialGain);
+    partialGain.connect(bodyFilter);
+    osc.start(time);
+    osc.stop(time + voiceDuration + 0.05);
+    return osc;
+  });
+
+  let noise = null;
+  if (noiseBuffer) {
+    noise = audioContext.createBufferSource();
+    noise.buffer = noiseBuffer;
+    const noiseFilter = audioContext.createBiquadFilter();
+    const noiseGain = audioContext.createGain();
+    cleanupNodes.push(noiseFilter, noiseGain);
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.setValueAtTime(Math.min(6000, freq * 12), time);
+    noiseFilter.Q.value = 0.9;
+    noiseGain.gain.setValueAtTime(0.09, time);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.04);
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(bodyFilter);
+    noise.start(time);
+    noise.stop(time + 0.06);
+  }
+
+  bodyFilter.connect(toneFilter);
+  toneFilter.connect(output);
+  output.connect(sequenceContext.inputGain);
+
+  registerStaffVoiceCleanup({
+    oscillators,
+    noise,
+    filters: cleanupNodes,
+    output
+  }, time + voiceDuration);
+}
+
+function triggerSimpleStaffVoice(freq, time, actualDuration, instrument) {
+  const osc = audioContext.createOscillator();
+  const toneGain = audioContext.createGain();
+  const filter = audioContext.createBiquadFilter();
+  const releaseAt = time + Math.max(0.18, actualDuration);
+
+  osc.type = instrument === 'synth' ? 'sawtooth' : 'sine';
+  osc.frequency.setValueAtTime(freq, time);
+
+  if (instrument === 'synth') {
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(Math.min(4200, freq * 8), time);
+    toneGain.gain.setValueAtTime(0.0001, time);
+    toneGain.gain.linearRampToValueAtTime(0.24, time + 0.03);
+    toneGain.gain.exponentialRampToValueAtTime(0.0001, releaseAt);
+  } else {
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(freq * 2.5, time);
+    filter.Q.value = 2.2;
+    toneGain.gain.setValueAtTime(0.0001, time);
+    toneGain.gain.linearRampToValueAtTime(0.5, time + 0.008);
+    toneGain.gain.exponentialRampToValueAtTime(0.0001, time + Math.min(0.28, actualDuration + 0.05));
+  }
+
+  osc.connect(toneGain);
+  toneGain.connect(filter);
+  filter.connect(sequenceContext.inputGain);
+  osc.start(time);
+  osc.stop(releaseAt + 0.05);
+
+  registerStaffVoiceCleanup({
+    oscillators: [osc],
+    noise: null,
+    filters: [filter],
+    output: toneGain
+  }, releaseAt);
+}
+
 function scheduleStaffNote() {
   const data = currentStaffNotes;
   if (!data || data.length === 0) {
@@ -2556,33 +4281,14 @@ function scheduleStaffNote() {
   const noteData = data[idx];
   const time = sequenceContext.nextNoteTime;
   const actualDuration = noteData.duration * quarterNoteDuration;
-
-  const gain = sequenceContext.gain1.gain;
-  const osc = sequenceContext.osc1;
   const freq = NOTE_FREQUENCIES[noteData.note] || 440;
-
-  osc.frequency.setValueAtTime(freq, time);
-
   const instrument = staffInstrumentSelect ? staffInstrumentSelect.value : 'piano';
+  updateStaffEffects(time);
 
-  // Basic release to avoid clicks
-  gain.cancelScheduledValues(time);
-  if (instrument === 'synth') {
-    osc.type = 'sawtooth';
-    gain.setValueAtTime(0, time);
-    gain.linearRampToValueAtTime(0.3, time + 0.05);
-    gain.linearRampToValueAtTime(0, time + actualDuration - 0.01);
-  } else if (instrument === 'marimba') {
-    osc.type = 'sine';
-    gain.setValueAtTime(0, time);
-    gain.linearRampToValueAtTime(0.6, time + 0.01);
-    gain.exponentialRampToValueAtTime(0.01, time + Math.min(0.2, actualDuration));
+  if (instrument === 'piano') {
+    triggerPianoVoice(freq, time, actualDuration);
   } else {
-    // piano
-    osc.type = 'triangle';
-    gain.setValueAtTime(0, time);
-    gain.linearRampToValueAtTime(0.4, time + 0.02);
-    gain.exponentialRampToValueAtTime(0.01, time + actualDuration);
+    triggerSimpleStaffVoice(freq, time, actualDuration, instrument);
   }
 
   sequenceContext.nextNoteTime += actualDuration;
@@ -2596,7 +4302,7 @@ function scheduleStaffNote() {
 function getUrlParameters() {
   const params = new URLSearchParams(window.location.search);
   return {
-    style: params.get('style') || 'solid',
+    style: normalizeStyleValue(params.get('style') || 'solid'),
     colorMode: params.get('colorMode') || 'black-on-white',
 
     // Binary parameters
@@ -2650,6 +4356,7 @@ function getUrlParameters() {
     matrixGap: parseInt(params.get('matrixGap')) || 1,
 
     // Truss parameters
+    trussFamily: normalizeTrussFamilyValue(params.get('trussFamily') || 'flat'),
     trussSegments: parseInt(params.get('trussSegments')) || 15,
     trussThickness: parseFloat(params.get('trussThickness')) || 2,
 
@@ -2657,8 +4364,10 @@ function getUrlParameters() {
     staffNotes: params.get('staffNotes') || '',
     staffTempo: parseInt(params.get('staffTempo')) || 120,
     staffInstrument: params.get('staffInstrument') || 'piano',
+    staffNoteShape: normalizeMusicNoteShape(params.get('staffNoteShape') || 'circle'),
     staffAudio: params.get('staffAudio') === 'true',
-    staffAnimate: params.get('staffAnimate') !== 'false',
+    staffReverb: params.get('staffReverb') === 'true',
+    staffTremolo: params.get('staffTremolo') === 'true',
 
     // Pulse parameters
     pulseText: params.get('pulseText') || 'RPI',
@@ -2666,7 +4375,12 @@ function getUrlParameters() {
 
     // Graph parameters
     graphText: params.get('graphText') || 'RPI',
-    graphScale: parseInt(params.get('graphScale')) || 10,
+    graphText2: params.get('graphText2') || '',
+    graphText3: params.get('graphText3') || '',
+    graphText4: params.get('graphText4') || '',
+    graphText5: params.get('graphText5') || '',
+    graphMulti: params.get('graphMulti') === 'true',
+    graphScale: Math.max(GRAPH_SCALE_MIN, parseInt(params.get('graphScale')) || GRAPH_SCALE_DEFAULT),
 
     // Additional parameters
     morseText: params.get('morseText') || 'RPI',
@@ -2729,6 +4443,9 @@ function updateUrlParameters() {
   }
 
   if (styleSelect && styleSelect.value === 'truss') {
+    if (trussFamilySelect && trussFamilySelect.value !== 'flat') {
+      params.set('trussFamily', trussFamilySelect.value);
+    }
     if (trussSegmentsSlider && parseInt(trussSegmentsSlider.value) !== 15) {
       params.set('trussSegments', trussSegmentsSlider.value);
     }
@@ -2737,7 +4454,7 @@ function updateUrlParameters() {
     }
   }
 
-  if (styleSelect && styleSelect.value === 'staff') {
+  if (styleSelect && styleSelect.value === 'music') {
     // staffNotes removed
     if (staffTempoSlider && parseInt(staffTempoSlider.value) !== 120) {
       params.set('staffTempo', staffTempoSlider.value);
@@ -2745,20 +4462,17 @@ function updateUrlParameters() {
     if (staffInstrumentSelect && staffInstrumentSelect.value !== 'piano') {
       params.set('staffInstrument', staffInstrumentSelect.value);
     }
-    /* 
-    if (staffAnimateToggle && !staffAnimateToggle.checked) {
-      params.set('staffAnimate', 'false');
+    if (staffNoteShapeSelect && staffNoteShapeSelect.value !== 'circle') {
+      params.set('staffNoteShape', staffNoteShapeSelect.value);
     }
-    */
-    params.set('staffAnimate', 'false');
-  }
-
-  if (styleSelect && styleSelect.value === 'pulse') {
-    if (pulseInput && pulseInput.value !== 'RPI') {
-      params.set('pulseText', pulseInput.value);
+    if (staffAudioToggle && staffAudioToggle.checked) {
+      params.set('staffAudio', 'true');
     }
-    if (pulseIntensitySlider && parseFloat(pulseIntensitySlider.value) !== 5) {
-      params.set('pulseIntensity', pulseIntensitySlider.value);
+    if (staffReverbToggle && staffReverbToggle.checked) {
+      params.set('staffReverb', 'true');
+    }
+    if (staffTremoloToggle && staffTremoloToggle.checked) {
+      params.set('staffTremolo', 'true');
     }
   }
 
@@ -2766,7 +4480,22 @@ function updateUrlParameters() {
     if (graphInput && graphInput.value !== 'RPI') {
       params.set('graphText', graphInput.value);
     }
-    if (graphScaleSlider && parseInt(graphScaleSlider.value) !== 10) {
+    if (graphMultiToggle && graphMultiToggle.checked) {
+      params.set('graphMulti', 'true');
+    }
+    if (graphInput2 && graphInput2.value.trim()) {
+      params.set('graphText2', graphInput2.value);
+    }
+    if (graphInput3 && graphInput3.value.trim()) {
+      params.set('graphText3', graphInput3.value);
+    }
+    if (graphInput4 && graphInput4.value.trim()) {
+      params.set('graphText4', graphInput4.value);
+    }
+    if (graphInput5 && graphInput5.value.trim()) {
+      params.set('graphText5', graphInput5.value);
+    }
+    if (graphScaleSlider && parseInt(graphScaleSlider.value, 10) !== GRAPH_SCALE_DEFAULT) {
       params.set('graphScale', graphScaleSlider.value);
     }
   }
@@ -2880,7 +4609,7 @@ function applyUrlParameters() {
 
   // Apply style
   if (styleSelect) {
-    styleSelect.value = params.style;
+    styleSelect.value = normalizeStyleValue(params.style);
   }
 
   // Apply color mode
@@ -2924,6 +4653,9 @@ function applyUrlParameters() {
   }
 
   // Apply truss parameters
+  if (trussFamilySelect) {
+    trussFamilySelect.value = normalizeTrussFamilyValue(params.trussFamily);
+  }
   if (trussSegmentsSlider) {
     trussSegmentsSlider.value = params.trussSegments;
   }
@@ -2949,18 +4681,17 @@ function applyUrlParameters() {
   if (staffInstrumentSelect) {
     staffInstrumentSelect.value = params.staffInstrument;
   }
+  if (staffNoteShapeSelect) {
+    staffNoteShapeSelect.value = params.staffNoteShape;
+  }
   if (staffAudioToggle) {
     staffAudioToggle.checked = params.staffAudio;
   }
-  if (staffAnimateToggle) {
-    staffAnimateToggle.checked = params.staffAnimate;
-    if (styleSelect && styleSelect.value === 'staff') {
-      if (!params.staffAnimate && isPlaying) {
-        togglePlayback();
-      } else if (params.staffAnimate && !isPlaying) {
-        togglePlayback();
-      }
-    }
+  if (staffReverbToggle) {
+    staffReverbToggle.checked = params.staffReverb;
+  }
+  if (staffTremoloToggle) {
+    staffTremoloToggle.checked = params.staffTremolo;
   }
 
   // Apply pulse parameters
@@ -2975,8 +4706,29 @@ function applyUrlParameters() {
   if (graphInput) {
     graphInput.value = params.graphText;
   }
+  if (graphInput2) {
+    graphInput2.value = params.graphText2;
+  }
+  if (graphInput3) {
+    graphInput3.value = params.graphText3;
+  }
+  if (graphInput4) {
+    graphInput4.value = params.graphText4;
+  }
+  if (graphInput5) {
+    graphInput5.value = params.graphText5;
+  }
+  if (graphMultiToggle) {
+    graphMultiToggle.checked = params.graphMulti;
+  }
+  if (graphMultiInputs) {
+    graphMultiInputs.style.display = params.graphMulti ? 'block' : 'none';
+  }
   if (graphScaleSlider) {
-    graphScaleSlider.value = params.graphScale;
+    graphScaleSlider.value = Math.max(GRAPH_SCALE_MIN, params.graphScale);
+  }
+  if (graphScaleDisplay && graphScaleSlider) {
+    graphScaleDisplay.textContent = graphScaleSlider.value;
   }
 
   // Apply ruler parameters
@@ -3194,6 +4946,8 @@ function windowResized() {
     } else {
       resizeCanvas(windowWidth, windowHeight);
     }
+    updateEasterEggHotspotBounds();
+    resizeEasterEggCanvas();
   }, 100);
 }
 
@@ -3299,6 +5053,11 @@ function drawBottomBar(currentWidth) {
   // Get current foreground color
   const colorScheme = colors[currentColorMode];
   const fgColor = colorScheme ? color(colorScheme.fg) : color(0);
+
+  if (drawEasterEggRunInBar(exactBarWidth, rectHeight)) {
+    pop();
+    return;
+  }
 
   // Always draw the bar - solid, ruler, binary, or ticker
   if (currentShader === 0) {
@@ -3767,132 +5526,57 @@ function drawBottomBar(currentWidth) {
   } else if (currentShader === 9) {
     // Truss / Geometric pattern
     resetShader();
-    const segments = parseInt(trussSegmentsSlider ? trussSegmentsSlider.value : 15);
-    const thickness = parseFloat(trussThicknessSlider ? trussThicknessSlider.value : 2);
+    const trussGeometry = createTrussPatternGeometry({
+      barStartX,
+      barY: 0,
+      exactBarWidth,
+      barHeight: rectHeight,
+      segments: trussSegmentsSlider ? trussSegmentsSlider.value : 15,
+      thickness: trussThicknessSlider ? trussThicknessSlider.value : 2,
+      family: trussFamilySelect ? trussFamilySelect.value : 'flat'
+    });
 
     noFill();
     stroke(fgColor);
-    strokeWeight(thickness);
+    strokeWeight(trussGeometry.thickness);
     strokeCap(SQUARE);
     strokeJoin(MITER);
 
-    const halfThick = thickness / 2;
-    const cw = exactBarWidth - thickness;
-    const ch = rectHeight - Math.max(0.1, thickness);
-    const segmentWidth = exactBarWidth / segments;
-
-    rect(barStartX + halfThick, 0 + halfThick, cw, ch);
-
-    for (let i = 0; i < segments; i++) {
-      const x1 = barStartX + i * segmentWidth;
-      const x2 = barStartX + (i + 1) * segmentWidth;
-
-      if (i > 0) {
-        line(x1, 0 + halfThick, x1, 0 + rectHeight - halfThick);
-      }
-      line(x1, 0 + halfThick, x2, 0 + rectHeight - halfThick);
-      line(x1, 0 + rectHeight - halfThick, x2, 0 + halfThick);
+    for (let i = 0; i < trussGeometry.lines.length; i++) {
+      const lineSegment = trussGeometry.lines[i];
+      line(lineSegment.x1, lineSegment.y1, lineSegment.x2, lineSegment.y2);
     }
   } else if (currentShader === 10) {
-    // Staff Notation pattern
+    // Music notation pattern
     resetShader();
     const notesData = typeof currentStaffNotes !== 'undefined' ? currentStaffNotes : [];
-    const thickness = 1; // fixed stroke weight
+    const renderData = buildMusicBarRenderData(notesData, {
+      barStartX,
+      exactBarWidth,
+      rectTop: 0,
+      rectHeight,
+      thickness: 1,
+      noteShape: getSelectedMusicNoteShape()
+    });
 
     stroke(fgColor);
-    strokeWeight(Math.max(0.5, thickness * 0.5));
+    strokeWeight(renderData.lineThickness);
+    renderData.staffLines.forEach(segment => line(segment.x1, segment.y1, segment.x2, segment.y2));
+    renderData.barLines.forEach(segment => line(segment.x1, segment.y1, segment.x2, segment.y2));
 
-    const staffTop = 0 + rectHeight * 0.2;
-    const staffBottom = 0 + rectHeight * 0.8;
-    const lineSpacing = (staffBottom - staffTop) / 4;
-    const step = lineSpacing / 2;
-
-    // Draw 5 staff lines
-    for (let i = 0; i < 5; i++) {
-      const y = staffTop + i * lineSpacing;
-      line(barStartX, y, barStartX + exactBarWidth, y);
-    }
-
-    // Draw measure bar lines (4 measures = 5 barlines)
-    for (let m = 0; m <= 4; m++) {
-      const x = barStartX + exactBarWidth * (m / 4.0);
-      line(Math.min(x, barStartX + exactBarWidth), staffTop, Math.min(x, barStartX + exactBarWidth), staffBottom);
-    }
-
-    // Draw notes
-    if (notesData && notesData.length > 0) {
-      const STAFF_POSITIONS = {
-        'C4': 6, 'C#4': 6, 'D4': 5, 'D#4': 5,
-        'E4': 4, 'F4': 3, 'F#4': 3, 'G4': 2, 'G#4': 2,
-        'A4': 1, 'A#4': 1, 'B4': 0, 'C5': -1
-      };
-
-      let cumulativeBeats = 0;
-      const headRadiusWidth = lineSpacing * 0.7;
-      const headRadiusHeight = lineSpacing * 0.5;
-
-      for (let i = 0; i < notesData.length; i++) {
-        const note = notesData[i];
-        const noteX = barStartX + exactBarWidth * ((cumulativeBeats + note.duration / 2) / 16.0);
-        const pos = STAFF_POSITIONS[note.note] || 0;
-        const isSharp = note.note.includes('#');
-        const noteY = staffTop + 2 * lineSpacing + pos * step;
-        const stemUp = pos > 0;
-
-        strokeWeight(thickness * 0.5);
-
-        // Ledger lines
-        if (pos === 6) {
-          line(noteX - headRadiusWidth, noteY, noteX + headRadiusWidth, noteY);
-        }
-
-        // Sharp symbol
-        if (isSharp) {
-          const shiftX = headRadiusWidth * 1.5;
-          const shiftY = step * 0.5;
-          line(noteX - shiftX - 2, noteY - shiftY, noteX - shiftX - 2, noteY + shiftY);
-          line(noteX - shiftX + 2, noteY - shiftY, noteX - shiftX + 2, noteY + shiftY);
-          line(noteX - shiftX - 3, noteY + 1, noteX - shiftX + 3, noteY - 1);
-        }
-
-        // Note Head
-        if (note.duration >= 2) {
-          noFill();
-          ellipse(noteX, noteY, headRadiusWidth * 2, headRadiusHeight * 2);
-        } else {
-          fill(fgColor);
-          noStroke();
-          ellipse(noteX, noteY, headRadiusWidth * 2, headRadiusHeight * 2);
-          stroke(fgColor);
-        }
-
-        // Stem and Flags
-        if (note.duration < 4) {
-          const stemLength = lineSpacing * 2.5;
-          const stemX = stemUp ? noteX + headRadiusWidth * 0.8 : noteX - headRadiusWidth * 0.8;
-          const stemEndY = stemUp ? noteY - stemLength : noteY + stemLength;
-
-          strokeWeight(thickness * 0.5);
-          line(stemX, noteY, stemX, stemEndY);
-
-          if (note.duration <= 0.5) {
-            let numFlags = 1;
-            if (note.duration === 0.25) numFlags = 2;
-            if (note.duration === 0.125) numFlags = 3;
-
-            for (let f = 0; f < numFlags; f++) {
-              const flagStartY = stemUp ? stemEndY + f * (lineSpacing * 0.3) : stemEndY - f * (lineSpacing * 0.3);
-              const flagEndY = stemUp ? flagStartY + lineSpacing * 0.6 : flagStartY - lineSpacing * 0.6;
-              const flagEndX = stemX + lineSpacing * 0.8;
-              line(stemX, flagStartY, flagEndX, flagEndY);
-            }
-          }
-        }
-
-        cumulativeBeats += note.duration;
-        if (cumulativeBeats >= 16) break;
+    renderData.notes.forEach(noteRender => {
+      stroke(fgColor);
+      strokeWeight(renderData.lineThickness);
+      noteRender.ledgerLines.forEach(segment => line(segment.x1, segment.y1, segment.x2, segment.y2));
+      noteRender.accidentalLines.forEach(segment => line(segment.x1, segment.y1, segment.x2, segment.y2));
+      drawMusicHeadP5(noteRender.noteShape, noteRender.noteX, noteRender.noteY, noteRender.rx, noteRender.ry, noteRender.headFill, fgColor);
+      stroke(fgColor);
+      strokeWeight(renderData.lineThickness);
+      if (noteRender.stem) {
+        line(noteRender.stem.x1, noteRender.stem.y1, noteRender.stem.x2, noteRender.stem.y2);
       }
-    }
+      noteRender.flags.forEach(segment => line(segment.x1, segment.y1, segment.x2, segment.y2));
+    });
 
   } else if (currentShader === 11) {
     // Pulse / Centerline pattern
@@ -3922,33 +5606,34 @@ function drawBottomBar(currentWidth) {
       }
     }
   } else if (currentShader === 12) {
-    // Data Graph / Right Triangles pattern
+    // Data Graph / Continuous line graph
     resetShader();
-    const text = graphInput ? graphInput.value || "RPI" : "RPI";
-    const scaleMax = parseInt(graphScaleSlider ? graphScaleSlider.value : 10) / 10.0;
+    const streamTexts = getGraphStreamTexts();
+    const scaleFactor = getGraphScaleFactor();
+    const { seriesList, minValue, maxValue } = buildGraphSeriesData(streamTexts);
 
-    noStroke();
-    fill(fgColor);
+    noFill();
+    const baseColor = color(fgColor);
 
-    if (text.length > 0) {
-      const spacing = exactBarWidth / text.length;
+    for (let streamIndex = 0; streamIndex < seriesList.length; streamIndex++) {
+      const series = seriesList[streamIndex];
+      if (!series || series.length < 2) continue;
 
-      for (let i = 0; i < text.length; i++) {
-        const charCode = text.charCodeAt(i);
-        const normalizedHeight = 0.1 + ((charCode % 15) / 14.0) * 0.9;
-        const h = rectHeight * normalizedHeight * scaleMax;
+      const alpha = seriesList.length > 1 ? Math.max(80, 255 - streamIndex * 30) : 255;
+      baseColor.setAlpha(alpha);
+      stroke(baseColor);
+      strokeWeight(seriesList.length > 1 ? 1.6 : 2.2);
+      strokeJoin(ROUND);
 
-        const x1 = barStartX + i * spacing;
-        const x2 = barStartX + (i + 1) * spacing;
-        const yBase = 0 + rectHeight;
-        const yTop = yBase - h;
-
-        beginShape();
-        vertex(x1, yBase);
-        vertex(x2, yBase);
-        vertex(x1, yTop);
-        endShape(CLOSE);
+      const steps = series.length - 1;
+      beginShape();
+      for (let i = 0; i < series.length; i++) {
+        const normalized = (series[i] - minValue) / (maxValue - minValue);
+        const x = barStartX + (steps === 0 ? 0 : (i / steps) * exactBarWidth);
+        const y = rectHeight - normalized * rectHeight * scaleFactor;
+        vertex(x, y);
       }
+      endShape();
     }
   } else {
     // Fallback to solid with current foreground color
@@ -3973,10 +5658,6 @@ function togglePlayback() {
     if (iconPause) iconPause.classList.remove('hidden');
     if (playbackText) playbackText.textContent = "SPACE TO PAUSE";
     if (playbackBtn) playbackBtn.setAttribute('aria-label', 'Pause Animation');
-
-    // Update Morse play button explicitly
-    if (morsePlayBtn) morsePlayBtn.textContent = 'PAUSE AUDIO';
-    if (morseInfoBadge) morseInfoBadge.style.display = 'block';
 
     if (animationInfoBadge) animationInfoBadge.textContent = "PRESS SPACEBAR TO PAUSE ANIMATION";
     if (waveformAnimateToggle && !waveformAnimateToggle.checked) {
@@ -4003,10 +5684,6 @@ function togglePlayback() {
     if (playbackText) playbackText.textContent = "SPACE TO PLAY";
     if (playbackBtn) playbackBtn.setAttribute('aria-label', 'Play Animation');
 
-    // Update Morse play button explicitly
-    if (morsePlayBtn) morsePlayBtn.textContent = 'PLAY AUDIO';
-    if (morseInfoBadge) morseInfoBadge.style.display = 'none';
-
     if (animationInfoBadge) animationInfoBadge.textContent = "PRESS SPACEBAR TO PLAY ANIMATION";
     if (waveformAnimateToggle && waveformAnimateToggle.checked) {
       waveformAnimateToggle.checked = false;
@@ -4014,6 +5691,8 @@ function togglePlayback() {
 
     stopAudio();
   }
+
+  updateAudioControlsUI();
 }
 
 function clampPanOffset() {
@@ -4035,12 +5714,13 @@ function clampPanOffset() {
 
 function zoomCanvas(amount) {
   zoomLevel += amount;
-  zoomLevel = constrain(zoomLevel, 0.5, 3.0); // Limit zoom 50% to 300%
+  zoomLevel = constrain(zoomLevel, MIN_ZOOM_LEVEL, MAX_ZOOM_LEVEL);
 
   clampPanOffset();
+  updateEasterEggHotspotBounds();
 
   if (zoomLevelDisplay && document.activeElement !== zoomLevelDisplay) {
-    zoomLevelDisplay.value = Math.round(zoomLevel * 100) + '%';
+    zoomLevelDisplay.value = zoomLevelToDisplayPercent(zoomLevel) + '%';
   }
 
   if (!isPlaying) redraw();
@@ -4050,15 +5730,15 @@ function togglePanMode() {
   isPanningMode = !isPanningMode;
 
   if (panBtn) {
-    if (isPanningMode) {
-      panBtn.style.color = 'var(--accent-color)';
-      panBtn.style.background = 'var(--rpi-gray-100)';
-      document.body.style.cursor = 'move';
-    } else {
-      panBtn.style.color = '';
-      panBtn.style.background = '';
-      document.body.style.cursor = 'default';
-    }
+    panBtn.classList.toggle('is-active', isPanningMode);
+    document.body.style.cursor = isPanningMode ? 'move' : 'default';
+  }
+
+  if (isPanningMode) {
+    cancelEasterEggHold(false);
+    setEasterEggHintState(false);
+  } else {
+    updateEasterEggHotspotBounds();
   }
 }
 
@@ -4067,6 +5747,7 @@ function mouseDragged() {
     panOffset.x += movedX;
     panOffset.y += movedY;
     clampPanOffset();
+    updateEasterEggHotspotBounds();
     if (!isPlaying) redraw();
     return false; // Prevent default browser drag
   }
