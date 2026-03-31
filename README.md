@@ -21,3 +21,12 @@ Vanilla JavaScript, WebGL (GLSL shaders), Web Audio API (AudioWorklet)
 
 ## Local Development
 Serve with any static web server: `python3 -m http.server` or `npx serve`
+
+## GitHub Pages Deployment
+This repository can deploy directly to GitHub Pages as a project site.
+
+- Expected Pages URL: `https://tennitech.github.io/rpi-logo-generator/`
+- Deployment workflow: `.github/workflows/deploy-pages.yml`
+- Frontify embed target: use the published Pages URL as the iframe `src`
+
+After the workflow is merged to `main`, set the repository's Pages source to `GitHub Actions` in GitHub settings if it is not already configured.

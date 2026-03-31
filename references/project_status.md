@@ -1,6 +1,6 @@
 # RPI Logo Generator - Project Status & Master Documentation
 
-**Last Updated:** 2026-03-24
+**Last Updated:** 2026-03-31
 **Current Phase:** Phase 3 (Advanced Features & Refinement)
 
 ## 1. Project Overview
@@ -48,6 +48,11 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 *   [ ] **AI Exploration:** (Future) Event-specific background generation.
 
 ## 5. Recent Updates
+- **[2026-03-31] GitHub Pages Deployment Added For Frontify Embed Hosting**:
+    - Added a GitHub Actions workflow at `.github/workflows/deploy-pages.yml` to publish the static generator to GitHub Pages from `main`.
+    - Scoped the Pages artifact to the actual site files (`index.html`, `assets`, `css`, `js`, `animation`, and `favicon.ico`) instead of publishing the whole repository.
+    - Fixed the hidden `/animation` route's back-link so it works correctly when the site is served from the GitHub Pages project-site path `/rpi-logo-generator/`.
+    - Updated deployment and integration documentation so Frontify embeds can target the published GitHub Pages URL immediately.
 - **[2026-03-24] Hidden Animation Prototype Added At `/animation`**:
     - Added a standalone experimental page at `/animation` so new experience ideas can be explored without coupling prototype motion work to the main generator shell.
     - Reworked the initial prototype from DOM-positioned text into a canvas-based glyph field so the page can support much denser motion and closer reference fidelity without choking the browser.
@@ -89,6 +94,7 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 *   **Font Format:** Chosen `.woff2` for optimal web performance.
 *   **Global Access:** `ProfanityFilter` attached to `window` for p5.js compatibility.
 *   **Frontify Integration:** Chosen external iframe embedding as the initial integration strategy for simplicity and speed.
+*   **Static Hosting:** GitHub Pages via GitHub Actions is now the default deployment path for the embedable generator, with the published project-site URL serving as the initial Frontify iframe target.
 *   **Embed-First Controls:** Desktop controls should behave like a docked tool surface inside the Brand Hub content area, not like a second site sidebar; mobile may use an overlay sheet when space is constrained.
 *   **Export Consistency:** Introduced shared SVG bar pattern generator (`js/utils/barPattern.js`) as single source of truth for non-solid bar exports.
 *   **Agent Policy Source Of Truth:** Root `AGENTS.md` is now the canonical instruction surface for repo-scoped agents; compatibility rule files should reference it instead of duplicating policy text.

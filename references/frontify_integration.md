@@ -22,9 +22,14 @@
 
 ## 2. Recommended Approach: "The iframe / External Link" (Phase 1 of Integration)
 Given the constraint of "Stability First" and "Vanilla JS":
-1.  **Host** the generator on a stable RPI subdomain (e.g., `design-tool.rpi.edu`).
+1.  **Host** the generator on a stable URL.
 2.  **Embed** via iframe or link directly from the Brand Hub navigation.
 3.  **Manual Upload:** Users download the PNG and manually upload it to their Frontify libraries if needed.
+
+### Current Hosting Recommendation
+- **Immediate launch:** GitHub Pages project site at `https://tennitech.github.io/rpi-logo-generator/`
+- **Frontify usage:** point the iframe `src` or external link at the published GitHub Pages URL
+- **Future production hardening:** move to an RPI-owned subdomain if institutional hosting, analytics, or stricter change control becomes necessary
 
 ### Embedded UI Constraint
 When the generator is embedded inside the Brand Hub, it should behave like a compact tool surface inside existing page chrome, not like a standalone application shell.
@@ -35,6 +40,7 @@ When the generator is embedded inside the Brand Hub, it should behave like a com
 - Treat interface appearance separately from artwork/canvas appearance to avoid confusing the host platform's navigation with the generator's output options.
 
 ## 3. Next Steps
-1.  Request API Documentation for RPI's specific Frontify instance.
-2.  Determine if "Custom Content Blocks" are allowed in RPI's plan.
-3.  Proceed with **Method B (External Tool)** for immediate launch, while researching **Method C (Content Block)** for V2.
+1.  Enable GitHub Pages deployment from the repository's GitHub Actions workflow.
+2.  Add the published GitHub Pages URL to the Frontify Brand Hub as an iframe embed or external tool link.
+3.  Request API documentation for RPI's specific Frontify instance if direct asset upload becomes a requirement.
+4.  Determine if "Custom Content Blocks" are allowed in RPI's plan before considering a V2 rebuild.
