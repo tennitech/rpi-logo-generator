@@ -62,10 +62,10 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
     - Updated deployment and integration documentation so Frontify embeds can target the published GitHub Pages URL immediately.
 - **[2026-03-24] Hidden Animation Prototype Added At `/animation`**:
     - Added a standalone experimental page at `/animation` so new experience ideas can be explored without coupling prototype motion work to the main generator shell.
-    - The current `/animation` surface now opens on a full-viewport terminal-text field derived from the supplied `RPI_Pattern_1.svg`, with the remaining empty cells backfilled so the opening state covers the entire screen without black margins.
+    - The current `/animation` surface now derives its terminal grid from the live viewport dimensions so the motion study fills the screen more reliably across display sizes.
     - Presentation remains black background, RPI red glyphs, and the local `RPIGeistMono` font, with smaller type and a denser grid to increase code-like texture and improve terminal-art stability.
-    - The full-screen opening field now preserves darker black regions by using sparse background fill outside the main pattern instead of saturating every empty cell with red characters.
-    - Motion now uses a much faster directed collapse from the viewport-wide source text into a centered medium-scale terminal raster derived from the supplied `RPI-logo-5.svg`, and the last animated frame is the final resting state instead of snapping to a separate static logo treatment.
+    - The opening field now uses a full-screen raster of the supplied `RPI_Pattern_1.svg` with sparse red background noise so the black regions stay visually dark instead of washing the screen in constant red.
+    - Motion now runs in three slower phases: an ambient swirl/scramble stage, a curved funnel-like assembly into the logo, and a short settle shimmer before stopping on the SVG-derived RPI logo raster.
     - Kept the prototype hidden from the primary UI and implemented it as a static subdirectory route so it works cleanly with the repo's simple static-server workflow.
 - **[2026-03-24] Embed-First UI Refactor For Frontify Context**:
     - Reworked the generator layout away from a persistent in-app left sidebar and toward an embed-friendly control dock, so the tool no longer visually competes with Frontify's existing page navigation.
