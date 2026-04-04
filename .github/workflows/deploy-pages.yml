@@ -34,6 +34,7 @@ jobs:
           cp -R css dist/css
           cp -R js dist/js
           cp -R animation dist/animation
+          cp -R terminal-logo dist/terminal-logo
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
