@@ -62,10 +62,13 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
     - Updated deployment and integration documentation so Frontify embeds can target the published GitHub Pages URL immediately.
 - **[2026-03-24] Hidden Animation Prototype Added At `/animation`**:
     - Added a standalone experimental page at `/animation` so new experience ideas can be explored without coupling prototype motion work to the main generator shell.
-    - The current `/animation` surface now derives its terminal grid from the live viewport dimensions so the motion study fills the screen more reliably across display sizes.
+    - The current `/animation` surface on the `codex/animation-pattern-cycle` draft branch now derives its terminal grid from the live viewport dimensions so the motion study fills the screen more reliably across display sizes.
     - Presentation remains black background, RPI red glyphs, and the local `RPIGeistMono` font, with smaller type and a denser grid to increase code-like texture and improve terminal-art stability.
-    - The opening field now uses a full-screen raster of the supplied `RPI_Pattern_1.svg` with sparse red background noise so the black regions stay visually dark instead of washing the screen in constant red.
-    - Motion now runs in three slower phases: an ambient swirl/scramble stage, a curved funnel-like assembly into the logo, and a short settle shimmer before stopping on the SVG-derived RPI logo raster.
+    - The draft animation now flies terminal-text particles in from offscreen to form the initial full-screen `RPI_Pattern_1.svg` composition, then cycles through the imported pattern SVG set with quicker morphs and subtle side-to-side motion inside each pattern.
+    - Imported additional pattern assets for the cycle study: `Style=Circles 2`, `Style=Circles Gradient 1`, `Style=Fibonacci Sequence`, `Style=Ruler IN`, `Style=Ticker Sm`, `Style=Triangle Grid 1`, `Style=Triangles 1`, `Style=Union`, and `Style=Wave_ Quantum`.
+    - Removed the earlier random background-noise treatment around the active bars and replaced it with a stable aura/force-field layer of nearby terminal characters so transitions stay cleaner and do not visibly reset between pattern changes.
+    - Slowed and smoothed the overall sequence by lengthening hold and morph timings, softening the per-pattern lateral motion, and inserting a Geist Pixel Square ASCII title stage that spells `THE BAR GENERATOR` before the final morph into the supplied `RPI-logo-5.svg`.
+    - Strengthened the morph feel with a magnetic snap/overshoot in particle travel so each transition lands more satisfyingly without abrupt resets.
     - Kept the prototype hidden from the primary UI and implemented it as a static subdirectory route so it works cleanly with the repo's simple static-server workflow.
 - **[2026-03-24] Embed-First UI Refactor For Frontify Context**:
     - Reworked the generator layout away from a persistent in-app left sidebar and toward an embed-friendly control dock, so the tool no longer visually competes with Frontify's existing page navigation.

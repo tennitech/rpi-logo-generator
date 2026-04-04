@@ -1,7 +1,31 @@
-const PATTERN_PATH = '/animation/data/rpi-pattern-1.svg';
-const LOGO_PATH = '/animation/data/rpi-logo-5.svg';
+const FULLSCREEN_PATTERN_PATH = '/animation/data/rpi-pattern-1.svg';
+const FINAL_LOGO_PATH = '/animation/data/rpi-logo-5.svg';
 const projection = document.getElementById('animation-projection');
 const DENSITY_RAMP = ' .,:-=+*#%@';
+const TITLE_LINES = ['THE BAR', 'GENERATOR'];
+
+const PATTERN_DEFS = [
+  { path: FULLSCREEN_PATTERN_PATH, widthRatio: 1.02, heightRatio: 1.02, fitMode: 'cover', motionAmplitude: 1.1, motionSpeed: 1.3 },
+  { path: '/animation/data/style-circles-2.svg', widthRatio: 0.84, heightRatio: 0.72, fitMode: 'contain', motionAmplitude: 1.25, motionSpeed: 1.75 },
+  { path: '/animation/data/style-circles-gradient-1.svg', widthRatio: 0.84, heightRatio: 0.72, fitMode: 'contain', motionAmplitude: 1.3, motionSpeed: 1.62 },
+  { path: '/animation/data/style-fibonacci-sequence.svg', widthRatio: 0.84, heightRatio: 0.72, fitMode: 'contain', motionAmplitude: 1.15, motionSpeed: 1.42 },
+  { path: '/animation/data/style-ruler-in.svg', widthRatio: 0.88, heightRatio: 0.58, fitMode: 'contain', motionAmplitude: 0.95, motionSpeed: 1.92 },
+  { path: '/animation/data/style-ticker-sm.svg', widthRatio: 0.88, heightRatio: 0.44, fitMode: 'contain', motionAmplitude: 0.9, motionSpeed: 2.05 },
+  { path: '/animation/data/style-triangle-grid-1.svg', widthRatio: 0.84, heightRatio: 0.72, fitMode: 'contain', motionAmplitude: 1.28, motionSpeed: 1.74 },
+  { path: '/animation/data/style-triangles-1.svg', widthRatio: 0.84, heightRatio: 0.72, fitMode: 'contain', motionAmplitude: 1.28, motionSpeed: 1.86 },
+  { path: '/animation/data/style-union.svg', widthRatio: 0.84, heightRatio: 0.72, fitMode: 'contain', motionAmplitude: 1.18, motionSpeed: 1.56 },
+  { path: '/animation/data/style-wave-quantum.svg', widthRatio: 0.9, heightRatio: 0.54, fitMode: 'contain', motionAmplitude: 1.05, motionSpeed: 2.02 }
+];
+
+const TIMING = {
+  intro: 2.2,
+  hold: 0.72,
+  morph: 0.98,
+  titleHold: 0.82,
+  titleMorph: 1.18,
+  finalMorph: 1.48,
+  finalSettle: 0.96
+};
 
 const TEXT_BLOCK = `
 /dream BUILDING THE NEW THROUGH PRECISE ITERATION AND CODE.
@@ -16,23 +40,18 @@ const TEXT_BLOCK = `
 
 const stream = TEXT_BLOCK.replace(/\s+/g, ' ').trim();
 
-const TIMING = {
-  ambient: 2.4,
-  assemble: 2.9,
-  settle: 0.9
-};
-
 const state = {
   cols: 0,
   rows: 0,
   fontSize: 4,
   lineHeight: 4,
-  sourceGrid: [],
-  sourceCells: [],
-  logoCells: [],
-  finalGrid: [],
-  finalText: '',
-  particles: [],
+  masks: [],
+  titleMask: null,
+  finalMask: null,
+  introParticles: [],
+  morphSets: [],
+  titleMorphParticles: [],
+  finalMorphParticles: [],
   frameHandle: 0,
   startTime: 0
 };
@@ -57,9 +76,19 @@ function easeOutQuint(value) {
   return 1 - Math.pow(1 - value, 5);
 }
 
+function easeOutBack(value) {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + (c3 * Math.pow(value - 1, 3)) + (c1 * Math.pow(value - 1, 2));
+}
+
 function cellNoise(x, y, seed) {
   const value = Math.sin((x * 12.9898) + (y * 78.233) + (seed * 37.719)) * 43758.5453;
   return value - Math.floor(value);
+}
+
+function getStreamChar(index) {
+  return stream[index % stream.length];
 }
 
 function densityToChar(density) {
@@ -71,10 +100,6 @@ function densityToChar(density) {
   const eased = Math.pow(normalized, 0.85);
   const index = Math.min(DENSITY_RAMP.length - 1, Math.floor(eased * (DENSITY_RAMP.length - 1)));
   return DENSITY_RAMP[index];
-}
-
-function getStreamChar(index) {
-  return stream[index % stream.length];
 }
 
 function measureCellMetrics() {
@@ -96,7 +121,7 @@ function measureCellMetrics() {
 
 function updateProjectionScale() {
   const targetFontSize = clamp(
-    Math.floor(Math.min(window.innerWidth / 240, window.innerHeight / 138)),
+    Math.floor(Math.min(window.innerWidth / 225, window.innerHeight / 130)),
     4,
     6
   );
@@ -126,7 +151,7 @@ function sampleDensity(data, width, left, right, top, bottom) {
   return samples > 0 ? coverage / samples : 0;
 }
 
-async function rasterizeMask(path, maxWidthRatio, maxHeightRatio, fitMode = 'contain') {
+async function rasterizeMask(path, widthRatio, heightRatio, fitMode = 'contain') {
   const image = new Image();
   image.src = path;
   await image.decode();
@@ -143,8 +168,8 @@ async function rasterizeMask(path, maxWidthRatio, maxHeightRatio, fitMode = 'con
   const imageWidth = image.naturalWidth || image.width;
   const imageHeight = image.naturalHeight || image.height;
   const aspect = imageWidth / imageHeight;
-  const maxWidth = canvas.width * maxWidthRatio;
-  const maxHeight = canvas.height * maxHeightRatio;
+  const maxWidth = canvas.width * widthRatio;
+  const maxHeight = canvas.height * heightRatio;
   let drawWidth = maxWidth;
   let drawHeight = drawWidth / aspect;
 
@@ -186,53 +211,174 @@ async function rasterizeMask(path, maxWidthRatio, maxHeightRatio, fitMode = 'con
   return { cells, grid };
 }
 
-function buildSourceField(patternGrid) {
-  state.sourceGrid = Array.from({ length: state.rows }, () => Array(state.cols).fill(' '));
-  state.sourceCells = [];
+function rasterizeTextMask(lines, widthRatio, heightRatio, fontFamily) {
+  const metrics = measureCellMetrics();
+  const oversample = 6;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  canvas.width = Math.max(1, Math.round(state.cols * metrics.width * oversample));
+  canvas.height = Math.max(1, Math.round(state.rows * metrics.height * oversample));
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const maxWidth = canvas.width * widthRatio;
+  const maxHeight = canvas.height * heightRatio;
+  let fontSize = maxHeight / Math.max(lines.length * 0.92, 1);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#000000';
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    ctx.font = `${fontSize}px ${fontFamily}`;
+    const widest = Math.max(...lines.map((line) => ctx.measureText(line).width), 1);
+    const blockHeight = lines.length * fontSize * 0.92;
+
+    if (widest <= maxWidth && blockHeight <= maxHeight) {
+      break;
+    }
+
+    const widthScale = maxWidth / widest;
+    const heightScale = maxHeight / blockHeight;
+    fontSize *= Math.min(widthScale, heightScale) * 0.98;
+  }
+
+  ctx.font = `${fontSize}px ${fontFamily}`;
+  const lineHeight = fontSize * 0.92;
+  const blockHeight = lines.length * lineHeight;
+  const startY = (canvas.height * 0.5) - (blockHeight * 0.5) + (lineHeight * 0.5);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    ctx.fillText(lines[index], canvas.width * 0.5, startY + (index * lineHeight));
+  }
+
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const cells = [];
+  const grid = Array.from({ length: state.rows }, () => Array(state.cols).fill(' '));
 
   for (let row = 0; row < state.rows; row += 1) {
     for (let col = 0; col < state.cols; col += 1) {
-      const patternChar = patternGrid[row]?.[col] || ' ';
-      const baseChar = getStreamChar((row * state.cols) + col);
-      const sparseDensity = cellNoise(col, row, 17);
-      const sparseChar = sparseDensity > 0.82 ? baseChar : ' ';
-      const char = patternChar === ' ' ? sparseChar : patternChar;
+      const cellLeft = Math.floor((col / state.cols) * canvas.width);
+      const cellRight = Math.floor(((col + 1) / state.cols) * canvas.width);
+      const cellTop = Math.floor((row / state.rows) * canvas.height);
+      const cellBottom = Math.floor(((row + 1) / state.rows) * canvas.height);
+      const density = sampleDensity(data, canvas.width, cellLeft, cellRight, cellTop, cellBottom);
+      const char = densityToChar(density);
 
-      state.sourceGrid[row][col] = char;
+      grid[row][col] = char;
 
       if (char !== ' ') {
-        state.sourceCells.push({ x: col, y: row, char });
+        cells.push({ x: col, y: row, char });
       }
     }
   }
+
+  return { cells, grid };
 }
 
-function buildParticles() {
-  const sourceCount = state.sourceCells.length;
-  const centerX = (state.cols - 1) * 0.5;
-  const centerY = (state.rows - 1) * 0.5;
+function finalizeMask(mask, index, motionAmplitude, motionSpeed) {
+  const auraCells = [];
+  const seen = new Set();
+  const offsets = [
+    [2, 0], [-2, 0], [0, 1], [0, -1],
+    [3, 1], [-3, -1], [1, 2], [-1, -2],
+    [4, 0], [-4, 0], [2, 2], [-2, -2]
+  ];
 
-  state.particles = state.logoCells.map((target, index) => {
-    const source = state.sourceCells[(index * 6151) % sourceCount];
+  for (let cellIndex = 0; cellIndex < mask.cells.length; cellIndex += 1) {
+    const cell = mask.cells[cellIndex];
+
+    if (cellNoise(cell.x, cell.y, 61 + index) < 0.62) {
+      continue;
+    }
+
+    const offset = offsets[Math.floor(cellNoise(cell.x, cell.y, 67 + index) * offsets.length)] || offsets[0];
+    const ax = cell.x + offset[0];
+    const ay = cell.y + offset[1];
+    const key = `${ax}:${ay}`;
+
+    if (
+      ax < 0 ||
+      ay < 0 ||
+      ax >= state.cols ||
+      ay >= state.rows ||
+      mask.grid[ay][ax] !== ' ' ||
+      seen.has(key)
+    ) {
+      continue;
+    }
+
+    seen.add(key);
+    auraCells.push({
+      anchorX: cell.x,
+      anchorY: cell.y,
+      offsetX: offset[0],
+      offsetY: offset[1],
+      char: getStreamChar((cellIndex * 17) + (index * 29)),
+      radius: 1 + Math.round(cellNoise(cell.x, cell.y, 73 + index) * 2),
+      phase: cellNoise(cell.x, cell.y, 79 + index) * Math.PI * 2
+    });
+  }
+
+  return {
+    cells: mask.cells,
+    grid: mask.grid,
+    text: mask.grid.map((row) => row.join('')).join('\n'),
+    auraCells,
+    motionAmplitude: motionAmplitude + 0.45,
+    motionSpeed,
+    motionPhase: index * 0.71
+  };
+}
+
+function createOffscreenPoint(index) {
+  const side = index % 4;
+  const band = cellNoise(index, side, 3);
+
+  if (side === 0) {
+    return { x: -12, y: Math.round(band * (state.rows - 1)) };
+  }
+
+  if (side === 1) {
+    return { x: state.cols + 12, y: Math.round(band * (state.rows - 1)) };
+  }
+
+  if (side === 2) {
+    return { x: Math.round(band * (state.cols - 1)), y: -8 };
+  }
+
+  return { x: Math.round(band * (state.cols - 1)), y: state.rows + 8 };
+}
+
+function buildParticleSet(sourceCells, targetCells, seed, startFromOffscreen = false) {
+  const count = Math.max(sourceCells.length, targetCells.length);
+
+  return Array.from({ length: count }, (_, index) => {
+    const target = targetCells[Math.floor((index / count) * targetCells.length)] || targetCells[index % targetCells.length];
+    const source = startFromOffscreen
+      ? createOffscreenPoint(index)
+      : (sourceCells[Math.floor((index / count) * sourceCells.length)] || sourceCells[index % sourceCells.length]);
+
+    const sourceChar = startFromOffscreen
+      ? getStreamChar(index * 13)
+      : (source.char || getStreamChar(index * 17));
+    const targetChar = target.char;
     const dx = target.x - source.x;
     const dy = target.y - source.y;
     const distance = Math.sqrt((dx * dx) + (dy * dy));
-    const perpX = dy / Math.max(distance, 1);
-    const perpY = -dx / Math.max(distance, 1);
-    const targetCenterDx = target.x - centerX;
-    const targetCenterDy = target.y - centerY;
+    const norm = Math.max(distance, 1);
+    const perpX = dy / norm;
+    const perpY = -dx / norm;
 
     return {
       sourceX: source.x,
       sourceY: source.y,
       targetX: target.x,
       targetY: target.y,
-      sourceChar: source.char,
-      targetChar: target.char,
-      startOffset: cellNoise(source.x, source.y, 7) * 0.32,
-      arc: ((cellNoise(target.x, target.y, 11) * 2) - 1) * clamp(distance * 0.16, 4, 24),
-      swirlRadius: clamp(Math.sqrt((targetCenterDx * targetCenterDx) + (targetCenterDy * targetCenterDy)) * 0.35, 2, 14),
-      swirlPhase: cellNoise(target.x, target.y, 13) * Math.PI * 2,
+      sourceChar,
+      targetChar,
+      delay: cellNoise(target.x, target.y, seed) * 0.28,
+      arc: ((cellNoise(source.x || index, source.y || index, seed + 3) * 2) - 1) * clamp(distance * 0.12, 2, 20),
+      swirlRadius: clamp(distance * 0.05, 2, 10),
+      swirlPhase: cellNoise(target.x, target.y, seed + 7) * Math.PI * 2,
       perpX,
       perpY
     };
@@ -240,88 +386,203 @@ function buildParticles() {
 }
 
 async function rebuildScene() {
-  const patternMask = await rasterizeMask(PATTERN_PATH, 1.02, 1.02, 'cover');
-  const logoMask = await rasterizeMask(LOGO_PATH, 0.68, 0.34, 'contain');
+  const masks = [];
 
-  buildSourceField(patternMask.grid);
-  state.logoCells = logoMask.cells;
-  state.finalGrid = logoMask.grid;
-  state.finalText = logoMask.grid.map((row) => row.join('')).join('\n');
-  buildParticles();
+  for (let index = 0; index < PATTERN_DEFS.length; index += 1) {
+    const def = PATTERN_DEFS[index];
+    const rawMask = await rasterizeMask(def.path, def.widthRatio, def.heightRatio, def.fitMode);
+    masks.push(finalizeMask(rawMask, index, def.motionAmplitude, def.motionSpeed));
+  }
+
+  const titleRaw = rasterizeTextMask(TITLE_LINES, 0.84, 0.22, 'GeistPixelSquare');
+  const finalLogoRaw = await rasterizeMask(FINAL_LOGO_PATH, 0.68, 0.34, 'contain');
+
+  state.masks = masks;
+  state.titleMask = finalizeMask(titleRaw, 91, 0.72, 1.18);
+  state.finalMask = {
+    cells: finalLogoRaw.cells,
+    grid: finalLogoRaw.grid,
+    text: finalLogoRaw.grid.map((row) => row.join('')).join('\n')
+  };
+  state.introParticles = buildParticleSet([], masks[0].cells, 51, true);
+  state.morphSets = masks.slice(0, -1).map((mask, index) =>
+    buildParticleSet(mask.cells, masks[index + 1].cells, 71 + index, false)
+  );
+  state.titleMorphParticles = buildParticleSet(masks[masks.length - 1].cells, state.titleMask.cells, 161, false);
+  state.finalMorphParticles = buildParticleSet(state.titleMask.cells, state.finalMask.cells, 191, false);
 }
 
-function renderAmbient(elapsed) {
-  const buffer = Array.from({ length: state.rows }, () => Array(state.cols).fill(' '));
-  const phase = elapsed * 0.9;
+function createEmptyBuffer() {
+  return Array.from({ length: state.rows }, () => Array(state.cols).fill(' '));
+}
 
-  for (const cell of state.sourceCells) {
-    const driftX = Math.round(Math.sin((cell.y * 0.1) + (phase * 2.2) + (cell.x * 0.015)) * 2.4);
-    const driftY = Math.round(Math.cos((cell.x * 0.08) - (phase * 1.8) + (cell.y * 0.018)) * 1.6);
-    const x = clamp(cell.x + driftX, 0, state.cols - 1);
-    const y = clamp(cell.y + driftY, 0, state.rows - 1);
-    const alt = cellNoise(cell.x, cell.y, Math.floor(elapsed * 10) + 21);
-    const char = alt > 0.83
-      ? getStreamChar((cell.y * state.cols) + cell.x + Math.floor(elapsed * 36))
-      : cell.char;
+function paintAura(buffer, mask, elapsed, strength) {
+  if (!mask?.auraCells?.length || strength <= 0) {
+    return;
+  }
 
-    buffer[y][x] = char;
+  for (let index = 0; index < mask.auraCells.length; index += 1) {
+    const aura = mask.auraCells[index];
+
+    if (cellNoise(aura.anchorX, aura.anchorY, 463 + index) > strength) {
+      continue;
+    }
+
+    const swing = Math.sin((elapsed * (mask.motionSpeed * 1.35)) + aura.phase) * aura.radius;
+    const drift = Math.cos((elapsed * (mask.motionSpeed * 0.9)) + aura.phase) * 0.8;
+    const x = clamp(aura.anchorX + aura.offsetX + Math.round(swing), 0, state.cols - 1);
+    const y = clamp(aura.anchorY + aura.offsetY + Math.round(drift), 0, state.rows - 1);
+
+    if (buffer[y][x] === ' ') {
+      buffer[y][x] = aura.char;
+    }
+  }
+}
+
+function renderMask(mask, elapsed) {
+  const buffer = createEmptyBuffer();
+  paintAura(buffer, mask, elapsed, 0.74);
+
+  for (const cell of mask.cells) {
+    const slide = Math.sin((elapsed * mask.motionSpeed) + (cell.y * 0.16) + mask.motionPhase) * mask.motionAmplitude;
+    const micro = Math.sin((elapsed * (mask.motionSpeed * 0.78)) + (cell.x * 0.03) + mask.motionPhase) * 0.9;
+    const lift = Math.cos((elapsed * (mask.motionSpeed * 0.45)) + (cell.x * 0.025)) * 0.35;
+    const x = clamp(cell.x + Math.round(slide + micro), 0, state.cols - 1);
+    const y = clamp(cell.y + Math.round(lift), 0, state.rows - 1);
+
+    if (buffer[y][x] === ' ') {
+      buffer[y][x] = cell.char;
+    }
   }
 
   return buffer.map((row) => row.join('')).join('\n');
 }
 
-function renderAssemble(progress) {
-  const buffer = Array.from({ length: state.rows }, () => Array(state.cols).fill(' '));
-  const backgroundFade = easeOutQuint(progress);
+function renderParticleTransition(particles, progress, elapsed, sourceMask = null, targetMask = null) {
+  const buffer = createEmptyBuffer();
 
-  for (const cell of state.sourceCells) {
-    if (cellNoise(cell.x, cell.y, 29) > backgroundFade) {
-      const driftX = Math.round(Math.sin((cell.y * 0.08) + (progress * 8) + (cell.x * 0.01)) * (1.5 - progress));
-      const driftY = Math.round(Math.cos((cell.x * 0.05) - (progress * 9) + (cell.y * 0.012)) * (1.2 - (progress * 0.8)));
-      const x = clamp(cell.x + driftX, 0, state.cols - 1);
-      const y = clamp(cell.y + driftY, 0, state.rows - 1);
-      buffer[y][x] = cell.char;
+  if (sourceMask) {
+    const fade = easeOutQuint(progress);
+    paintAura(buffer, sourceMask, elapsed, Math.max(0, 0.7 - progress));
+
+    for (const cell of sourceMask.cells) {
+      if (cellNoise(cell.x, cell.y, 251) > fade) {
+        buffer[cell.y][cell.x] = cell.char;
+      }
     }
   }
 
-  for (const particle of state.particles) {
-    const local = clamp((progress - particle.startOffset) / (1 - particle.startOffset), 0, 1);
-    const eased = easeInOutCubic(local);
-    const swirl = (1 - local) * particle.swirlRadius;
-    const curve = (1 - local) * particle.arc;
-    const swirlAngle = particle.swirlPhase + (local * 8.5);
-    const x = Math.round(
-      lerp(particle.sourceX, particle.targetX, eased) +
-      (particle.perpX * curve) +
-      (Math.cos(swirlAngle) * swirl)
-    );
-    const y = Math.round(
-      lerp(particle.sourceY, particle.targetY, eased) +
-      (particle.perpY * curve) +
-      (Math.sin(swirlAngle) * swirl * 0.7)
-    );
+  for (let index = 0; index < particles.length; index += 1) {
+    const particle = particles[index];
+    const local = clamp((progress - particle.delay) / (1 - particle.delay), 0, 1);
+    const travel = local < 0.82
+      ? easeInOutCubic(local / 0.82) * 0.94
+      : 0.94 + (easeOutBack((local - 0.82) / 0.18) * 0.06);
+    const magnet = clamp((local - 0.68) / 0.32, 0, 1);
+    const arc = Math.sin(local * Math.PI) * particle.arc * (1 - magnet);
+    const swirl = Math.pow(1 - local, 1.25) * particle.swirlRadius;
+    const angle = particle.swirlPhase + (local * 6.2);
+    const rawX = lerp(particle.sourceX, particle.targetX, travel) +
+      (particle.perpX * arc) +
+      (Math.cos(angle) * swirl);
+    const rawY = lerp(particle.sourceY, particle.targetY, travel) +
+      (particle.perpY * arc) +
+      (Math.sin(angle) * swirl * 0.65);
+    const x = Math.round(lerp(rawX, particle.targetX, magnet * magnet));
+    const y = Math.round(lerp(rawY, particle.targetY, magnet * magnet));
 
     if (x < 0 || y < 0 || x >= state.cols || y >= state.rows) {
       continue;
     }
 
-    const char = local > 0.82 ? particle.targetChar : particle.sourceChar;
-    buffer[y][x] = char;
+    buffer[y][x] = local > 0.72 ? particle.targetChar : particle.sourceChar;
+  }
+
+  if (targetMask) {
+    const reveal = clamp((progress - 0.54) / 0.46, 0, 1);
+    paintAura(buffer, targetMask, elapsed, reveal * 0.7);
+
+    for (const cell of targetMask.cells) {
+      if (cellNoise(cell.x, cell.y, 307) < reveal) {
+        buffer[cell.y][cell.x] = cell.char;
+      }
+    }
   }
 
   return buffer.map((row) => row.join('')).join('\n');
 }
 
 function renderSettle(progress) {
-  const buffer = state.finalGrid.map((row) => [...row]);
+  const buffer = state.finalMask.grid.map((row) => [...row]);
 
-  for (const cell of state.logoCells) {
-    if (cellNoise(cell.x, cell.y, Math.floor(progress * 18) + 41) > (0.92 + (progress * 0.06))) {
+  for (const cell of state.finalMask.cells) {
+    if (cellNoise(cell.x, cell.y, Math.floor(progress * 24) + 401) > (0.94 + (progress * 0.04))) {
       buffer[cell.y][cell.x] = getStreamChar((cell.y * state.cols) + cell.x);
     }
   }
 
   return buffer.map((row) => row.join('')).join('\n');
+}
+
+function timelineState(elapsed) {
+  let remaining = elapsed;
+
+  if (remaining < TIMING.intro) {
+    return { type: 'intro', progress: remaining / TIMING.intro };
+  }
+
+  remaining -= TIMING.intro;
+
+  if (remaining < TIMING.hold) {
+    return { type: 'hold', maskIndex: 0, elapsed: remaining };
+  }
+
+  remaining -= TIMING.hold;
+
+  for (let index = 0; index < state.masks.length - 1; index += 1) {
+    if (remaining < TIMING.morph) {
+      return { type: 'morph', from: index, to: index + 1, progress: remaining / TIMING.morph };
+    }
+
+    remaining -= TIMING.morph;
+
+    if (remaining < TIMING.hold) {
+      return { type: 'hold', maskIndex: index + 1, elapsed: remaining };
+    }
+
+    remaining -= TIMING.hold;
+  }
+
+  if (remaining < TIMING.titleMorph) {
+    return {
+      type: 'titleMorph',
+      from: state.masks.length - 1,
+      progress: remaining / TIMING.titleMorph
+    };
+  }
+
+  remaining -= TIMING.titleMorph;
+
+  if (remaining < TIMING.titleHold) {
+    return { type: 'titleHold', elapsed: remaining };
+  }
+
+  remaining -= TIMING.titleHold;
+
+  if (remaining < TIMING.finalMorph) {
+    return {
+      type: 'finalMorph',
+      progress: remaining / TIMING.finalMorph
+    };
+  }
+
+  remaining -= TIMING.finalMorph;
+
+  if (remaining < TIMING.finalSettle) {
+    return { type: 'settle', progress: remaining / TIMING.finalSettle };
+  }
+
+  return { type: 'done' };
 }
 
 function renderFrame(timestamp) {
@@ -330,42 +591,81 @@ function renderFrame(timestamp) {
   }
 
   const elapsed = (timestamp - state.startTime) / 1000;
-  const ambientEnd = TIMING.ambient;
-  const assembleEnd = TIMING.ambient + TIMING.assemble;
-  const settleEnd = TIMING.ambient + TIMING.assemble + TIMING.settle;
+  const stage = timelineState(elapsed);
 
-  if (elapsed < ambientEnd) {
-    projection.textContent = renderAmbient(elapsed);
+  if (stage.type === 'intro') {
+    projection.textContent = renderParticleTransition(state.introParticles, stage.progress, elapsed, null, state.masks[0]);
     state.frameHandle = window.requestAnimationFrame(renderFrame);
     return;
   }
 
-  if (elapsed < assembleEnd) {
-    const progress = (elapsed - ambientEnd) / TIMING.assemble;
-    projection.textContent = renderAssemble(progress);
+  if (stage.type === 'hold') {
+    projection.textContent = renderMask(state.masks[stage.maskIndex], stage.elapsed);
     state.frameHandle = window.requestAnimationFrame(renderFrame);
     return;
   }
 
-  if (elapsed < settleEnd) {
-    const progress = (elapsed - assembleEnd) / TIMING.settle;
-    projection.textContent = renderSettle(progress);
+  if (stage.type === 'morph') {
+    projection.textContent = renderParticleTransition(
+      state.morphSets[stage.from],
+      stage.progress,
+      elapsed,
+      state.masks[stage.from],
+      state.masks[stage.to]
+    );
     state.frameHandle = window.requestAnimationFrame(renderFrame);
     return;
   }
 
-  projection.textContent = state.finalText;
+  if (stage.type === 'titleMorph') {
+    projection.textContent = renderParticleTransition(
+      state.titleMorphParticles,
+      stage.progress,
+      elapsed,
+      state.masks[stage.from],
+      state.titleMask
+    );
+    state.frameHandle = window.requestAnimationFrame(renderFrame);
+    return;
+  }
+
+  if (stage.type === 'titleHold') {
+    projection.textContent = renderMask(state.titleMask, stage.elapsed);
+    state.frameHandle = window.requestAnimationFrame(renderFrame);
+    return;
+  }
+
+  if (stage.type === 'finalMorph') {
+    projection.textContent = renderParticleTransition(
+      state.finalMorphParticles,
+      stage.progress,
+      elapsed,
+      state.titleMask,
+      state.finalMask
+    );
+    state.frameHandle = window.requestAnimationFrame(renderFrame);
+    return;
+  }
+
+  if (stage.type === 'settle') {
+    projection.textContent = renderSettle(stage.progress);
+    state.frameHandle = window.requestAnimationFrame(renderFrame);
+    return;
+  }
+
+  projection.textContent = state.finalMask.text;
 }
 
 async function prepare() {
   if (document.fonts && document.fonts.load) {
     await document.fonts.load('32px RPIGeistMono');
+    await document.fonts.load('32px GeistPixelSquare');
     await document.fonts.ready;
   }
 
   updateProjectionScale();
   await rebuildScene();
-  projection.textContent = renderAmbient(0);
+  projection.textContent = '';
   window.cancelAnimationFrame(state.frameHandle);
   state.frameHandle = 0;
   state.startTime = 0;
