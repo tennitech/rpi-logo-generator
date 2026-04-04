@@ -1,6 +1,6 @@
 # RPI Logo Generator - Project Status & Master Documentation
 
-**Last Updated:** 2026-03-31
+**Last Updated:** 2026-04-03
 **Current Phase:** Phase 3 (Advanced Features & Refinement)
 
 ## 1. Project Overview
@@ -19,6 +19,7 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 *   `css/` - Stylesheets (`style.css`).
 *   `js/` - Logic (`main.js`, `drawing.js`, `pulse-worklet.js`).
     *   `utils/` - Helper modules (`profanityFilter.js`).
+*   `animation/` - Standalone static prototype route for experimental motion studies.
 *   `references/` - Documentation and guidelines.
 
 ## 3. Completed Milestones
@@ -48,6 +49,12 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 *   [ ] **AI Exploration:** (Future) Event-specific background generation.
 
 ## 5. Recent Updates
+- **[2026-04-03] Animated Terminal Logo Study Added At `/terminal-logo`**:
+    - Added a standalone prototype page at `/terminal-logo` for an animated, black-background RPI logo study built from moving pixel-text rows rather than the main generator's p5.js rendering path.
+    - Used the supplied `RPI-logo-5.svg` geometry as the masking shape so the terminal-text fill stays locked to the official logo silhouette and bar proportions.
+    - Styled the page around the local `GeistPixel-Square` font with restrained scanlines, a shallow tilted text field, white-on-black terminal contrast, and a light RPI red glow instead of introducing non-brand colors.
+    - Added lightweight per-row drift and mutation logic in plain JavaScript so the study can be transplanted to other static surfaces without bringing over the main generator runtime.
+    - Kept the route isolated from the generator shell and updated the GitHub Pages deployment workflow so the prototype ships with the rest of the static site.
 - **[2026-03-31] GitHub Pages Deployment Added For Frontify Embed Hosting**:
     - Added a GitHub Actions workflow at `.github/workflows/deploy-pages.yml` to publish the static generator to GitHub Pages from `main`.
     - Scoped the Pages artifact to the actual site files (`index.html`, `assets`, `css`, `js`, `animation`, and `favicon.ico`) instead of publishing the whole repository.
@@ -55,10 +62,10 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
     - Updated deployment and integration documentation so Frontify embeds can target the published GitHub Pages URL immediately.
 - **[2026-03-24] Hidden Animation Prototype Added At `/animation`**:
     - Added a standalone experimental page at `/animation` so new experience ideas can be explored without coupling prototype motion work to the main generator shell.
-    - Reworked the initial prototype from DOM-positioned text into a canvas-based glyph field so the page can support much denser motion and closer reference fidelity without choking the browser.
-    - Introduced a cinematic RPI-first concept inspired by the supplied reference: a tilted motion field of encoded text, scanline depth, logo cutout handling, and centered official logo treatment.
-    - Simplified the visual direction into a flat 2D composition with a white background, red text field, and no logo overlay so the prototype can focus purely on motion language and typography density.
-    - Made the background language meaningful to the Institute by rotating among three content systems: measurement data, inquiry/experimentation language, and campus/research domains.
+    - The current `/animation` surface now opens on a full-viewport terminal-text field derived from the supplied `RPI_Pattern_1.svg`, with the remaining empty cells backfilled so the opening state covers the entire screen without black margins.
+    - Presentation remains black background, RPI red glyphs, and the local `RPIGeistMono` font, with smaller type and a denser grid to increase code-like texture and improve terminal-art stability.
+    - The full-screen opening field now preserves darker black regions by using sparse background fill outside the main pattern instead of saturating every empty cell with red characters.
+    - Motion now uses a much faster directed collapse from the viewport-wide source text into a centered medium-scale terminal raster derived from the supplied `RPI-logo-5.svg`, and the last animated frame is the final resting state instead of snapping to a separate static logo treatment.
     - Kept the prototype hidden from the primary UI and implemented it as a static subdirectory route so it works cleanly with the repo's simple static-server workflow.
 - **[2026-03-24] Embed-First UI Refactor For Frontify Context**:
     - Reworked the generator layout away from a persistent in-app left sidebar and toward an embed-friendly control dock, so the tool no longer visually competes with Frontify's existing page navigation.
@@ -100,6 +107,7 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 *   **Agent Policy Source Of Truth:** Root `AGENTS.md` is now the canonical instruction surface for repo-scoped agents; compatibility rule files should reference it instead of duplicating policy text.
 *   **Client-First Adaptation:** The project now applies a repo-specific Client-First system that keeps global utilities reusable, new custom classes underscore-scoped, JS hooks separate from style classes, and structural wrappers semantic and readable.
 *   **Prototype Route Isolation:** Experimental experience concepts may ship as standalone static subdirectory routes, allowing direct URLs such as `/animation` without entangling the main generator's p5.js application shell.
+*   **Terminal Mask Rendering:** Terminal-logo studies may render animated DOM text through an official-logo mask on isolated routes when the effect is purely presentational and does not alter export logic or the main generator.
 
 ## 7. Known Issues / Notes
 *   `main.js` relies heavily on global variables (p5.js pattern). Future refactoring might consider modularizing this.

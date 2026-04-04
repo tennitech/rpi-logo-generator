@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Animated terminal-text RPI logo study built from pixel streams and the official logo geometry.">
+  <title>RPI Terminal Motion Study</title>
+  <link href="terminal-logo.css" rel="stylesheet" type="text/css">
+</head>
+
+<body>
+  <div class="page-wrapper terminal_logo_page">
+    <header class="terminal_logo_header">
+      <a class="terminal_logo_backlink" href="../">RPI LOGO GENERATOR</a>
+      <p class="terminal_logo_status">ANIMATED TERMINAL STUDY</p>
+    </header>
+
+    <main class="main-wrapper">
+      <section class="section_terminal_logo" aria-labelledby="terminal-logo-title">
+        <div class="padding-global">
+          <div class="container-large">
+            <div class="terminal_logo_shell">
+              <div class="terminal_logo_hud" aria-hidden="true">
+                <span>root@rpi:~$ render --mode terminal --shape logo --motion live</span>
+                <span>surface:black font:geist-pixel-square state:animated</span>
+              </div>
+
+              <h1 id="terminal-logo-title" class="sr-only">RPI terminal motion study</h1>
+
+              <div class="terminal_logo_viewport" data-terminal-viewport>
+                <div class="terminal_logo_noise" aria-hidden="true"></div>
+                <div class="terminal_logo_background" data-terminal-background aria-hidden="true"></div>
+                <div class="terminal_logo_beam" aria-hidden="true"></div>
+
+                <div class="terminal_logo_stage" aria-hidden="true">
+                  <div class="terminal_logo_glow"></div>
+                  <div class="terminal_logo_grid"></div>
+                  <div class="terminal_logo_mask">
+                    <div class="terminal_logo_lines" data-terminal-lines></div>
+                  </div>
+
+                  <svg class="terminal_logo_outline" viewBox="0 0 250 150.911" preserveAspectRatio="xMidYMid meet"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path
+                      d="M213.54 30.4413C213.535 30.3153 213.529 30.1893 213.524 30.0688C213.025 19.6551 209.147 12.0188 202.644 7.0447C202.491 6.92966 202.338 6.81462 202.184 6.71054C196.032 2.20215 187.629 0 177.583 0H117.692L116.125 1.5667V110.185L117.692 111.751H132.406L133.972 110.185V66.3605L135.533 64.7938H177.583C186.775 64.7938 194.948 62.6902 201.182 58.39C201.472 58.1928 201.751 57.9956 202.031 57.7874C207.942 53.3941 211.946 46.9136 213.179 38.2584C213.222 37.9516 213.261 37.6393 213.299 37.3216C213.337 37.0094 213.37 36.6917 213.398 36.3739C213.42 36.1493 213.441 35.9247 213.452 35.7001C213.54 34.6264 213.578 33.5254 213.578 32.3969C213.578 31.7341 213.567 31.0822 213.54 30.4413ZM135.533 48.5186L133.972 46.9519V17.8419L135.539 16.2752H176.487C190.522 16.2752 195.737 20.6466 195.737 32.3969C195.737 44.1472 190.522 48.5186 176.487 48.5186H135.533Z" />
+                    <path
+                      d="M250.042 110.185L248.475 111.751H233.761L232.195 110.185V1.5667L233.767 0H248.481L250.047 1.5667V110.185H250.042Z" />
+                    <path
+                      d="M86.2053 111.751L83.2307 110.102L55.0903 66.3276L52.0335 64.7992H19.4559L17.8892 66.366V110.19L16.328 111.757H1.61407L0.0473633 110.19V1.5667L1.61407 0H60.4094C84.6769 0 97.5009 11.2025 97.5009 32.3969C97.5009 48.5186 89.6126 59.02 74.6631 62.8491V64.3993L95.9342 97.8151V110.091L94.2743 111.751H86.2053ZM60.4094 48.5186C74.444 48.5186 79.6591 44.1472 79.6591 32.3969C79.6591 20.6466 74.444 16.2752 60.4094 16.2752H19.4614L17.8892 17.8419V46.9519L19.4559 48.5186H60.4094Z" />
+                    <path d="M1.5 132.911H248.5L250 134.411V149.411L248.5 150.911H1.5L0 149.411V134.411L1.5 132.911Z" />
+                  </svg>
+                </div>
+              </div>
+
+              <p class="terminal_logo_caption">Animated terminal-text field shaped from the official RPI logo geometry for fast local testing.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="terminal-logo.js"></script>
+</body>
+
+</html>
