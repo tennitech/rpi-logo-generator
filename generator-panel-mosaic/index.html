@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Hidden fullscreen generator prototype with animation-led handoff and simplified control docks.">
+  <title>RPI Bar Generator / Handoff Mosaic</title>
+  <link rel="stylesheet" href="../generator-shared/fullscreen-generator.css">
+</head>
+
+<body data-layout="panel-mosaic">
+  <div id="generator-app"></div>
+
+  <script src="../js/utils/barPattern.js"></script>
+  <script src="../generator-shared/fullscreenGenerator.js"></script>
+  <script>
+    window.initFullscreenGenerator({
+      layout: 'panel-mosaic',
+      mountId: 'generator-app'
+    });
+  </script>
+</body>
+
+</html>
