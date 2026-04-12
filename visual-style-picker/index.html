@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Experimental blank-screen picker for RPI bar visual styles.">
+  <title>RPI Logo Generator / Visual Style Picker</title>
+  <link href="visual-style-picker.css" rel="stylesheet" type="text/css">
+</head>
+
+<body>
+  <div class="page-wrapper">
+    <main class="main-wrapper picker_page" aria-labelledby="visual-style-picker-title">
+      <section class="section_picker" aria-label="Visual style picker">
+        <div class="padding-global">
+          <div class="container-large picker_layout">
+            <h1 id="visual-style-picker-title" class="sr-only">RPI visual style picker</h1>
+
+            <div class="picker_stack_region" aria-label="Bar visual style cards">
+              <div class="picker_stack" data-card-stack></div>
+            </div>
+
+            <div class="picker_controls">
+              <button class="picker_cycle_button" type="button" data-cycle-button>
+                Animate
+              </button>
+              <p class="sr-only" data-picker-status role="status" aria-live="polite"></p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="../js/utils/barPattern.js"></script>
+  <script src="visual-style-picker.js"></script>
+</body>
+
+</html>
