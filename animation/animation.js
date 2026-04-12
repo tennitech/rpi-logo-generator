@@ -1,20 +1,14 @@
-const FULLSCREEN_PATTERN_PATH = '/animation/data/rpi-pattern-1.svg';
 const FINAL_LOGO_PATH = '/animation/data/rpi-logo-5.svg';
 const projection = document.getElementById('animation-projection');
 const DENSITY_RAMP = ' .,:-=+*#%@';
 const TITLE_LINES = ['THE BAR', 'GENERATOR'];
 
 const PATTERN_DEFS = [
-  { path: FULLSCREEN_PATTERN_PATH, widthRatio: 1.02, heightRatio: 1.02, fitMode: 'cover', motionAmplitude: 1.1, motionSpeed: 1.3 },
   { path: '/animation/data/style-circles-2.svg', widthRatio: 0.84, heightRatio: 0.72, fitMode: 'contain', motionAmplitude: 1.25, motionSpeed: 1.75 },
   { path: '/animation/data/style-circles-gradient-1.svg', widthRatio: 0.84, heightRatio: 0.72, fitMode: 'contain', motionAmplitude: 1.3, motionSpeed: 1.62 },
   { path: '/animation/data/style-fibonacci-sequence.svg', widthRatio: 0.84, heightRatio: 0.72, fitMode: 'contain', motionAmplitude: 1.15, motionSpeed: 1.42 },
   { path: '/animation/data/style-ruler-in.svg', widthRatio: 0.88, heightRatio: 0.58, fitMode: 'contain', motionAmplitude: 0.95, motionSpeed: 1.92 },
-  { path: '/animation/data/style-ticker-sm.svg', widthRatio: 0.88, heightRatio: 0.44, fitMode: 'contain', motionAmplitude: 0.9, motionSpeed: 2.05 },
-  { path: '/animation/data/style-triangle-grid-1.svg', widthRatio: 0.84, heightRatio: 0.72, fitMode: 'contain', motionAmplitude: 1.28, motionSpeed: 1.74 },
-  { path: '/animation/data/style-triangles-1.svg', widthRatio: 0.84, heightRatio: 0.72, fitMode: 'contain', motionAmplitude: 1.28, motionSpeed: 1.86 },
-  { path: '/animation/data/style-union.svg', widthRatio: 0.84, heightRatio: 0.72, fitMode: 'contain', motionAmplitude: 1.18, motionSpeed: 1.56 },
-  { path: '/animation/data/style-wave-quantum.svg', widthRatio: 0.9, heightRatio: 0.54, fitMode: 'contain', motionAmplitude: 1.05, motionSpeed: 2.02 }
+  { path: '/animation/data/style-ticker-sm.svg', widthRatio: 0.88, heightRatio: 0.44, fitMode: 'contain', motionAmplitude: 0.9, motionSpeed: 2.05 }
 ];
 
 const TIMING = {

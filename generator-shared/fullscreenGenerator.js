@@ -64,13 +64,36 @@
   const HANDOFF_DENSITY = ' .,:-=+*#%@';
   const INTRO_DURATION_MS = 2400;
   const HANDOFF_HOLD_MS = 300;
-  const HANDOFF_DURATION_MS = 1350;
+  const HANDOFF_DURATION_MS = 1650;
+  const HANDOFF_PARTICLE_LIMIT = 820;
   const LOGO_EXPORT_WIDTH = 250;
   const LOGO_EXPORT_HEIGHT = 150.911;
-  const EDITOR_STAGE_HEIGHT = 54;
-  const ZOOM_MIN = 0.5;
-  const ZOOM_MAX = 2;
-  const ZOOM_STEP = 0.25;
+  const DEFAULT_ZOOM = 0.9;
+  const ANIMATION_INTRO_PATH = '../animation/';
+  const ANIMATION_INTRO_DURATION_MS = 22660;
+  const BACKGROUND_UPDATE_MS = 90;
+  const BACKGROUND_SOURCE = `
+    SYS INIT RPI BAR GENERATOR TERMINAL SURFACE ACTIVE.
+    SIGNAL LOCK VECTOR EXPORT PIPELINE NOMINAL.
+    RULER TICKER WAVEFORM CIRCLES AVAILABLE FOR CALIBRATION.
+    PARAMETER BUS REPEAT UNITS RATIO DENSITY OVERLAP.
+    PREVIEW CONTEXT WORDMARK BAR GEOMETRY VERIFIED.
+    ASCII PROJECTION FIELD RUNNING IN RED CHANNEL.
+    WARNING WINDOW STACKS HOLD POSITION CLEAR OF BAR SURFACE.
+    BUILD TEST BREAK REBUILD REPEAT UNTIL THE SHAPE HOLDS.
+    WHAT IF WE TRIED THIS AGAIN WITH MORE RIGOR.
+    TROY COORDINATES LAB NOTES SYSTEMS SIGNAL MOTION STRUCTURE.
+  `.replace(/\s+/g, ' ').trim();
+  const ASCII_CHARACTER_MAP = {
+    E: '3',
+    I: '1',
+    O: '0',
+    S: '$',
+    T: '+',
+    V: '\\/',
+    W: '\\/\\/',
+    X: '><'
+  };
   const BAR_GEOMETRY = {
     x: 0,
     y: 132.911,
@@ -90,7 +113,11 @@
     introRunning: false,
     introRunId: 0,
     viewMode: 'editor',
-    zoomLevel: 1
+    zoomLevel: DEFAULT_ZOOM,
+    backgroundFrame: 0,
+    backgroundRows: [],
+    backgroundMetrics: null,
+    backgroundLastTick: 0
   };
 
   function clamp(value, min, max) {
@@ -101,6 +128,11 @@
     return new Promise((resolve) => {
       window.setTimeout(resolve, duration);
     });
+  }
+
+  function hashNoise(a, b, seed) {
+    const value = Math.sin((a * 12.9898) + (b * 78.233) + (seed * 37.719)) * 43758.5453;
+    return value - Math.floor(value);
   }
 
   function parseInteger(value, fallback) {
@@ -173,11 +205,17 @@
     return `
       <div class="page-wrapper">
         <main class="main-wrapper generator_page" aria-label="RPI generator prototype">
+          <pre class="generator_background_projection" data-background-projection aria-hidden="true"></pre>
           <div class="generator_intro_overlay" data-intro-overlay>
-            <pre class="generator_intro_terminal" data-intro-terminal aria-hidden="true"></pre>
+            <iframe
+              class="generator_intro_frame"
+              data-intro-frame
+              title="RPI animation intro"
+              loading="eager"
+              referrerpolicy="same-origin"
+            ></iframe>
             <div class="generator_handoff_stage" data-handoff-stage>
               <pre class="generator_handoff_terminal" data-handoff-terminal aria-hidden="true"></pre>
-              <div class="generator_handoff_vector" data-handoff-vector aria-hidden="true"></div>
               <div class="generator_handoff_particles" data-handoff-particles aria-hidden="true"></div>
             </div>
             <button type="button" class="generator_skip_button" data-skip-intro>skip intro</button>
@@ -189,31 +227,31 @@
                 <div class="generator_shell" data-shell data-view-mode="editor">
                   <header class="generator_header" data-funnel-target>
                     <div class="generator_header_meta">
-                      <p class="stage_kicker">RPI / Bar generator</p>
-                      <div class="stage_badge" data-stage-badge>${STYLE_META[DEFAULT_STATE.style].label}</div>
+                      <p class="stage_kicker" data-handoff-target-text data-ascii-label="RPI / Bar Generator">RPI / Bar generator</p>
+                      <div class="stage_badge" data-stage-badge data-handoff-target-text data-ascii-label="${STYLE_META[DEFAULT_STATE.style].label}">${STYLE_META[DEFAULT_STATE.style].label}</div>
                     </div>
                     <div class="view_toggle" role="tablist" aria-label="Generator view mode">
-                      <button type="button" class="mode_button is-active" data-view-button="editor" aria-pressed="true">Editor</button>
-                      <button type="button" class="mode_button" data-view-button="preview" aria-pressed="false">Preview</button>
+                      <button type="button" class="mode_button is-active" data-view-button="editor" aria-label="Editor" aria-pressed="true"><span data-handoff-target-text data-ascii-label="Editor">Editor</span></button>
+                      <button type="button" class="mode_button" data-view-button="preview" aria-label="Preview" aria-pressed="false"><span data-handoff-target-text data-ascii-label="Preview">Preview</span></button>
                     </div>
                   </header>
 
                   <section class="generator_constellation">
                     <section class="generator_card pod pod_system" data-funnel-target>
-                      <p class="generator_card_kicker">System / palette</p>
+                      <p class="generator_card_kicker" data-handoff-target-text data-ascii-label="System / Palette">System / palette</p>
                       <div class="system_grid" data-style-selector>
                         ${STYLES.map((style) => `
-                          <button type="button" class="system_button" data-style-button="${style}">
-                            <span class="system_button_code">${STYLE_META[style].short}</span>
-                            <span class="system_button_title">${STYLE_META[style].label}</span>
+                          <button type="button" class="system_button" data-style-button="${style}" aria-label="${STYLE_META[style].label}">
+                            <span class="system_button_code" data-handoff-target-text data-ascii-label="${STYLE_META[style].short}">${STYLE_META[style].short}</span>
+                            <span class="system_button_title" data-handoff-target-text data-ascii-label="${STYLE_META[style].label}">${STYLE_META[style].label}</span>
                           </button>
                         `).join('')}
                       </div>
                       <div class="palette_grid">
                         ${Object.keys(COLORS).map((mode) => `
-                          <button type="button" class="palette_button" data-color-button="${mode}">
-                            <span class="palette_button_code">${COLORS[mode].shortLabel}</span>
-                            <span class="palette_button_label">${COLORS[mode].label}</span>
+                          <button type="button" class="palette_button" data-color-button="${mode}" aria-label="${COLORS[mode].label}">
+                            <span class="palette_button_code" data-handoff-target-text data-ascii-label="${COLORS[mode].shortLabel}">${COLORS[mode].shortLabel}</span>
+                            <span class="palette_button_label" data-handoff-target-text data-ascii-label="${COLORS[mode].label}">${COLORS[mode].label}</span>
                           </button>
                         `).join('')}
                       </div>
@@ -231,27 +269,21 @@
 
                       <section class="generator_card export_pane" data-funnel-target>
                         <div class="export_pane_head">
-                          <p class="generator_card_kicker">Output</p>
-                          <div class="zoom_cluster" aria-label="Preview zoom controls">
-                            <button type="button" class="zoom_button" data-zoom="out" aria-label="Zoom out">-</button>
-                            <output class="zoom_value" data-zoom-value>100%</output>
-                            <button type="button" class="zoom_button" data-zoom="in" aria-label="Zoom in">+</button>
-                            <button type="button" class="zoom_button zoom_button_reset" data-zoom="reset">Reset</button>
-                          </div>
+                          <p class="generator_card_kicker" data-handoff-target-text data-ascii-label="Output">Output</p>
                         </div>
                         <div class="readout_rail" data-style-readouts></div>
                         <div class="export_row">
-                          <button type="button" class="export_button" data-export="svg">Export SVG</button>
-                          <button type="button" class="export_button" data-export="png">Export PNG</button>
-                          <button type="button" class="export_button export_button_subtle" data-replay-intro>Replay intro</button>
+                          <button type="button" class="export_button" data-export="svg" aria-label="Export SVG"><span data-handoff-target-text data-ascii-label="Export SVG">Export SVG</span></button>
+                          <button type="button" class="export_button" data-export="png" aria-label="Export PNG"><span data-handoff-target-text data-ascii-label="Export PNG">Export PNG</span></button>
+                          <button type="button" class="export_button export_button_subtle" data-replay-intro aria-label="Replay Intro"><span data-handoff-target-text data-ascii-label="Replay Intro">Replay intro</span></button>
                         </div>
                     </section>
 
                     <section class="generator_card pod pod_controls" data-funnel-target>
                       <div class="controls_head">
                         <div>
-                          <p class="generator_card_kicker">Active system</p>
-                          <h1 class="controls_title" data-active-title>${STYLE_META[DEFAULT_STATE.style].label}</h1>
+                          <p class="generator_card_kicker" data-handoff-target-text data-ascii-label="Active System">Active system</p>
+                          <h1 class="controls_title" data-active-title data-handoff-target-text data-ascii-label="${STYLE_META[DEFAULT_STATE.style].label}">${STYLE_META[DEFAULT_STATE.style].label}</h1>
                         </div>
                         <div class="controls_copy" data-detail-copy>${STYLE_META[DEFAULT_STATE.style].description}</div>
                       </div>
@@ -321,8 +353,8 @@
                             </span>
                             <div class="choice_group">
                               ${WAVEFORM_TYPES.map((option) => `
-                                <button type="button" class="choice_button" data-waveform-choice="${option.value}">
-                                  ${option.label}
+                                <button type="button" class="choice_button" data-waveform-choice="${option.value}" aria-label="${option.label}">
+                                  <span data-handoff-target-text data-ascii-label="${option.label}">${option.label}</span>
                                 </button>
                               `).join('')}
                             </div>
@@ -356,8 +388,8 @@
                               <output class="control_value" data-output-for="circlesFill"></output>
                             </span>
                             <div class="choice_group choice_group_small">
-                              <button type="button" class="choice_button" data-circles-fill="stroke">Stroke</button>
-                              <button type="button" class="choice_button" data-circles-fill="fill">Fill</button>
+                              <button type="button" class="choice_button" data-circles-fill="stroke" aria-label="Stroke"><span data-handoff-target-text data-ascii-label="Stroke">Stroke</span></button>
+                              <button type="button" class="choice_button" data-circles-fill="fill" aria-label="Fill"><span data-handoff-target-text data-ascii-label="Fill">Fill</span></button>
                             </div>
                           </div>
                           <label class="control_row">
@@ -408,11 +440,11 @@
       root,
       body: document.body,
       shell: root.querySelector('[data-shell]'),
+      backgroundProjection: root.querySelector('[data-background-projection]'),
       introOverlay: root.querySelector('[data-intro-overlay]'),
-      introTerminal: root.querySelector('[data-intro-terminal]'),
+      introFrame: root.querySelector('[data-intro-frame]'),
       handoffStage: root.querySelector('[data-handoff-stage]'),
       handoffTerminal: root.querySelector('[data-handoff-terminal]'),
-      handoffVector: root.querySelector('[data-handoff-vector]'),
       handoffParticles: root.querySelector('[data-handoff-particles]'),
       skipIntroButton: root.querySelector('[data-skip-intro]'),
       previewSurface: root.querySelector('[data-preview-surface]'),
@@ -431,10 +463,174 @@
       activeTitle: root.querySelector('[data-active-title]'),
       detailCopy: root.querySelector('[data-detail-copy]'),
       stageBadge: root.querySelector('[data-stage-badge]'),
-      zoomButtons: Array.from(root.querySelectorAll('[data-zoom]')),
-      zoomValue: root.querySelector('[data-zoom-value]'),
+      asciiLabelTargets: Array.from(root.querySelectorAll('[data-ascii-label]')),
+      handoffTextTargets: Array.from(root.querySelectorAll('[data-handoff-target-text]')),
       funnelTargets: Array.from(root.querySelectorAll('[data-funnel-target]'))
     };
+  }
+
+  function measureBackgroundGrid() {
+    if (!app.dom.backgroundProjection) {
+      return null;
+    }
+
+    const computed = window.getComputedStyle(app.dom.backgroundProjection);
+    const probe = document.createElement('span');
+    probe.textContent = 'M';
+    probe.style.position = 'absolute';
+    probe.style.visibility = 'hidden';
+    probe.style.fontFamily = computed.fontFamily;
+    probe.style.fontSize = computed.fontSize;
+    probe.style.lineHeight = computed.lineHeight;
+    document.body.appendChild(probe);
+    const rect = probe.getBoundingClientRect();
+    probe.remove();
+
+    const cellWidth = rect.width || 6;
+    const cellHeight = rect.height || 9;
+    const cols = Math.max(84, Math.floor(window.innerWidth / Math.max(cellWidth, 1)));
+    const rows = Math.max(24, Math.floor(window.innerHeight / Math.max(cellHeight, 1)));
+
+    return { cols, rows };
+  }
+
+  function createBackgroundRow(rowIndex, cols) {
+    const maxLength = Math.max(24, Math.min(cols - 8, Math.floor(cols * 0.68)));
+    const minLength = Math.max(16, Math.floor(maxLength * 0.42));
+    const length = Math.floor(minLength + (hashNoise(rowIndex, cols, 11) * (maxLength - minLength)));
+    const typeSpeed = 10 + (hashNoise(rowIndex, cols, 17) * 18);
+    const eraseSpeed = 18 + (hashNoise(rowIndex, cols, 23) * 20);
+    const holdDuration = 0.9 + (hashNoise(rowIndex, cols, 29) * 1.6);
+    const resetDuration = 0.25 + (hashNoise(rowIndex, cols, 31) * 0.85);
+    const phase = hashNoise(rowIndex, cols, 37) * 8;
+    const sourceOffset = Math.floor(hashNoise(rowIndex, cols, 41) * BACKGROUND_SOURCE.length);
+    const indentBase = Math.floor(hashNoise(rowIndex, cols, 43) * Math.max(4, cols * 0.16));
+    const direction = rowIndex % 2 === 0 ? 1 : -1;
+    let text = '';
+
+    for (let index = 0; index < length; index += 1) {
+      const char = BACKGROUND_SOURCE[(sourceOffset + index) % BACKGROUND_SOURCE.length];
+      text += char;
+    }
+
+    return {
+      text,
+      typeSpeed,
+      eraseSpeed,
+      holdDuration,
+      resetDuration,
+      phase,
+      indentBase,
+      direction,
+      cursorEnabled: hashNoise(rowIndex, cols, 47) > 0.42
+    };
+  }
+
+  function rebuildBackgroundProjection() {
+    app.backgroundMetrics = measureBackgroundGrid();
+
+    if (!app.backgroundMetrics) {
+      return;
+    }
+
+    app.backgroundRows = Array.from(
+      { length: app.backgroundMetrics.rows },
+      (_, rowIndex) => createBackgroundRow(rowIndex, app.backgroundMetrics.cols)
+    );
+  }
+
+  function formatBackgroundRow(row, rowIndex, seconds, cols) {
+    const typeDuration = row.text.length / row.typeSpeed;
+    const eraseDuration = row.text.length / row.eraseSpeed;
+    const cycleDuration = typeDuration + row.holdDuration + eraseDuration + row.resetDuration;
+    const localTime = (seconds + row.phase) % cycleDuration;
+    let visibleCount = 0;
+
+    if (localTime < typeDuration) {
+      visibleCount = Math.floor(localTime * row.typeSpeed);
+    } else if (localTime < typeDuration + row.holdDuration) {
+      visibleCount = row.text.length;
+    } else if (localTime < typeDuration + row.holdDuration + eraseDuration) {
+      const eraseProgress = localTime - typeDuration - row.holdDuration;
+      visibleCount = Math.max(0, row.text.length - Math.floor(eraseProgress * row.eraseSpeed));
+    }
+
+    const drift = Math.round(Math.sin(seconds * 0.22 + (rowIndex * 0.35)) * 2);
+    const indent = clamp(row.indentBase + (row.direction * drift), 0, Math.max(0, cols - 4));
+    const cursor = row.cursorEnabled && visibleCount > 0 && visibleCount < row.text.length && Math.sin(seconds * 4.4 + row.phase) > 0
+      ? '_'
+      : '';
+    const visibleText = `${row.text.slice(0, visibleCount)}${cursor}`;
+    const clipped = visibleText.slice(0, Math.max(0, cols - indent));
+
+    return `${' '.repeat(indent)}${clipped}`;
+  }
+
+  function renderBackgroundProjection(timestamp) {
+    if (!app.dom.backgroundProjection) {
+      return;
+    }
+
+    if (REDUCED_MOTION_QUERY.matches) {
+      if (!app.backgroundRows.length) {
+        rebuildBackgroundProjection();
+      }
+
+      const staticRows = app.backgroundRows.map((row, rowIndex) =>
+        formatBackgroundRow(row, rowIndex, rowIndex * 0.18, app.backgroundMetrics.cols)
+      );
+      app.dom.backgroundProjection.textContent = staticRows.join('\n');
+      return;
+    }
+
+    if (!app.backgroundRows.length || !app.backgroundMetrics) {
+      rebuildBackgroundProjection();
+    }
+
+    if (timestamp - app.backgroundLastTick >= BACKGROUND_UPDATE_MS) {
+      const seconds = timestamp / 1000;
+      const rows = app.backgroundRows.map((row, rowIndex) =>
+        formatBackgroundRow(row, rowIndex, seconds, app.backgroundMetrics.cols)
+      );
+      app.dom.backgroundProjection.textContent = rows.join('\n');
+      app.backgroundLastTick = timestamp;
+    }
+
+    app.backgroundFrame = window.requestAnimationFrame(renderBackgroundProjection);
+  }
+
+  function startBackgroundProjection() {
+    window.cancelAnimationFrame(app.backgroundFrame);
+    rebuildBackgroundProjection();
+    app.backgroundLastTick = 0;
+    app.backgroundFrame = window.requestAnimationFrame(renderBackgroundProjection);
+  }
+
+  function reloadIntroFrame() {
+    if (!app.dom.introFrame) {
+      return;
+    }
+
+    app.dom.introFrame.src = 'about:blank';
+
+    window.requestAnimationFrame(() => {
+      app.dom.introFrame.src = ANIMATION_INTRO_PATH;
+    });
+  }
+
+  function stylizeAsciiLabel(text) {
+    return String(text || '')
+      .toUpperCase()
+      .split('')
+      .map((char) => ASCII_CHARACTER_MAP[char] || char)
+      .join('');
+  }
+
+  function renderAsciiLabels() {
+    app.dom.asciiLabelTargets.forEach((element) => {
+      const source = element.getAttribute('data-ascii-label') || element.textContent || '';
+      element.textContent = stylizeAsciiLabel(source);
+    });
   }
 
   async function loadLogoTemplate() {
@@ -647,15 +843,17 @@
     applyPreviewColors();
     syncInputs();
     updateOutputs();
+    app.dom.activeTitle.setAttribute('data-ascii-label', STYLE_META[app.state.style].label);
+    app.dom.activeTitle.textContent = STYLE_META[app.state.style].label;
+    app.dom.detailCopy.textContent = STYLE_META[app.state.style].description;
+    app.dom.stageBadge.setAttribute('data-ascii-label', STYLE_META[app.state.style].label);
+    app.dom.stageBadge.textContent = STYLE_META[app.state.style].label;
     updateButtons();
     updateSliderProgress();
     updateReadouts();
+    renderAsciiLabels();
     app.dom.shell.setAttribute('data-view-mode', app.viewMode);
     app.dom.previewSurface.style.setProperty('--stage-zoom', String(app.zoomLevel));
-    app.dom.zoomValue.textContent = `${Math.round(app.zoomLevel * 100)}%`;
-    app.dom.activeTitle.textContent = STYLE_META[app.state.style].label;
-    app.dom.detailCopy.textContent = STYLE_META[app.state.style].description;
-    app.dom.stageBadge.textContent = STYLE_META[app.state.style].label;
   }
 
   function textToBinary(text) {
@@ -1186,11 +1384,9 @@
 
   function buildEditorBarSvgMarkup(timeSeconds) {
     const colorPair = COLORS[app.state.colorMode];
-    const stagePadding = (EDITOR_STAGE_HEIGHT - BAR_GEOMETRY.height) / 2;
-
-    return `<svg width="${BAR_GEOMETRY.width}" height="${EDITOR_STAGE_HEIGHT}" viewBox="0 0 ${BAR_GEOMETRY.width} ${EDITOR_STAGE_HEIGHT}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Configured RPI bar">${getPatternMarkup(timeSeconds, {
-      barStartX: 0,
-      barY: stagePadding,
+    return `<svg width="${LOGO_EXPORT_WIDTH}" height="${LOGO_EXPORT_HEIGHT}" viewBox="0 0 ${LOGO_EXPORT_WIDTH} ${LOGO_EXPORT_HEIGHT}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Configured RPI bar">${getPatternMarkup(timeSeconds, {
+      barStartX: BAR_GEOMETRY.x,
+      barY: BAR_GEOMETRY.y,
       barWidth: BAR_GEOMETRY.width,
       barHeight: BAR_GEOMETRY.height,
       fgColor: colorPair.fg
@@ -1368,7 +1564,7 @@
     image.src = LOGO_ASSET_PATH;
     await image.decode();
 
-    const bounds = app.dom.handoffStage.getBoundingClientRect();
+    const bounds = app.dom.handoffTerminal.getBoundingClientRect();
     const metrics = measureIntroCell();
     const cols = Math.max(56, Math.floor(bounds.width / Math.max(metrics.width, 1)));
     const rows = Math.max(18, Math.floor(bounds.height / Math.max(metrics.height, 1)));
@@ -1426,23 +1622,22 @@
     };
   }
 
-  function getFunnelTargets() {
-    const targets = app.dom.funnelTargets.flatMap((target) => {
+  function getHandoffTargets() {
+    const textTargets = app.dom.handoffTextTargets.flatMap((target) => {
       const rect = target.getBoundingClientRect();
       if (!rect.width || !rect.height) {
         return [];
       }
-      const centerX = rect.left + (rect.width / 2);
-      const centerY = rect.top + (rect.height / 2);
+
       return [
-        { x: centerX, y: centerY },
-        { x: rect.left + (rect.width * 0.24), y: rect.top + (rect.height * 0.26) },
-        { x: rect.left + (rect.width * 0.76), y: rect.top + (rect.height * 0.72) }
+        { x: rect.left + (rect.width * 0.18), y: rect.top + (rect.height * 0.5) },
+        { x: rect.left + (rect.width * 0.5), y: rect.top + (rect.height * 0.5) },
+        { x: rect.left + (rect.width * 0.82), y: rect.top + (rect.height * 0.5) }
       ];
     });
 
-    if (targets.length > 0) {
-      return targets;
+    if (textTargets.length > 0) {
+      return textTargets;
     }
 
     const rect = app.dom.previewSurface.getBoundingClientRect();
@@ -1454,15 +1649,14 @@
       app.handoffMask = await buildHandoffMask();
     }
 
-    const stageRect = app.dom.handoffStage.getBoundingClientRect();
-    const targets = getFunnelTargets();
-    const sampledCells = app.handoffMask.cells.filter((_, index) => index % 3 === 0).slice(0, 220);
+    const stageRect = app.dom.handoffTerminal.getBoundingClientRect();
+    const targets = getHandoffTargets();
+    const sampledCells = app.handoffMask.cells.slice(0, options.particleCount || HANDOFF_PARTICLE_LIMIT);
     const fragment = document.createDocumentFragment();
-    const particleStep = options.particleStep || 7;
+    const particleStep = options.particleStep || 3;
     const duration = options.duration || HANDOFF_DURATION_MS;
 
     app.dom.handoffTerminal.textContent = app.handoffMask.text;
-    app.dom.handoffVector.innerHTML = buildLogoSvgMarkup(performance.now() / 1000, false, '#ffffff');
     app.dom.handoffParticles.replaceChildren();
 
     sampledCells.forEach((cell, index) => {
@@ -1479,7 +1673,7 @@
       particle.style.top = `${startY}px`;
       particle.style.setProperty('--particle-x', `${endX - startX}px`);
       particle.style.setProperty('--particle-y', `${endY - startY}px`);
-      particle.style.transitionDelay = `${(index % 40) * particleStep}ms`;
+      particle.style.transitionDelay = `${(index % 90) * particleStep}ms`;
       fragment.appendChild(particle);
     });
 
@@ -1499,15 +1693,13 @@
     window.cancelAnimationFrame(app.animationFrame);
     app.introRunning = true;
 
-    app.dom.body.classList.remove('is-handoff', 'is-funneling', 'is-ready');
+    app.dom.body.classList.remove('is-ready');
     app.dom.introOverlay.classList.remove('is-hidden');
-
+    app.dom.handoffParticles.replaceChildren();
     if (!app.handoffMask) {
       app.handoffMask = await buildHandoffMask();
     }
-
-    app.dom.introTerminal.textContent = app.handoffMask.text;
-    await runHandoff({ duration: 760, particleStep: 4 });
+    await runHandoff({ duration: 920, particleCount: 460, particleStep: 3 });
     app.dom.body.classList.add('is-ready');
     app.dom.introOverlay.classList.add('is-hidden');
     app.dom.body.classList.remove('is-handoff', 'is-funneling');
@@ -1525,19 +1717,10 @@
     window.clearTimeout(app.introTimer);
     window.cancelAnimationFrame(app.animationFrame);
 
-    app.dom.body.classList.remove('is-handoff', 'is-funneling', 'is-ready');
+    app.dom.body.classList.remove('is-ready', 'is-handoff', 'is-funneling');
     app.dom.introOverlay.classList.remove('is-hidden');
     app.dom.handoffParticles.replaceChildren();
-
-    if (!app.handoffMask) {
-      app.handoffMask = await buildHandoffMask();
-    }
-
-    if (runId !== app.introRunId) {
-      return;
-    }
-
-    app.dom.introTerminal.textContent = app.handoffMask.text;
+    reloadIntroFrame();
 
     if (forceReplay) {
       await wait(80);
@@ -1546,7 +1729,7 @@
       }
     }
 
-    await wait(REDUCED_MOTION_QUERY.matches ? 240 : (INTRO_DURATION_MS + HANDOFF_HOLD_MS));
+    await wait(REDUCED_MOTION_QUERY.matches ? 240 : ANIMATION_INTRO_DURATION_MS);
     if (runId !== app.introRunId) {
       return;
     }
@@ -1555,6 +1738,7 @@
     if (runId !== app.introRunId) {
       return;
     }
+
     app.dom.body.classList.add('is-ready');
     app.dom.introOverlay.classList.add('is-hidden');
     app.dom.body.classList.remove('is-handoff', 'is-funneling');
@@ -1616,22 +1800,6 @@
       });
     });
 
-    app.dom.zoomButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        const direction = button.getAttribute('data-zoom');
-
-        if (direction === 'reset') {
-          app.zoomLevel = 1;
-        } else if (direction === 'in') {
-          app.zoomLevel = clamp(app.zoomLevel + ZOOM_STEP, ZOOM_MIN, ZOOM_MAX);
-        } else {
-          app.zoomLevel = clamp(app.zoomLevel - ZOOM_STEP, ZOOM_MIN, ZOOM_MAX);
-        }
-
-        updateUi();
-      });
-    });
-
     app.dom.replayIntroButton.addEventListener('click', () => {
       runIntro(true);
     });
@@ -1644,6 +1812,7 @@
 
     window.addEventListener('resize', async () => {
       app.handoffMask = null;
+      rebuildBackgroundProjection();
       renderPreview({ crossfade: false });
     });
   }
@@ -1665,6 +1834,7 @@
       document.fonts ? document.fonts.ready.catch(() => undefined) : Promise.resolve()
     ]);
 
+    startBackgroundProjection();
     updateUi();
     renderPreview({ instant: true, crossfade: false });
     bindEvents();

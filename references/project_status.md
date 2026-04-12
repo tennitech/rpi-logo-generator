@@ -1,6 +1,6 @@
 # RPI Logo Generator - Project Status & Master Documentation
 
-**Last Updated:** 2026-04-07
+**Last Updated:** 2026-04-10
 **Current Phase:** Phase 3 (Advanced Features & Refinement)
 
 ## 1. Project Overview
@@ -20,6 +20,7 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 *   `js/` - Logic (`main.js`, `drawing.js`, `pulse-worklet.js`).
     *   `utils/` - Helper modules (`profanityFilter.js`).
 *   `animation/` - Standalone static prototype route for experimental motion studies.
+*   `visual-style-picker/` - Standalone static prototype route for stacked-card bar style selection experiments.
 *   `generator-command-deck/` - Hidden fullscreen generator prototype route with compact floating controls.
 *   `generator-panel-mosaic/` - Hidden fullscreen generator prototype route with dashboard-style control layout.
 *   `generator-shared/` - Shared fullscreen generator foundation for the hidden generator routes.
@@ -52,11 +53,20 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 *   [ ] **AI Exploration:** (Future) Event-specific background generation.
 
 ## 5. Recent Updates
+- **[2026-04-10] Visual Style Picker Prototype Added At `/visual-style-picker/`**:
+    - Added an isolated blank-screen picker route with a stacked animated card interaction inspired by the supplied reference, implemented in vanilla HTML/CSS/JavaScript rather than adding a React/shadcn toolchain.
+    - Implemented four initial selectable bar styles: `ruler`, `ticker`, `waveform`, and `circles`, with card previews generated through the shared SVG bar pattern utility where practical.
+    - Kept the route hidden from the primary generator shell for now; selection updates the picker URL query string and local storage so it can be wired into a broader style-picking flow later.
 - **[2026-04-07] Fullscreen Generator Reframed Around Bar-First Editing And Context Preview**:
     - Reworked the shared fullscreen prototype so the default editor stage now shows only the bar, with the surrounding terminal panes confined to a fixed grid instead of floating over the artwork.
     - Added a top-level `editor / preview` mode toggle in `generator-shared/fullscreenGenerator.js` and `generator-shared/fullscreen-generator.css`; `preview` hides the editor panes and shows the full RPI logo in-context, while `editor` restores the bar-only workspace.
     - Moved export actions into a dedicated bottom output pane beneath the stage and added terminal-style zoom controls (`-`, `+`, and `reset`) there so output actions live in one consistent location.
     - Forced the preview-mode logo treatment to match the active red warning-terminal art direction on black, while preserving the existing export path and bar parameter editing model underneath.
+    - Follow-up refinements swapped the custom onboarding overlay back to the live `/animation/` route inside an intro iframe, restored stronger stacked warning-window overlaps on the parameter panes, and made the editor-stage bar sit on a transparent field instead of a filled artboard.
+    - Replaced the earlier ambient gradient background with a live low-contrast ASCII projection layer that types, holds, and clears technical text behind the interface so the fullscreen shell feels more like an active terminal environment than a static poster.
+    - Later refinements centered the `editor / preview` toggle at the top, removed the editor-view zoom controls, changed the standalone editor bar to render inside the full logo frame so it inherits the intro composition geometry, and shifted button labels toward a visible ASCII-styled text treatment.
+    - The intro handoff now resumes after the `/animation/` iframe and dissolves an ASCII RPI logo toward the live interface label targets instead of cutting directly from the animation into the editor.
+    - Increased the handoff dissolve density and footprint so the ASCII logo transition uses a larger terminal mask and many more particles before resolving into the editor text.
 - **[2026-04-07] Fullscreen Generator Shifted Toward Red Warning-Terminal Styling**:
     - Restyled `generator-shared/fullscreen-generator.css` toward the supplied warning-popup / retro alert-terminal references instead of the plainer red terminal pass.
     - The current fullscreen shell now leans on stacked alert-window outlines, denser red scanlines, dotted ambient grids, deeper maroon-black backgrounds, and sharper monochrome-red box treatments.
@@ -112,6 +122,7 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
     - Removed the earlier random background-noise treatment around the active bars and replaced it with a stable aura/force-field layer of nearby terminal characters so transitions stay cleaner and do not visibly reset between pattern changes.
     - Slowed and smoothed the overall sequence by lengthening hold and morph timings, softening the per-pattern lateral motion, and inserting a Geist Pixel Square ASCII title stage that spells `THE BAR GENERATOR` before the final morph into the supplied `RPI-logo-5.svg`.
     - Strengthened the morph feel with a magnetic snap/overshoot in particle travel so each transition lands more satisfyingly without abrupt resets.
+    - Trimmed the pattern sequence so it now skips the earlier fullscreen opening image, starts directly on the first bar assembly from scattered terminal particles, and cycles through only the first five bar patterns before the title and final logo stages.
     - Kept the prototype hidden from the primary UI and implemented it as a static subdirectory route so it works cleanly with the repo's simple static-server workflow.
 - **[2026-03-24] Embed-First UI Refactor For Frontify Context**:
     - Reworked the generator layout away from a persistent in-app left sidebar and toward an embed-friendly control dock, so the tool no longer visually competes with Frontify's existing page navigation.

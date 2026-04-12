@@ -14,6 +14,14 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'GeistPixelSquare';
+  src: url('../assets/fonts/GeistPixel-Square.otf') format('opentype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 :root {
   --color-black: #000000;
   --color-white: #ffffff;
@@ -89,24 +97,41 @@ button {
 
 .generator_page::before {
   background:
-    radial-gradient(circle at 50% 50%, rgba(214, 0, 28, 0.16), transparent 34%),
-    radial-gradient(circle at 10% 18%, rgba(214, 0, 28, 0.12), transparent 24%),
-    radial-gradient(circle at 86% 82%, rgba(214, 0, 28, 0.08), transparent 26%),
-    linear-gradient(180deg, rgba(52, 0, 6, 0.34), rgba(0, 0, 0, 0.18));
+    linear-gradient(to bottom, rgba(214, 0, 28, 0.032) 0 1px, transparent 1px 5px);
+  opacity: 0.18;
 }
 
 .generator_page::after {
   background:
-    linear-gradient(to bottom, rgba(214, 0, 28, 0.045) 0 1px, transparent 1px 6px),
     radial-gradient(circle at 15% 20%, rgba(255, 114, 129, 0.14) 0 1px, transparent 1px 12px),
     radial-gradient(circle at 80% 28%, rgba(255, 114, 129, 0.14) 0 1px, transparent 1px 14px);
-  background-size: auto, 16px 16px, 18px 18px;
-  opacity: 0.12;
+  background-size: 16px 16px, 18px 18px;
+  opacity: 0.08;
+}
+
+.generator_background_projection {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  margin: 0;
+  padding: 1.1rem 1.2rem;
+  overflow: hidden;
+  color: rgba(214, 0, 28, 0.24);
+  font-family: 'RPIGeistMono', monospace;
+  font-size: clamp(0.34rem, 0.24rem + 0.12vw, 0.52rem);
+  line-height: 1.12;
+  letter-spacing: 0.03em;
+  white-space: pre;
+  text-transform: uppercase;
+  user-select: none;
+  pointer-events: none;
+  text-shadow: 0 0 8px rgba(214, 0, 28, 0.08);
+  mask-image: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 1) 10%, rgba(0, 0, 0, 1) 90%, transparent 100%);
 }
 
 .generator_shell {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   min-height: calc(100svh - (clamp(0.8rem, 1.8vw, 1.4rem) * 2));
   opacity: 0;
   transform: translateY(1rem);
@@ -243,6 +268,11 @@ body.is-ready .generator_shell {
   font-size: 0.68rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+[data-ascii-label] {
+  font-family: 'GeistPixelSquare', 'RPIGeistMono', monospace;
+  letter-spacing: 0.08em;
 }
 
 .generator_card_kicker::before {
@@ -658,16 +688,19 @@ body.is-ready .generator_shell {
   visibility: hidden;
 }
 
-.generator_intro_terminal {
+.generator_intro_frame {
   position: absolute;
   inset: 0;
-  margin: 0;
-  color: rgba(214, 0, 28, 0.82);
-  font-size: clamp(0.32rem, 0.22rem + 0.16vw, 0.56rem);
-  line-height: 0.95;
-  white-space: pre;
-  opacity: 0.14;
-  user-select: none;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #000000;
+  transition: opacity 420ms ease;
+}
+
+body.is-handoff .generator_intro_frame,
+body.is-funneling .generator_intro_frame {
+  opacity: 0;
 }
 
 .generator_skip_button {
@@ -696,12 +729,8 @@ body.is-ready .generator_shell {
 
 .generator_handoff_stage {
   position: absolute;
-  inset: 50% auto auto 50%;
-  width: min(58rem, 72vw);
-  aspect-ratio: 250 / 150.911;
-  transform: translate(-50%, -50%);
-  display: grid;
-  place-items: center;
+  inset: 0;
+  display: block;
   pointer-events: none;
   opacity: 0;
 }
@@ -711,34 +740,24 @@ body.is-funneling .generator_handoff_stage {
   opacity: 1;
 }
 
-.generator_handoff_terminal,
-.generator_handoff_vector,
-.generator_handoff_particles {
-  position: absolute;
-  inset: 0;
-}
-
 .generator_handoff_terminal {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: min(76rem, 88vw);
+  aspect-ratio: 250 / 150.911;
+  transform: translate(-50%, -50%);
   margin: 0;
   color: var(--color-red);
-  font-size: clamp(0.38rem, 0.22rem + 0.18vw, 0.62rem);
+  font-size: clamp(0.42rem, 0.24rem + 0.22vw, 0.72rem);
   line-height: 0.95;
   white-space: pre;
   opacity: 1;
   text-shadow: 0 0 10px rgba(214, 0, 28, 0.16);
 }
 
-.generator_handoff_vector {
-  display: grid;
-  place-items: center;
-  opacity: 0;
-  transform: scale(0.995);
-}
-
-.generator_handoff_vector svg {
-  width: 100%;
-  height: 100%;
-  display: block;
+.generator_handoff_particles {
+  position: absolute;
+  inset: 0;
 }
 
 body.is-funneling .generator_handoff_terminal {
@@ -746,16 +765,10 @@ body.is-funneling .generator_handoff_terminal {
   transition: opacity 780ms ease;
 }
 
-body.is-funneling .generator_handoff_vector {
-  opacity: 1;
-  transform: none;
-  transition: opacity 820ms ease, transform 820ms ease;
-}
-
 .handoff_particle {
   position: absolute;
   color: var(--color-red);
-  font-size: clamp(0.42rem, 0.26rem + 0.12vw, 0.62rem);
+  font-size: clamp(0.42rem, 0.24rem + 0.18vw, 0.7rem);
   line-height: 1;
   opacity: 0;
   transform: translate(0, 0) scale(1);
@@ -764,10 +777,10 @@ body.is-funneling .generator_handoff_vector {
 
 body.is-funneling .handoff_particle {
   opacity: 1;
-  transform: translate(var(--particle-x), var(--particle-y)) scale(0.25);
+  transform: translate(var(--particle-x), var(--particle-y)) scale(0.18);
   transition:
-    transform 920ms cubic-bezier(0.2, 0.8, 0.22, 1),
-    opacity 920ms ease;
+    transform 1100ms cubic-bezier(0.2, 0.8, 0.22, 1),
+    opacity 1100ms ease;
 }
 
 body.is-ready .handoff_particle {
@@ -781,10 +794,16 @@ body.is-ready .handoff_particle {
 }
 
 .generator_header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
+  margin-inline: auto;
+  width: min(100%, 86rem);
+}
+
+.generator_header::after {
+  content: '';
 }
 
 .generator_header_meta {
@@ -792,13 +811,16 @@ body.is-ready .handoff_particle {
   align-items: center;
   gap: 0.9rem;
   min-width: 0;
+  justify-self: start;
 }
 
 .generator_constellation {
   display: grid;
-  grid-template-columns: minmax(15rem, 18rem) minmax(0, 1fr) minmax(15rem, 18rem);
-  gap: 1rem;
+  grid-template-columns: minmax(14rem, 17rem) minmax(0, 1fr) minmax(14rem, 17rem);
+  gap: 1.1rem;
   align-items: start;
+  width: min(100%, 86rem);
+  margin-inline: auto;
 }
 
 .generator_stage_column,
@@ -810,7 +832,7 @@ body.is-ready .handoff_particle {
 .constellation_stage {
   transform: none;
   display: grid;
-  gap: 1rem;
+  gap: 0.85rem;
   min-width: 0;
 }
 
@@ -826,10 +848,10 @@ body.is-ready .handoff_particle {
   border: 1px solid rgba(214, 0, 28, 0.16);
   border-radius: 999px;
   background: rgba(7, 0, 1, 0.96);
+  justify-self: center;
 }
 
-.mode_button,
-.zoom_button {
+.mode_button {
   position: relative;
   appearance: none;
   border: 1px solid rgba(214, 0, 28, 0.18);
@@ -847,9 +869,7 @@ body.is-ready .handoff_particle {
 }
 
 .mode_button:hover,
-.mode_button:focus-visible,
-.zoom_button:hover,
-.zoom_button:focus-visible {
+.mode_button:focus-visible {
   outline: none;
   border-color: rgba(214, 0, 28, 0.42);
   box-shadow: 0 0 0 1px rgba(214, 0, 28, 0.18), 0 0 18px rgba(214, 0, 28, 0.08);
@@ -865,7 +885,7 @@ body.is-ready .handoff_particle {
 }
 
 .stage_shell {
-  min-height: clamp(20rem, 48vh, 32rem);
+  min-height: clamp(16rem, 38vh, 24rem);
   display: grid;
   align-items: center;
 }
@@ -874,12 +894,21 @@ body.is-ready .handoff_particle {
   overflow: hidden;
   display: grid;
   place-items: center;
-  aspect-ratio: 250 / 54;
-  width: min(100%, 68rem);
+  aspect-ratio: 250 / 150.911;
+  width: min(100%, 58rem);
+}
+
+.generator_shell[data-view-mode='editor'] .stage_surface {
+  background: transparent;
+  box-shadow: none;
+}
+
+.generator_shell[data-view-mode='editor'] .stage_surface::before {
+  background: none;
 }
 
 .stage_stack {
-  transform: scale(var(--stage-zoom, 1));
+  transform: scale(var(--stage-zoom, 0.9));
   transform-origin: center center;
   transition: transform 180ms ease;
 }
@@ -894,17 +923,57 @@ body.is-ready .handoff_particle {
 }
 
 .generator_shell[data-view-mode='preview'] .constellation_stage {
-  max-width: min(76rem, 92vw);
+  max-width: min(68rem, 92vw);
   margin: 0 auto;
 }
 
 .generator_shell[data-view-mode='preview'] .stage_shell {
-  min-height: clamp(24rem, 70vh, 48rem);
+  min-height: clamp(22rem, 62vh, 42rem);
 }
 
 .generator_shell[data-view-mode='preview'] .stage_surface {
   aspect-ratio: 250 / 150.911;
-  width: min(100%, 74rem);
+  width: min(100%, 66rem);
+}
+
+.pod {
+  position: relative;
+  z-index: 3;
+}
+
+.pod_system {
+  margin-right: -0.85rem;
+}
+
+.pod_controls {
+  margin-left: -0.85rem;
+}
+
+.pod_system::before,
+.pod_system::after {
+  transform: translate(0.75rem, 0.75rem);
+  opacity: 0.9;
+}
+
+.pod_system::after {
+  transform: translate(1.5rem, 1.5rem);
+  opacity: 0.58;
+}
+
+.pod_controls::before,
+.pod_controls::after {
+  transform: translate(-0.75rem, 0.75rem);
+  opacity: 0.88;
+}
+
+.pod_controls::after {
+  transform: translate(-1.5rem, 1.5rem);
+  opacity: 0.56;
+}
+
+.pod_system .generator_card,
+.pod_controls .generator_card {
+  position: relative;
 }
 
 .export_pane {
@@ -915,32 +984,9 @@ body.is-ready .handoff_particle {
 .export_pane_head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 1rem;
   flex-wrap: wrap;
-}
-
-.zoom_cluster {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  flex-wrap: wrap;
-}
-
-.zoom_button {
-  min-width: 2.45rem;
-  padding-inline: 0.8rem;
-}
-
-.zoom_button_reset {
-  min-width: 4.6rem;
-}
-
-.zoom_value {
-  min-width: 4rem;
-  color: var(--color-red-bright);
-  font-size: 0.82rem;
-  text-align: center;
 }
 
 .readout_rail {
@@ -958,6 +1004,11 @@ body.is-ready .handoff_particle {
     grid-template-columns: minmax(0, 1fr);
     gap: 0.85rem;
   }
+
+  .pod_system,
+  .pod_controls {
+    margin-inline: 0;
+  }
 }
 
 @media (max-width: 760px) {
@@ -968,14 +1019,23 @@ body.is-ready .handoff_particle {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .generator_header,
-  .export_pane_head {
-    flex-direction: column;
-    align-items: stretch;
+  .generator_header {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
   }
 
-  .view_toggle,
-  .zoom_cluster {
+  .generator_header::after {
+    display: none;
+  }
+
+  .generator_header_meta,
+  .export_pane_head {
+    justify-self: stretch;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .view_toggle {
     justify-content: center;
   }
 
@@ -983,8 +1043,8 @@ body.is-ready .handoff_particle {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .generator_handoff_stage {
-    width: min(92vw, 58rem);
+  .generator_handoff_terminal {
+    width: min(94vw, 76rem);
   }
 }
 
