@@ -1,6 +1,6 @@
 # RPI Logo Generator - Project Status & Master Documentation
 
-**Last Updated:** 2026-02-17
+**Last Updated:** 2026-04-14
 **Current Phase:** Phase 3 (Advanced Features & Refinement)
 
 ## 1. Project Overview
@@ -19,6 +19,7 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 *   `css/` - Stylesheets (`style.css`).
 *   `js/` - Logic (`main.js`, `drawing.js`, `pulse-worklet.js`).
     *   `utils/` - Helper modules (`profanityFilter.js`).
+*   `animation/` - Standalone hidden ASCII onboarding animation prototype route.
 *   `references/` - Documentation and guidelines.
 
 ## 3. Completed Milestones
@@ -48,6 +49,10 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 *   [ ] **AI Exploration:** (Future) Event-specific background generation.
 
 ## 5. Recent Updates
+- **[2026-04-14] ASCII Onboarding Animation Ported From `codex/animation-pattern-cycle`**:
+    - Added a standalone hidden `/animation/` route that plays the ASCII-style onboarding sequence from the animation branch without pulling in that branch's later fullscreen UI work.
+    - Brought over the terminal-text particle morphing implementation, including the bar-pattern cycle, `THE BAR GENERATOR` title stage, and final morph into the RPI logo lockup.
+    - Kept the route self-contained inside the repo worktree by vendoring the required SVG masks into `animation/data/` and loading them through relative paths, alongside the required `GeistPixel-Square` font asset.
 - **[2026-02-17] Stability Pass In Progress**:
     - Fixed ticker width ratio label binding bug in `main.js` (`#ticker-width-ratio-display` now updates correctly).
     - Consolidated SVG bar pattern export logic into shared utility `js/utils/barPattern.js` to prevent drift between files.
@@ -66,6 +71,7 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 *   **Global Access:** `ProfanityFilter` attached to `window` for p5.js compatibility.
 *   **Frontify Integration:** Chosen external iframe embedding as the initial integration strategy for simplicity and speed.
 *   **Export Consistency:** Introduced shared SVG bar pattern generator (`js/utils/barPattern.js`) as single source of truth for non-solid bar exports.
+*   **Prototype Route Isolation:** Experimental onboarding and motion studies should live on standalone static routes such as `/animation/` so they can evolve without coupling directly to the main generator shell.
 
 ## 7. Known Issues / Notes
 *   `main.js` relies heavily on global variables (p5.js pattern). Future refactoring might consider modularizing this.
