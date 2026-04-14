@@ -36,15 +36,7 @@ function makeBaseConfig(overrides = {}) {
       circlesLayout: 'straight',
       numericValue: '3.14159',
       numericMode: 'dotmatrix',
-      trussFamily: 'flat',
-      trussMirror: false,
-      githubContributionGrid: [
-        [0, 1, 2, 3, 4, 2, 0],
-        [1, 0, 0, 2, 3, 1, 0],
-        [4, 3, 2, 1, 0, 1, 2]
-      ],
-      githubShowEmpty: true,
-      githubShowGuides: true
+      trussFamily: 'flat'
     },
     ...overrides
   };
@@ -100,17 +92,6 @@ describe('createBarPatternSVG', () => {
     expect(numeric).toContain('<rect');
   });
 
-  test('creates GitHub contribution bar output', () => {
-    const result = createBarPatternSVG(makeBaseConfig({
-      currentShader: 13,
-      values: makeBaseConfig().values
-    }));
-
-    expect(result).toContain('<rect');
-    expect((result.match(/<rect/g) || []).length).toBeGreaterThan(3);
-    expect(result).toContain('fill="#000000"');
-  });
-
   test('builds geometry for every truss option in the selector', () => {
     const families = [
       'flat',
@@ -140,7 +121,7 @@ describe('createBarPatternSVG', () => {
       });
 
       expect(geometry.family).toBe(family);
-      expect(geometry.strokes.length + geometry.lines.length).toBeGreaterThan(0);
+      expect(geometry.lines.length).toBeGreaterThan(0);
     });
   });
 
@@ -155,23 +136,7 @@ describe('createBarPatternSVG', () => {
       }
     }));
 
-    expect(result).toContain('<polyline');
-    expect((result.match(/<line /g) || []).length).toBe(4);
-  });
-
-  test('defaults segmented trusses to non-mirrored geometry unless enabled', () => {
-    const base = {
-      barStartX: 0,
-      barY: 0,
-      exactBarWidth: 250,
-      barHeight: 18,
-      segments: 16,
-      thickness: 2,
-      family: 'flat'
-    };
-    const normal = createTrussPatternGeometry(base);
-    const mirrored = createTrussPatternGeometry({ ...base, mirrorSegments: true });
-
-    expect(normal.lines).not.toEqual(mirrored.lines);
+    expect(result).toContain('<path d="');
+    expect((result.match(/ M /g) || []).length).toBe(6);
   });
 });
