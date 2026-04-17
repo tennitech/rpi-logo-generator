@@ -87,19 +87,6 @@ let circlesOverlapSlider;
 let circlesOverlapDisplay;
 let circlesFillSelect;
 let circlesModeSelect;
-let circlesPackingControls;
-let circlesGridControls;
-let circlesRowsSlider;
-let circlesRowsDisplay;
-let circlesGridDensitySlider;
-let circlesGridDensityDisplay;
-let circlesSizeVariationYSlider;
-let circlesSizeVariationYDisplay;
-let circlesSizeVariationXSlider;
-let circlesSizeVariationXDisplay;
-let circlesGridOverlapSlider;
-let circlesGridOverlapDisplay;
-let circlesLayoutSelect;
 let numericGroup;
 let numericInput;
 let numericModeSelect;
@@ -489,6 +476,9 @@ const PAN_INERTIA_STOP_THRESHOLD = 0.025;
 const PAN_SETTLE_THRESHOLD = 0.04;
 const PAN_EDGE_PADDING = 12;
 
+const CIRCLES_GRID_ROWS = 2;
+const CIRCLES_GRID_LAYOUT = 'straight';
+
 // Zoom/Pan/Playback UI references
 let zoomInBtn, zoomOutBtn, zoomResetBtn, panBtn, zoomLevelDisplay;
 
@@ -781,21 +771,10 @@ function resetStyleParameters(style) {
       if (circlesDensitySlider) circlesDensitySlider.value = 50;
       if (circlesSizeVariationSlider) circlesSizeVariationSlider.value = 0;
       if (circlesOverlapSlider) circlesOverlapSlider.value = 0;
-      if (circlesRowsSlider) circlesRowsSlider.value = 2;
-      if (circlesGridDensitySlider) circlesGridDensitySlider.value = 100;
-      if (circlesSizeVariationYSlider) circlesSizeVariationYSlider.value = 0;
-      if (circlesSizeVariationXSlider) circlesSizeVariationXSlider.value = 0;
-      if (circlesGridOverlapSlider) circlesGridOverlapSlider.value = 0;
-      if (circlesLayoutSelect) circlesLayoutSelect.value = 'straight';
       handleCirclesModeChange();
       updateCirclesDensityDisplay();
       updateCirclesSizeVariationDisplay();
       updateCirclesOverlapDisplay();
-      updateCirclesRowsDisplay();
-      updateCirclesGridDensityDisplay();
-      updateCirclesSizeVariationYDisplay();
-      updateCirclesSizeVariationXDisplay();
-      updateCirclesGridOverlapDisplay();
       break;
     case 'numeric':
       if (numericInput) numericInput.value = '3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679';
@@ -974,26 +953,12 @@ function randomizeStyleParameters(style) {
       if (circlesModeSelect) circlesModeSelect.value = pickRandom(['packing', 'grid']);
       if (circlesFillSelect) circlesFillSelect.value = pickRandom(['stroke', 'fill']);
       handleCirclesModeChange();
-      if (circlesModeSelect && circlesModeSelect.value === 'grid') {
-        if (circlesRowsSlider) circlesRowsSlider.value = randomStepValue(1, 6, 1);
-        if (circlesGridDensitySlider) circlesGridDensitySlider.value = randomStepValue(30, 100, 1);
-        if (circlesSizeVariationYSlider) circlesSizeVariationYSlider.value = randomStepValue(-80, 80, 1);
-        if (circlesSizeVariationXSlider) circlesSizeVariationXSlider.value = randomStepValue(-80, 80, 1);
-        if (circlesGridOverlapSlider) circlesGridOverlapSlider.value = randomStepValue(0, 220, 1);
-        if (circlesLayoutSelect) circlesLayoutSelect.value = pickRandom(['straight', 'stagger']);
-        updateCirclesRowsDisplay();
-        updateCirclesGridDensityDisplay();
-        updateCirclesSizeVariationYDisplay();
-        updateCirclesSizeVariationXDisplay();
-        updateCirclesGridOverlapDisplay();
-      } else {
-        if (circlesDensitySlider) circlesDensitySlider.value = randomStepValue(20, 95, 1);
-        if (circlesSizeVariationSlider) circlesSizeVariationSlider.value = randomStepValue(0, 85, 1);
-        if (circlesOverlapSlider) circlesOverlapSlider.value = randomStepValue(0, 70, 1);
-        updateCirclesDensityDisplay();
-        updateCirclesSizeVariationDisplay();
-        updateCirclesOverlapDisplay();
-      }
+      if (circlesDensitySlider) circlesDensitySlider.value = randomStepValue(20, 95, 1);
+      if (circlesSizeVariationSlider) circlesSizeVariationSlider.value = randomStepValue(0, 85, 1);
+      if (circlesOverlapSlider) circlesOverlapSlider.value = randomStepValue(0, 70, 1);
+      updateCirclesDensityDisplay();
+      updateCirclesSizeVariationDisplay();
+      updateCirclesOverlapDisplay();
       break;
     case 'numeric':
       if (numericInput) numericInput.value = pickRandom(SURPRISE_NUMERIC_OPTIONS);
@@ -1658,19 +1623,6 @@ async function setup() {
   circlesOverlapDisplay = document.getElementById('circles-overlap-display');
   circlesFillSelect = document.getElementById('circles-fill-select');
   circlesModeSelect = document.getElementById('circles-mode-select');
-  circlesPackingControls = document.getElementById('circles-packing-controls');
-  circlesGridControls = document.getElementById('circles-grid-controls');
-  circlesRowsSlider = document.getElementById('circles-rows-slider');
-  circlesRowsDisplay = document.getElementById('circles-rows-display');
-  circlesGridDensitySlider = document.getElementById('circles-grid-density-slider');
-  circlesGridDensityDisplay = document.getElementById('circles-grid-density-display');
-  circlesSizeVariationYSlider = document.getElementById('circles-size-variation-y-slider');
-  circlesSizeVariationYDisplay = document.getElementById('circles-size-variation-y-display');
-  circlesSizeVariationXSlider = document.getElementById('circles-size-variation-x-slider');
-  circlesSizeVariationXDisplay = document.getElementById('circles-size-variation-x-display');
-  circlesGridOverlapSlider = document.getElementById('circles-grid-overlap-slider');
-  circlesGridOverlapDisplay = document.getElementById('circles-grid-overlap-display');
-  circlesLayoutSelect = document.getElementById('circles-layout-select');
   numericGroup = document.getElementById('numeric-group');
   numericInput = document.getElementById('numeric-input');
   numericModeSelect = document.getElementById('numeric-mode-select');
@@ -1946,37 +1898,6 @@ async function setup() {
   circlesFillSelect.addEventListener('change', function () {
     updateUrlParameters();
   });
-
-  // Setup grid mode sliders with display updates and debouncing
-  circlesRowsSlider.addEventListener('input', () => {
-    updateCirclesRowsDisplay();
-    debouncedCircleUpdate();
-  });
-  circlesGridDensitySlider.addEventListener('input', () => {
-    updateCirclesGridDensityDisplay();
-    debouncedCircleUpdate();
-  });
-  circlesSizeVariationYSlider.addEventListener('input', () => {
-    updateCirclesSizeVariationYDisplay();
-    debouncedCircleUpdate();
-  });
-  circlesSizeVariationXSlider.addEventListener('input', () => {
-    updateCirclesSizeVariationXDisplay();
-    debouncedCircleUpdate();
-  });
-  circlesGridOverlapSlider.addEventListener('input', () => {
-    updateCirclesGridOverlapDisplay();
-    debouncedCircleUpdate();
-  });
-  circlesLayoutSelect.addEventListener('change', function () {
-    debouncedCircleUpdate();
-  });
-
-  updateCirclesRowsDisplay(); // Set initial value
-  updateCirclesGridDensityDisplay(); // Set initial value
-  updateCirclesSizeVariationYDisplay(); // Set initial value
-  updateCirclesSizeVariationXDisplay(); // Set initial value
-  updateCirclesGridOverlapDisplay(); // Set initial value
 
   // Setup mobile menu toggle
   if (mobileMenuToggle) {
@@ -2765,54 +2686,8 @@ function updateCirclesOverlapDisplay() {
 }
 
 function handleCirclesModeChange() {
-  const selectedMode = circlesModeSelect.value;
-
-  if (selectedMode === 'grid') {
-    circlesPackingControls.style.display = 'none';
-    circlesGridControls.style.display = 'block';
-  } else {
-    circlesPackingControls.style.display = 'block';
-    circlesGridControls.style.display = 'none';
-  }
-
-  // Invalidate cache when mode changes
   staticCircleData = null;
   redraw();
-}
-
-function updateCirclesRowsDisplay() {
-  const sliderValue = parseInt(circlesRowsSlider.value);
-  circlesRowsDisplay.textContent = sliderValue;
-  // Invalidate cache when rows change
-  staticCircleData = null;
-}
-
-function updateCirclesGridDensityDisplay() {
-  const sliderValue = parseInt(circlesGridDensitySlider.value);
-  circlesGridDensityDisplay.textContent = sliderValue;
-  // Invalidate cache when grid density changes
-  staticCircleData = null;
-}
-
-function updateCirclesSizeVariationYDisplay() {
-  const sliderValue = parseInt(circlesSizeVariationYSlider.value);
-  circlesSizeVariationYDisplay.textContent = sliderValue;
-  // Invalidate cache when Y variation changes
-  staticCircleData = null;
-}
-
-function updateCirclesSizeVariationXDisplay() {
-  const sliderValue = parseInt(circlesSizeVariationXSlider.value);
-  circlesSizeVariationXDisplay.textContent = sliderValue;
-  // Invalidate cache when X variation changes
-  staticCircleData = null;
-}
-
-function updateCirclesGridOverlapDisplay() {
-  const sliderValue = parseInt(circlesGridOverlapSlider.value);
-  circlesGridOverlapDisplay.textContent = sliderValue;
-  // Invalidate cache when grid overlap changes
-  staticCircleData = null;
 }
 
 function toggleMobileMenu() {
@@ -3185,12 +3060,12 @@ function buildHeaderPreviewSVG() {
         circlesDensity: circlesDensitySlider ? circlesDensitySlider.value : 50,
         circlesSizeVariation: circlesSizeVariationSlider ? circlesSizeVariationSlider.value : 0,
         circlesOverlap: circlesOverlapSlider ? circlesOverlapSlider.value : 0,
-        circlesRows: circlesRowsSlider ? circlesRowsSlider.value : 2,
-        circlesGridDensity: circlesGridDensitySlider ? circlesGridDensitySlider.value : 100,
-        circlesSizeVariationY: circlesSizeVariationYSlider ? circlesSizeVariationYSlider.value : 0,
-        circlesSizeVariationX: circlesSizeVariationXSlider ? circlesSizeVariationXSlider.value : 0,
-        circlesGridOverlap: circlesGridOverlapSlider ? circlesGridOverlapSlider.value : 0,
-        circlesLayout: circlesLayoutSelect ? circlesLayoutSelect.value : 'straight',
+        circlesRows: CIRCLES_GRID_ROWS,
+        circlesGridDensity: circlesDensitySlider ? circlesDensitySlider.value : 50,
+        circlesSizeVariationY: circlesSizeVariationSlider ? circlesSizeVariationSlider.value : 0,
+        circlesSizeVariationX: 0,
+        circlesGridOverlap: circlesOverlapSlider ? circlesOverlapSlider.value : 0,
+        circlesLayout: CIRCLES_GRID_LAYOUT,
         numericValue: numericInput ? numericInput.value : '',
         numericMode: numericModeSelect ? numericModeSelect.value : 'dotmatrix',
         circlesGradientVariant: circlesGradientVariantSlider ? circlesGradientVariantSlider.value : 1,
@@ -4625,18 +4500,22 @@ function generateGridCircles(barWidth, barHeight, rows, gridDensity, sizeVariati
 
   // Safety guards
   if (barWidth <= 0 || barHeight <= 0 || rows < 1) return [];
+  const safeDensity = Math.max(10, Math.min(100, parseFloat(gridDensity) || 50));
+  const safeOverlap = Math.max(0, Math.min(100, parseFloat(gridOverlap) || 0));
+  const safeVariationY = Math.max(0, Math.min(100, parseFloat(sizeVariationY) || 0));
+  const safeVariationX = Math.max(0, Math.min(100, parseFloat(sizeVariationX) || 0));
 
   // Calculate base circle radius that fits the number of rows
-  const baseRadius = (barHeight / (rows * 2)) * (gridDensity / 100);
+  const baseRadius = Math.max(0.5, (barHeight / (rows * 2)) * (safeDensity / 100));
   const rowHeight = barHeight / rows;
 
   // Calculate how many circles fit horizontally based on circle diameter
   const circleDiameter = baseRadius * 2;
-  const baseColsPerRow = Math.floor(barWidth / circleDiameter);
+  const baseColsPerRow = Math.max(2, Math.ceil(barWidth / circleDiameter) + 1);
 
   // Add extra circles based on overlap
-  const overlapFactor = 1 + (gridOverlap / 100);
-  const colsPerRow = Math.floor(baseColsPerRow * overlapFactor);
+  const overlapFactor = 1 + (safeOverlap / 100);
+  const colsPerRow = Math.max(2, Math.floor(baseColsPerRow * overlapFactor));
 
   for (let row = 0; row < rows; row++) {
     const rowProgress = rows > 1 ? row / (rows - 1) : 0.5; // 0 to 1 from top to bottom
@@ -4645,7 +4524,7 @@ function generateGridCircles(barWidth, barHeight, rows, gridDensity, sizeVariati
     const baseY = rowHeight * row + rowHeight / 2;
 
     // Calculate size variation for Y (top to bottom)
-    const yVariationFactor = 1 + (sizeVariationY / 100) * (1 - rowProgress * 2); // -1 to 1, then scaled
+    const yVariationFactor = 1 + (safeVariationY / 100) * (1 - rowProgress * 2); // -1 to 1, then scaled
 
     // Determine number of columns and spacing for this row
     let currentCols = colsPerRow;
@@ -4674,25 +4553,16 @@ function generateGridCircles(barWidth, barHeight, rows, gridDensity, sizeVariati
       // Calculate X position for this column
       const baseX = startOffset + col * horizontalSpacing;
 
-      // Skip circles that would go outside the bar width
-      if (baseX < baseRadius || baseX > barWidth - baseRadius) {
-        continue;
-      }
-
       // Calculate size variation for X (left to right)
-      const xVariationFactor = 1 + (sizeVariationX / 100) * (colProgress * 2 - 1); // -1 to 1, then scaled
+      const xVariationFactor = 1 + (safeVariationX / 100) * (colProgress * 2 - 1); // -1 to 1, then scaled
 
       // Combine both variation factors
       const combinedVariationFactor = yVariationFactor * xVariationFactor;
       const finalRadius = Math.max(0.5, baseRadius * combinedVariationFactor);
 
-      // Ensure circles stay within bounds
-      const clampedX = Math.max(finalRadius, Math.min(barWidth - finalRadius, baseX));
-      const clampedY = Math.max(finalRadius, Math.min(barHeight - finalRadius, baseY));
-
       circles.push({
-        x: clampedX,
-        y: clampedY,
+        x: Math.max(0, Math.min(barWidth, baseX)),
+        y: Math.max(0, Math.min(barHeight, baseY)),
         r: finalRadius
       });
     }
@@ -5520,14 +5390,6 @@ function getUrlParameters() {
     circlesSizeVariation: parseInt(params.get('circlesSizeVariation')) || 0,
     circlesOverlap: parseInt(params.get('circlesOverlap')) || 0,
 
-    // Grid circles parameters
-    circlesRows: parseInt(params.get('circlesRows')) || 2,
-    circlesGridDensity: parseInt(params.get('circlesGridDensity')) || 100,
-    circlesSizeVariationY: parseInt(params.get('circlesSizeVariationY')) || 0,
-    circlesSizeVariationX: parseInt(params.get('circlesSizeVariationX')) || 0,
-    circlesGridOverlap: parseInt(params.get('circlesGridOverlap')) || 0,
-    circlesLayout: params.get('circlesLayout') || 'straight',
-
     // Truss parameters
     trussFamily: normalizeTrussFamilyValue(params.get('trussFamily') || 'flat'),
     trussSegments: parseInt(params.get('trussSegments')) || 15,
@@ -5763,35 +5625,14 @@ function updateUrlParameters() {
       params.set('circlesFill', circlesFillSelect.value);
     }
 
-    if (circlesModeSelect && circlesModeSelect.value === 'packing') {
-      if (circlesDensitySlider && parseInt(circlesDensitySlider.value) !== 50) {
-        params.set('circlesDensity', circlesDensitySlider.value);
-      }
-      if (circlesSizeVariationSlider && parseInt(circlesSizeVariationSlider.value) !== 0) {
-        params.set('circlesSizeVariation', circlesSizeVariationSlider.value);
-      }
-      if (circlesOverlapSlider && parseInt(circlesOverlapSlider.value) !== 0) {
-        params.set('circlesOverlap', circlesOverlapSlider.value);
-      }
-    } else {
-      if (circlesRowsSlider && parseInt(circlesRowsSlider.value) !== 2) {
-        params.set('circlesRows', circlesRowsSlider.value);
-      }
-      if (circlesGridDensitySlider && parseInt(circlesGridDensitySlider.value) !== 100) {
-        params.set('circlesGridDensity', circlesGridDensitySlider.value);
-      }
-      if (circlesSizeVariationYSlider && parseInt(circlesSizeVariationYSlider.value) !== 0) {
-        params.set('circlesSizeVariationY', circlesSizeVariationYSlider.value);
-      }
-      if (circlesSizeVariationXSlider && parseInt(circlesSizeVariationXSlider.value) !== 0) {
-        params.set('circlesSizeVariationX', circlesSizeVariationXSlider.value);
-      }
-      if (circlesGridOverlapSlider && parseInt(circlesGridOverlapSlider.value) !== 0) {
-        params.set('circlesGridOverlap', circlesGridOverlapSlider.value);
-      }
-      if (circlesLayoutSelect && circlesLayoutSelect.value !== 'straight') {
-        params.set('circlesLayout', circlesLayoutSelect.value);
-      }
+    if (circlesDensitySlider && parseInt(circlesDensitySlider.value) !== 50) {
+      params.set('circlesDensity', circlesDensitySlider.value);
+    }
+    if (circlesSizeVariationSlider && parseInt(circlesSizeVariationSlider.value) !== 0) {
+      params.set('circlesSizeVariation', circlesSizeVariationSlider.value);
+    }
+    if (circlesOverlapSlider && parseInt(circlesOverlapSlider.value) !== 0) {
+      params.set('circlesOverlap', circlesOverlapSlider.value);
     }
   }
 
@@ -6016,26 +5857,6 @@ function applyUrlParameters() {
     circlesOverlapSlider.value = params.circlesOverlap;
   }
 
-  // Apply grid circles parameters
-  if (circlesRowsSlider) {
-    circlesRowsSlider.value = params.circlesRows;
-  }
-  if (circlesGridDensitySlider) {
-    circlesGridDensitySlider.value = params.circlesGridDensity;
-  }
-  if (circlesSizeVariationYSlider) {
-    circlesSizeVariationYSlider.value = params.circlesSizeVariationY;
-  }
-  if (circlesSizeVariationXSlider) {
-    circlesSizeVariationXSlider.value = params.circlesSizeVariationX;
-  }
-  if (circlesGridOverlapSlider) {
-    circlesGridOverlapSlider.value = params.circlesGridOverlap;
-  }
-  if (circlesLayoutSelect) {
-    circlesLayoutSelect.value = params.circlesLayout;
-  }
-
   // Update all displays and trigger style change
   updateAllDisplays();
   handleStyleChange();
@@ -6058,11 +5879,6 @@ function updateAllDisplays() {
   updateCirclesDensityDisplay();
   updateCirclesSizeVariationDisplay();
   updateCirclesOverlapDisplay();
-  updateCirclesRowsDisplay();
-  updateCirclesGridDensityDisplay();
-  updateCirclesSizeVariationYDisplay();
-  updateCirclesSizeVariationXDisplay();
-  updateCirclesGridOverlapDisplay();
   updateNeuralNetworkHiddenLayersDisplay();
 }
 
@@ -6551,17 +6367,11 @@ function drawBottomBar(currentWidth) {
       strokeWeight(1);
     }
 
-    if (selectedMode === 'grid') {
-      // Grid mode - parameters will be read inside drawCirclePattern
-      drawCirclePattern(null, barStartX, 0, exactBarWidth, rectHeight, 0, 0, 0);
-    } else {
-      // Packing mode
-      const density = parseInt(circlesDensitySlider.value);
-      const sizeVariation = parseInt(circlesSizeVariationSlider.value);
-      const overlapAmount = parseInt(circlesOverlapSlider.value);
+    const density = parseInt(circlesDensitySlider.value);
+    const sizeVariation = parseInt(circlesSizeVariationSlider.value);
+    const overlapAmount = parseInt(circlesOverlapSlider.value);
 
-      drawCirclePattern(null, barStartX, 0, exactBarWidth, rectHeight, density, sizeVariation, overlapAmount);
-    }
+    drawCirclePattern(null, barStartX, 0, exactBarWidth, rectHeight, density, sizeVariation, overlapAmount);
   } else if (currentShader === 6) {
     // Numeric mode - get visualization mode
     resetShader();

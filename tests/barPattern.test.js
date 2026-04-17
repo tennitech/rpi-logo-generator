@@ -131,6 +131,27 @@ describe('createBarPatternSVG', () => {
     expect(result).toContain('stroke=');
   });
 
+  test('normalizes circles output to the full bar bounds', () => {
+    const result = createBarPatternSVG(makeBaseConfig({
+      currentShader: 5,
+      generateStaticPackedCircles: () => [
+        { x: 48, y: 5, r: 3 },
+        { x: 172, y: 15, r: 4 }
+      ],
+      values: {
+        ...makeBaseConfig().values,
+        circlesMode: 'packing'
+      }
+    }));
+    const circleXValues = [...result.matchAll(/<circle cx="([^"]+)"/g)]
+      .map((match) => parseFloat(match[1]));
+
+    expect(result).toContain('<clipPath');
+    expect(circleXValues.length).toBeGreaterThan(8);
+    expect(Math.min(...circleXValues)).toBeCloseTo(0);
+    expect(Math.max(...circleXValues)).toBeCloseTo(250);
+  });
+
   test('creates circles content in grid mode', () => {
     const result = createBarPatternSVG(makeBaseConfig({
       currentShader: 5,

@@ -1023,6 +1023,119 @@ function createRunwayBarPatternSVG(barStartX, barY, exactBarWidth, barHeight, fg
   return pattern;
 }
 
+function ensureCirclePatternCoverageForSVG(circles, barWidth, barHeight) {
+  if (!Array.isArray(circles) || barWidth <= 0 || barHeight <= 0) {
+    return [];
+  }
+
+  const validCircles = circles
+    .filter((circle) => circle &&
+      Number.isFinite(circle.x) &&
+      Number.isFinite(circle.y) &&
+      Number.isFinite(circle.r) &&
+      circle.r > 0)
+    .map((circle) => ({
+      x: Math.max(0, Math.min(barWidth, circle.x)),
+      y: Math.max(0, Math.min(barHeight, circle.y)),
+      r: Math.max(0.5, Math.min(circle.r, Math.max(barWidth, barHeight)))
+    }));
+
+  if (validCircles.length === 0) {
+    return createFullBleedCircleFallbackForSVG(barWidth, barHeight, barHeight * 0.25);
+  }
+
+  const radius = getRepresentativeCircleRadiusForSVG(validCircles, barHeight);
+  const minCircleCount = Math.max(8, Math.ceil(barWidth / Math.max(6, radius * 3.2)));
+
+  if (validCircles.length < minCircleCount * 0.35) {
+    return createFullBleedCircleFallbackForSVG(barWidth, barHeight, radius);
+  }
+
+  const coveredCircles = validCircles.slice();
+  addMissingCircleEdgeCoverageForSVG(coveredCircles, barWidth, barHeight, radius);
+  return coveredCircles;
+}
+
+function getRepresentativeCircleRadiusForSVG(circles, barHeight) {
+  const radii = circles
+    .map((circle) => circle.r)
+    .filter((radius) => Number.isFinite(radius) && radius > 0)
+    .sort((a, b) => a - b);
+  const medianRadius = radii.length > 0 ? radii[Math.floor(radii.length / 2)] : barHeight * 0.25;
+  return Math.max(1.25, Math.min(barHeight * 0.36, medianRadius));
+}
+
+function createFullBleedCircleFallbackForSVG(barWidth, barHeight, radius) {
+  const circles = [];
+  const safeRadius = Math.max(1.25, Math.min(barHeight * 0.36, radius));
+  const cols = Math.max(8, Math.ceil(barWidth / Math.max(5, safeRadius * 2.8)));
+  const rows = 3;
+
+  for (let row = 0; row < rows; row++) {
+    const y = rows === 1 ? barHeight / 2 : (row / (rows - 1)) * barHeight;
+    const offset = row % 2 === 0 ? 0 : 0.5;
+    for (let col = 0; col < cols; col++) {
+      const progress = cols === 1 ? 0.5 : col / (cols - 1);
+      const x = Math.max(0, Math.min(barWidth, (progress + offset / (cols - 1)) * barWidth));
+      circles.push({ x, y, r: safeRadius });
+    }
+  }
+
+  return circles;
+}
+
+function addMissingCircleEdgeCoverageForSVG(circles, barWidth, barHeight, radius) {
+  const bounds = circles.reduce((acc, circle) => ({
+    left: Math.min(acc.left, circle.x - circle.r),
+    right: Math.max(acc.right, circle.x + circle.r),
+    top: Math.min(acc.top, circle.y - circle.r),
+    bottom: Math.max(acc.bottom, circle.y + circle.r)
+  }), {
+    left: Infinity,
+    right: -Infinity,
+    top: Infinity,
+    bottom: -Infinity
+  });
+
+  const edgeGap = Math.max(0.5, radius * 0.35);
+  const addHorizontalEdge = (y) => {
+    const count = Math.max(4, Math.ceil(barWidth / Math.max(8, radius * 4)));
+    for (let i = 0; i < count; i++) {
+      const x = count === 1 ? barWidth / 2 : (i / (count - 1)) * barWidth;
+      circles.push({ x, y, r: radius });
+    }
+  };
+  const addVerticalEdge = (x) => {
+    const count = Math.max(2, Math.ceil(barHeight / Math.max(4, radius * 3)));
+    for (let i = 0; i < count; i++) {
+      const y = count === 1 ? barHeight / 2 : (i / (count - 1)) * barHeight;
+      circles.push({ x, y, r: radius });
+    }
+  };
+
+  if (bounds.left > edgeGap) {
+    addVerticalEdge(0);
+  }
+  if (bounds.right < barWidth - edgeGap) {
+    addVerticalEdge(barWidth);
+  }
+  if (bounds.left > edgeGap || bounds.right < barWidth - edgeGap) {
+    addHorizontalEdge(barHeight / 2);
+  }
+  if (bounds.top > edgeGap) {
+    addHorizontalEdge(0);
+  }
+  if (bounds.bottom < barHeight - edgeGap) {
+    addHorizontalEdge(barHeight);
+  }
+}
+
+function createCirclePatternClipId(barStartX, barY, exactBarWidth, barHeight) {
+  const idParts = [barStartX, barY, exactBarWidth, barHeight]
+    .map((value) => Math.round((parseFloat(value) || 0) * 1000));
+  return `circle-bar-clip-${idParts.join('-')}`;
+}
+
 function createBarPatternSVG(config) {
   const {
     currentShader,
@@ -1164,15 +1277,18 @@ function createBarPatternSVG(config) {
     let circleData = [];
 
     if (circlesMode === 'grid') {
+      const sharedDensity = parseInt(values.circlesDensity, 10);
+      const sharedVariation = parseInt(values.circlesSizeVariation, 10);
+      const sharedOverlap = parseInt(values.circlesOverlap, 10);
       circleData = generateGridCircles(
         exactBarWidth,
         barHeight,
-        parseInt(values.circlesRows, 10),
-        parseInt(values.circlesGridDensity, 10),
-        parseInt(values.circlesSizeVariationY, 10),
-        parseInt(values.circlesSizeVariationX, 10),
-        parseInt(values.circlesGridOverlap, 10),
-        values.circlesLayout
+        parseInt(values.circlesRows, 10) || 2,
+        parseInt(values.circlesGridDensity, 10) || sharedDensity || 50,
+        parseInt(values.circlesSizeVariationY, 10) || sharedVariation || 0,
+        parseInt(values.circlesSizeVariationX, 10) || 0,
+        parseInt(values.circlesGridOverlap, 10) || sharedOverlap || 0,
+        values.circlesLayout || 'straight'
       );
     } else {
       circleData = generateStaticPackedCircles(
@@ -1184,14 +1300,20 @@ function createBarPatternSVG(config) {
       );
     }
 
+    circleData = ensureCirclePatternCoverageForSVG(circleData, exactBarWidth, barHeight);
+    const clipId = createCirclePatternClipId(barStartX, barY, exactBarWidth, barHeight);
+    pattern += `\n    <clipPath id="${clipId}"><rect x="${barStartX}" y="${barY}" width="${exactBarWidth}" height="${barHeight}"/></clipPath>`;
+    pattern += `\n    <g clip-path="url(#${clipId})">`;
+
     for (let i = 0; i < circleData.length; i++) {
       const circle = circleData[i];
       if (circlesFill === 'fill') {
-        pattern += `\n    <circle cx="${barStartX + circle.x}" cy="${barY + circle.y}" r="${circle.r}" fill="${fgColor}"/>`;
+        pattern += `\n      <circle cx="${barStartX + circle.x}" cy="${barY + circle.y}" r="${circle.r}" fill="${fgColor}"/>`;
       } else {
-        pattern += `\n    <circle cx="${barStartX + circle.x}" cy="${barY + circle.y}" r="${circle.r}" fill="none" stroke="${fgColor}" stroke-width="1"/>`;
+        pattern += `\n      <circle cx="${barStartX + circle.x}" cy="${barY + circle.y}" r="${circle.r}" fill="none" stroke="${fgColor}" stroke-width="1"/>`;
       }
     }
+    pattern += '\n    </g>';
     return pattern;
   }
 
