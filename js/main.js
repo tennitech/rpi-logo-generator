@@ -271,17 +271,26 @@ let lastFocusedElement = null; // For accessibility focus management
 let bugReportLastFocusedElement = null;
 
 // Color scheme management
-const DEFAULT_COLOR_MODE = 'black';
-const AVAILABLE_COLOR_MODES = ['black', 'white', 'red', 'blue', 'link-blue', 'gold', 'silver', 'gray'];
-const AVAILABLE_COLOR_MODE_SET = new Set(AVAILABLE_COLOR_MODES);
-const LEGACY_COLOR_MODE_ALIASES = {
-  'black-on-white': 'black',
-  'white-on-black': 'white',
-  'red-on-white': 'red',
-  'white-on-red': 'white',
-  'light': 'black',
-  'dark': 'white'
-};
+const themeModeUtils = typeof window !== 'undefined' ? window.themeModeUtils || null : null;
+const DEFAULT_COLOR_MODE = themeModeUtils && typeof themeModeUtils.DEFAULT_COLOR_MODE === 'string'
+  ? themeModeUtils.DEFAULT_COLOR_MODE
+  : 'black';
+const AVAILABLE_COLOR_MODES = themeModeUtils && Array.isArray(themeModeUtils.AVAILABLE_COLOR_MODES)
+  ? themeModeUtils.AVAILABLE_COLOR_MODES.slice()
+  : ['black', 'white', 'red', 'blue', 'link-blue', 'gold', 'silver', 'gray'];
+const AVAILABLE_COLOR_MODE_SET = themeModeUtils && themeModeUtils.AVAILABLE_COLOR_MODE_SET instanceof Set
+  ? themeModeUtils.AVAILABLE_COLOR_MODE_SET
+  : new Set(AVAILABLE_COLOR_MODES);
+const LEGACY_COLOR_MODE_ALIASES = themeModeUtils && themeModeUtils.LEGACY_COLOR_MODE_ALIASES
+  ? { ...themeModeUtils.LEGACY_COLOR_MODE_ALIASES }
+  : {
+    'black-on-white': 'black',
+    'white-on-black': 'white',
+    'red-on-white': 'red',
+    'white-on-red': 'white',
+    'light': 'black',
+    'dark': 'white'
+  };
 
 let currentColorMode = DEFAULT_COLOR_MODE;
 const colors = {
@@ -1091,9 +1100,61 @@ async function submitBugReport(event) {
 }
 
 function normalizeColorModeValue(colorMode) {
+  if (themeModeUtils && typeof themeModeUtils.normalizeColorModeValue === 'function') {
+    return themeModeUtils.normalizeColorModeValue(colorMode, {
+      defaultColorMode: DEFAULT_COLOR_MODE,
+      availableModes: AVAILABLE_COLOR_MODES,
+      availableModeSet: AVAILABLE_COLOR_MODE_SET,
+      legacyAliases: LEGACY_COLOR_MODE_ALIASES
+    });
+  }
+
   const normalized = String(colorMode || DEFAULT_COLOR_MODE).trim().toLowerCase();
   if (AVAILABLE_COLOR_MODE_SET.has(normalized)) return normalized;
   return LEGACY_COLOR_MODE_ALIASES[normalized] || DEFAULT_COLOR_MODE;
+}
+
+function syncCustomSelectUI(selectElement, wrapperElement, selectedValue, fallbackLabel) {
+  if (themeModeUtils && typeof themeModeUtils.syncCustomSelectState === 'function') {
+    return themeModeUtils.syncCustomSelectState(selectElement, wrapperElement, selectedValue, fallbackLabel);
+  }
+
+  if (!selectElement || !wrapperElement) {
+    return null;
+  }
+
+  if (selectedValue != null && selectElement.value !== selectedValue) {
+    selectElement.value = selectedValue;
+  }
+
+  const selectedOption = selectElement.options[selectElement.selectedIndex];
+  const triggerLabel = wrapperElement.querySelector('.custom-select-trigger');
+  if (triggerLabel) {
+    triggerLabel.textContent = selectedOption ? selectedOption.textContent : String(fallbackLabel || selectedValue || '');
+  }
+
+  wrapperElement.querySelectorAll('.custom-option').forEach(option => {
+    option.classList.toggle('selected', option.dataset.value === selectElement.value);
+  });
+
+  return triggerLabel ? triggerLabel.textContent : null;
+}
+
+function syncAllCustomSelects() {
+  document.querySelectorAll('.control-select').forEach(selectElement => {
+    const wrapperElement = selectElement.parentElement;
+    if (!wrapperElement || !wrapperElement.classList.contains('custom-select-wrapper')) {
+      return;
+    }
+
+    const selectedOption = selectElement.options[selectElement.selectedIndex];
+    syncCustomSelectUI(
+      selectElement,
+      wrapperElement,
+      selectElement.value,
+      selectedOption ? selectedOption.textContent : selectElement.value
+    );
+  });
 }
 
 function zoomLevelToDisplayPercent(level) {
@@ -2988,20 +3049,8 @@ function applyColorMode(colorMode) {
   }
 
   if (colorModeSelect) {
-    if (colorModeSelect.value !== currentColorMode) {
-      colorModeSelect.value = currentColorMode;
-    }
-
     const customSelectWrapper = colorModeSelect.parentElement;
-    const customSelectLabel = customSelectWrapper?.querySelector('.custom-select-trigger');
-    if (customSelectLabel) {
-      const selectedOption = colorModeSelect.options[colorModeSelect.selectedIndex];
-      customSelectLabel.textContent = selectedOption ? selectedOption.textContent : currentColorMode;
-    }
-
-    customSelectWrapper?.querySelectorAll('.custom-option').forEach(option => {
-      option.classList.toggle('selected', option.dataset.value === currentColorMode);
-    });
+    syncCustomSelectUI(colorModeSelect, customSelectWrapper, currentColorMode, currentColorMode);
   }
 
   console.log('Color mode applied:', currentColorMode);
@@ -5687,6 +5736,7 @@ function applyUrlParameters() {
     colorModeSelect.value = params.colorMode;
   }
   applyColorMode(params.colorMode);
+  syncAllCustomSelects();
 
   // Apply binary parameters
   if (binaryInput) {
@@ -7088,14 +7138,7 @@ function setupCustomDropdowns() {
     // Listen for external updates to the select (e.g. from keyboard shortcuts)
     select.addEventListener('change', () => {
       const newSelected = select.options[select.selectedIndex];
-      trigger.textContent = newSelected.textContent;
-      wrapper.querySelectorAll('.custom-option').forEach(opt => {
-        if (opt.dataset.value === select.value) {
-          opt.classList.add('selected');
-        } else {
-          opt.classList.remove('selected');
-        }
-      });
+      syncCustomSelectUI(select, wrapper, select.value, newSelected ? newSelected.textContent : select.value);
       requestAnimationFrame(updateScrollFades);
     });
 
