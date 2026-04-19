@@ -8,6 +8,7 @@ const {
   createLinesPatternGeometry,
   createNeuralNetworkPatternGeometry,
   createPointConnectPatternGeometry,
+  createTickerPatternGeometry,
   createTriangleGridPatternGeometry,
   createTrianglesPatternGeometry,
   createTrussPatternGeometry,
@@ -66,6 +67,44 @@ function makeBaseConfig(overrides = {}) {
     },
     ...overrides
   };
+}
+
+function expectTickerRectsInsideBar(rects, barStartX = 0, barY = 0, exactBarWidth = 250, barHeight = 18) {
+  const violations = getTickerRectBoundsViolations(rects, barStartX, barY, exactBarWidth, barHeight);
+  expect(violations).toEqual([]);
+}
+
+function getTickerRectBoundsViolations(rects, barStartX = 0, barY = 0, exactBarWidth = 250, barHeight = 18, context = '') {
+  const epsilon = 0.000001;
+  const violations = [];
+
+  if (rects.length === 0) {
+    violations.push(`${context} produced no ticker rectangles`);
+  }
+
+  rects.forEach((rect, index) => {
+    const label = context ? `${context} rect ${index}` : `rect ${index}`;
+    if (rect.x < barStartX - epsilon) {
+      violations.push(`${label} x ${rect.x} is left of ${barStartX}`);
+    }
+    if (rect.y < barY - epsilon) {
+      violations.push(`${label} y ${rect.y} is above ${barY}`);
+    }
+    if (rect.x + rect.width > barStartX + exactBarWidth + epsilon) {
+      violations.push(`${label} right ${rect.x + rect.width} exceeds ${barStartX + exactBarWidth}`);
+    }
+    if (rect.y + rect.height > barY + barHeight + epsilon) {
+      violations.push(`${label} bottom ${rect.y + rect.height} exceeds ${barY + barHeight}`);
+    }
+    if (rect.width <= 0) {
+      violations.push(`${label} width ${rect.width} is not positive`);
+    }
+    if (rect.height <= 0) {
+      violations.push(`${label} height ${rect.height} is not positive`);
+    }
+  });
+
+  return violations;
 }
 
 describe('createBarPatternSVG', () => {
@@ -182,6 +221,109 @@ describe('createBarPatternSVG', () => {
     expect(ticker).toContain('<rect');
     expect(binary).toContain('<rect');
     expect(numeric).toContain('<rect');
+  });
+
+
+  test('clips ticker SVG rectangles to the visible ticker pattern bounds for wide bottom ticks', () => {
+    const geometry = createTickerPatternGeometry({
+      exactBarWidth: 250,
+      barHeight: 18,
+      tickerRepeats: 34,
+      tickerRatio: 1,
+      tickerWidthRatio: 5
+    });
+    const result = createBarPatternSVG(makeBaseConfig({
+      currentShader: 2,
+      values: {
+        ...makeBaseConfig().values,
+        tickerRepeats: 34,
+        tickerRatio: 1,
+        tickerWidthRatio: 5
+      }
+    }));
+    const rects = [...result.matchAll(/<rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)"/g)]
+      .map((match) => ({
+        x: parseFloat(match[1]),
+        y: parseFloat(match[2]),
+        width: parseFloat(match[3]),
+        height: parseFloat(match[4])
+    }));
+
+    expectTickerRectsInsideBar(rects);
+    expect(Math.max(...rects.map((rect) => rect.x + rect.width))).toBeCloseTo(geometry.patternEndX);
+  });
+
+  test('keeps all allowed ticker parameter combinations inside the bar and repeat bounds', () => {
+    const violations = [];
+
+    for (let repeats = 5; repeats <= 40; repeats++) {
+      for (let ratio = 1; ratio <= 5; ratio++) {
+        for (let widthRatio = 1; widthRatio <= 5; widthRatio++) {
+          const staticGeometry = createTickerPatternGeometry({
+            barStartX: 10,
+            barY: 4,
+            exactBarWidth: 250,
+            barHeight: 18,
+            tickerRepeats: repeats,
+            tickerRatio: ratio,
+            tickerWidthRatio: widthRatio
+          });
+          violations.push(...getTickerRectBoundsViolations(
+            staticGeometry.rects,
+            10,
+            4,
+            250,
+            18,
+            `static repeats=${repeats} ratio=${ratio} widthRatio=${widthRatio}`
+          ));
+          staticGeometry.rects
+            .filter((rect) => rect.row === 'bottom')
+            .forEach((rect, index) => {
+              const cellRight = 10 + (index + 1) * staticGeometry.repeatWidth;
+              if (rect.x + rect.width > cellRight + 0.000001) {
+                violations.push(
+                  `static repeats=${repeats} ratio=${ratio} widthRatio=${widthRatio} bottom rect ${index} exceeds repeat cell`
+                );
+              }
+            });
+          staticGeometry.rects.forEach((rect, index) => {
+            if (rect.x + rect.width > staticGeometry.patternEndX + 0.000001) {
+              violations.push(
+                `static repeats=${repeats} ratio=${ratio} widthRatio=${widthRatio} rect ${index} exceeds visible pattern end`
+              );
+            }
+          });
+
+          [0, staticGeometry.repeatWidth * 0.35, staticGeometry.repeatWidth * 0.95].forEach((loopOffsetX) => {
+            const loopingGeometry = createTickerPatternGeometry({
+              barStartX: 10,
+              barY: 4,
+              exactBarWidth: 250,
+              barHeight: 18,
+              tickerRepeats: repeats,
+              tickerRatio: ratio,
+              tickerWidthRatio: widthRatio,
+              loopOffsetX
+            });
+            violations.push(...getTickerRectBoundsViolations(
+              loopingGeometry.rects,
+              10,
+              4,
+              250,
+              18,
+              `loop repeats=${repeats} ratio=${ratio} widthRatio=${widthRatio} offset=${loopOffsetX}`
+            ));
+            if (loopingGeometry.bottomTickWidth > loopingGeometry.repeatWidth + 0.000001) {
+              violations.push(
+                `loop repeats=${repeats} ratio=${ratio} widthRatio=${widthRatio} bottom width exceeds repeat width`
+              );
+            }
+          });
+        }
+      }
+    }
+
+    expect(violations).toEqual([]);
   });
 
   test('builds geometry for every truss option in the selector', () => {

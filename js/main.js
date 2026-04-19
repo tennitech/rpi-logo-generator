@@ -6190,33 +6190,19 @@ function drawBottomBar(currentWidth) {
     fill(fgColor);
     noStroke();
 
-    // Split the bar into top and bottom halves
-    const halfHeight = rectHeight / 2;
+    const tickerGeometry = createTickerPatternGeometry({
+      barStartX,
+      barY: 0,
+      exactBarWidth,
+      barHeight: rectHeight,
+      tickerRepeats: tickerSlider ? tickerSlider.value : 34,
+      tickerRatio: tickerRatioSlider ? tickerRatioSlider.value : 2,
+      tickerWidthRatio: tickerWidthRatioSlider ? tickerWidthRatioSlider.value : 2
+    });
 
-    // Get ratio from sliders
-    const ratio = parseInt(tickerRatioSlider.value);
-    const widthRatio = parseInt(tickerWidthRatioSlider.value);
-
-    // Calculate tick counts
-    const bottomTicks = parseInt(tickerSlider.value);
-    const topTicks = bottomTicks * ratio;
-
-    // Calculate spacing - divide available width by number of ticks
-    const tickSpacing = exactBarWidth / topTicks;
-    const topTickWidth = tickSpacing / 2; // Half spacing for tick, half for gap
-    const bottomTickWidth = topTickWidth * widthRatio;
-
-    // Draw top row - every position
-    for (let i = 0; i < topTicks; i++) {
-      const x = barStartX + i * tickSpacing;
-      rect(x, 0, topTickWidth, halfHeight);
-    }
-
-    // Draw bottom row - only at positions that align with the ratio
-    for (let i = 0; i < bottomTicks; i++) {
-      const topIndex = i * ratio;
-      const x = barStartX + topIndex * tickSpacing;
-      rect(x, halfHeight, bottomTickWidth, halfHeight);
+    for (let i = 0; i < tickerGeometry.rects.length; i++) {
+      const tickerRect = tickerGeometry.rects[i];
+      rect(tickerRect.x, tickerRect.y, tickerRect.width, tickerRect.height);
     }
 
   } else if (currentShader === 3) {

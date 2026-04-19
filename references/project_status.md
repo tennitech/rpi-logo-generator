@@ -77,6 +77,7 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
     - Kept the header height consistent across desktop and mobile by removing the mobile-only shorter header override.
     - Simplified the `CIRCLES` parameter panel so it only exposes `MODE` (`PACKING`/`GRID`), `STYLE` (`STROKE`/`FILL`), and the shared density, variation, and overlap sliders; grid mode now uses those same controls with fixed internal grid defaults.
     - Tightened `CIRCLES` rendering so generated grid and packing circles keep usable multi-circle coverage across the full bar bounds, with SVG/export clipping preserved and live WebGL rendering guarded against unsupported 2D clipping APIs.
+    - Centralized `TICKER` rectangle geometry so live preview, export SVG, and looping GIF frame rendering clip every top and bottom tick to the official bar bounds across the allowed repeats, count ratio, and width ratio controls; static bottom ticker segments are also capped to their repeat cell and clipped to the final top-tick edge so wide ratios cannot create a trailing line past the visible pattern.
 - **[2026-04-15] Runtime Control Redesign Rolled Back After Stylesheet Corruption**:
     - Restored `css/style.css` after it was accidentally overwritten, then reapplied the current right-sidebar shell, scroll-fade, sticky report rail, report dialog, and parameter-header utility styling as an override layer.
     - Reverted the unfinished `LIVE` runtime-control treatment back to the prior `PREVIEW` structure so the interface returns to the last stable control layout.

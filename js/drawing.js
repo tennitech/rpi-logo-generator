@@ -224,29 +224,20 @@ function drawLoopingRulerPatternOnGraphics(pg, barStartX, barY, exactBarWidth, r
 }
 
 function drawLoopingTickerPatternOnGraphics(pg, barStartX, barY, exactBarWidth, rectHeight, loopOffsetX) {
-  const tickerRatio = parseInt(tickerRatioSlider.value, 10);
-  const tickerWidthRatio = parseInt(tickerWidthRatioSlider.value, 10);
-  const tickerBottomTicks = parseInt(tickerSlider.value, 10);
-  const repeatWidth = exactBarWidth / tickerBottomTicks;
-  const topTickSpacing = repeatWidth / tickerRatio;
-  const topTickWidth = topTickSpacing / 2;
-  const bottomTickWidth = topTickWidth * tickerWidthRatio;
-  const tickerHalfHeight = rectHeight / 2;
-  const wrappedOffset = ((loopOffsetX % repeatWidth) + repeatWidth) % repeatWidth;
-  const drawStartX = barStartX - wrappedOffset;
-  const drawEndX = barStartX + exactBarWidth;
+  const tickerGeometry = createTickerPatternGeometry({
+    barStartX,
+    barY,
+    exactBarWidth,
+    barHeight: rectHeight,
+    tickerRepeats: tickerSlider ? tickerSlider.value : 34,
+    tickerRatio: tickerRatioSlider ? tickerRatioSlider.value : 2,
+    tickerWidthRatio: tickerWidthRatioSlider ? tickerWidthRatioSlider.value : 2,
+    loopOffsetX
+  });
 
-  for (let repeatX = drawStartX - repeatWidth; repeatX <= drawEndX + repeatWidth; repeatX += repeatWidth) {
-    for (let tickIndex = 0; tickIndex < tickerRatio; tickIndex++) {
-      const topTickX = repeatX + tickIndex * topTickSpacing;
-      if (topTickX + topTickWidth > barStartX && topTickX < drawEndX) {
-        pg.rect(topTickX, barY, topTickWidth, tickerHalfHeight);
-      }
-    }
-
-    if (repeatX + bottomTickWidth > barStartX && repeatX < drawEndX) {
-      pg.rect(repeatX, barY + tickerHalfHeight, bottomTickWidth, tickerHalfHeight);
-    }
+  for (let i = 0; i < tickerGeometry.rects.length; i++) {
+    const rect = tickerGeometry.rects[i];
+    pg.rect(rect.x, rect.y, rect.width, rect.height);
   }
 }
 
@@ -360,27 +351,19 @@ function drawBarPatternOnGraphics(pg, barStartX, barY, exactBarWidth, rectHeight
       return;
     }
 
-    // Ticker pattern
-    const tickerRatio = parseInt(tickerRatioSlider.value);
-    const tickerWidthRatio = parseInt(tickerWidthRatioSlider.value);
-    const tickerBottomTicks = parseInt(tickerSlider.value);
-    const tickerTopTicks = tickerBottomTicks * tickerRatio;
-    const tickerHalfHeight = rectHeight / 2;
-    const tickerSpacing = exactBarWidth / tickerTopTicks;
-    const tickerTopWidth = tickerSpacing / 2;
-    const tickerBottomWidth = tickerTopWidth * tickerWidthRatio;
+    const tickerGeometry = createTickerPatternGeometry({
+      barStartX,
+      barY,
+      exactBarWidth,
+      barHeight: rectHeight,
+      tickerRepeats: tickerSlider ? tickerSlider.value : 34,
+      tickerRatio: tickerRatioSlider ? tickerRatioSlider.value : 2,
+      tickerWidthRatio: tickerWidthRatioSlider ? tickerWidthRatioSlider.value : 2
+    });
 
-    // Top row
-    for (let i = 0; i < tickerTopTicks; i++) {
-      const x = barStartX + i * tickerSpacing;
-      pg.rect(x, barY, tickerTopWidth, tickerHalfHeight);
-    }
-
-    // Bottom row
-    for (let i = 0; i < tickerBottomTicks; i++) {
-      const topIndex = i * tickerRatio;
-      const x = barStartX + topIndex * tickerSpacing;
-      pg.rect(x, barY + tickerHalfHeight, tickerBottomWidth, tickerHalfHeight);
+    for (let i = 0; i < tickerGeometry.rects.length; i++) {
+      const rect = tickerGeometry.rects[i];
+      pg.rect(rect.x, rect.y, rect.width, rect.height);
     }
   } else if (currentShader === 3) {
     // Binary pattern

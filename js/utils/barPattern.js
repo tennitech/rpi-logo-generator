@@ -157,6 +157,138 @@ function createLinesPatternGeometry(options = {}) {
   return { rects };
 }
 
+function normalizeTickerWholeNumber(value, fallback, min = 1) {
+  const parsed = Math.round(parseFloat(value));
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+
+  return Math.max(min, parsed);
+}
+
+function clipTickerRectToBar(rect, barStartX, barY, exactBarWidth, barHeight, maxX) {
+  const barEndX = Number.isFinite(maxX) ? Math.min(barStartX + exactBarWidth, maxX) : barStartX + exactBarWidth;
+  const barEndY = barY + barHeight;
+  const rectEndX = rect.x + rect.width;
+  const rectEndY = rect.y + rect.height;
+  const clippedX = Math.max(barStartX, rect.x);
+  const clippedY = Math.max(barY, rect.y);
+  const clippedEndX = Math.min(barEndX, rectEndX);
+  const clippedEndY = Math.min(barEndY, rectEndY);
+  const clippedWidth = clippedEndX - clippedX;
+  const clippedHeight = clippedEndY - clippedY;
+
+  if (clippedWidth <= 0 || clippedHeight <= 0) {
+    return null;
+  }
+
+  return {
+    ...rect,
+    x: clippedX,
+    y: clippedY,
+    width: clippedWidth,
+    height: clippedHeight
+  };
+}
+
+function createTickerPatternGeometry(options = {}) {
+  const barStartX = Number(options.barStartX || 0);
+  const barY = Number(options.barY || 0);
+  const exactBarWidth = Math.max(1, Number(options.exactBarWidth || 250));
+  const barHeight = Math.max(1, Number(options.barHeight || 18));
+  const tickerRepeats = normalizeTickerWholeNumber(options.tickerRepeats, 34);
+  const tickerRatio = normalizeTickerWholeNumber(options.tickerRatio, 2);
+  const tickerWidthRatio = normalizeTickerWholeNumber(options.tickerWidthRatio, 2);
+  const halfHeight = barHeight / 2;
+  const rects = [];
+  const addRect = (rect, maxX) => {
+    const clippedRect = clipTickerRectToBar(rect, barStartX, barY, exactBarWidth, barHeight, maxX);
+    if (clippedRect) {
+      rects.push(clippedRect);
+    }
+  };
+
+  if (Number.isFinite(options.loopOffsetX)) {
+    const repeatWidth = exactBarWidth / tickerRepeats;
+    const topTickSpacing = repeatWidth / tickerRatio;
+    const topTickWidth = topTickSpacing / 2;
+    const bottomTickWidth = Math.min(topTickWidth * tickerWidthRatio, repeatWidth);
+    const wrappedOffset = ((options.loopOffsetX % repeatWidth) + repeatWidth) % repeatWidth;
+    const drawBaseX = barStartX - wrappedOffset;
+    const drawEndX = barStartX + exactBarWidth;
+    const maxTickWidth = Math.max(topTickWidth, bottomTickWidth);
+    const startPaddingRepeats = Math.ceil(maxTickWidth / repeatWidth) + 1;
+
+    for (
+      let repeatX = drawBaseX - startPaddingRepeats * repeatWidth;
+      repeatX <= drawEndX + repeatWidth;
+      repeatX += repeatWidth
+    ) {
+      for (let tickIndex = 0; tickIndex < tickerRatio; tickIndex++) {
+        const topTickX = repeatX + tickIndex * topTickSpacing;
+        addRect({
+          x: topTickX,
+          y: barY,
+          width: topTickWidth,
+          height: halfHeight,
+          row: 'top'
+        });
+      }
+
+      addRect({
+        x: repeatX,
+        y: barY + halfHeight,
+        width: bottomTickWidth,
+        height: halfHeight,
+        row: 'bottom'
+      });
+    }
+
+    return {
+      rects,
+      repeatWidth,
+      topTickWidth,
+      bottomTickWidth,
+      patternEndX: barStartX + exactBarWidth
+    };
+  }
+
+  const topTicks = tickerRepeats * tickerRatio;
+  const tickerSpacing = exactBarWidth / topTicks;
+  const topTickWidth = tickerSpacing / 2;
+  const repeatWidth = exactBarWidth / tickerRepeats;
+  const bottomTickWidth = Math.min(topTickWidth * tickerWidthRatio, repeatWidth);
+  const patternEndX = barStartX + exactBarWidth - tickerSpacing + topTickWidth;
+
+  for (let i = 0; i < topTicks; i++) {
+    addRect({
+      x: barStartX + i * tickerSpacing,
+      y: barY,
+      width: topTickWidth,
+      height: halfHeight,
+      row: 'top'
+    });
+  }
+
+  for (let i = 0; i < tickerRepeats; i++) {
+    addRect({
+      x: barStartX + i * tickerRatio * tickerSpacing,
+      y: barY + halfHeight,
+      width: bottomTickWidth,
+      height: halfHeight,
+      row: 'bottom'
+    }, patternEndX);
+  }
+
+  return {
+    rects,
+    repeatWidth,
+    topTickWidth,
+    bottomTickWidth,
+    patternEndX
+  };
+}
+
 function createPointConnectPatternGeometry(options = {}) {
   const barStartX = Number(options.barStartX || 0);
   const barY = Number(options.barY || 0);
@@ -1191,24 +1323,19 @@ function createBarPatternSVG(config) {
   }
 
   if (currentShader === 2) {
-    const tickerRatio = parseInt(values.tickerRatio, 10);
-    const tickerWidthRatio = parseInt(values.tickerWidthRatio, 10);
-    const tickerBottomTicks = parseInt(values.tickerRepeats, 10);
-    const tickerTopTicks = tickerBottomTicks * tickerRatio;
-    const tickerHalfHeight = barHeight / 2;
-    const tickerSpacing = exactBarWidth / tickerTopTicks;
-    const tickerTopWidth = tickerSpacing / 2;
-    const tickerBottomWidth = tickerTopWidth * tickerWidthRatio;
+    const tickerGeometry = createTickerPatternGeometry({
+      barStartX,
+      barY,
+      exactBarWidth,
+      barHeight,
+      tickerRepeats: values.tickerRepeats,
+      tickerRatio: values.tickerRatio,
+      tickerWidthRatio: values.tickerWidthRatio
+    });
 
-    for (let i = 0; i < tickerTopTicks; i++) {
-      const x = barStartX + i * tickerSpacing;
-      pattern += `\n    <rect x="${x}" y="${barY}" width="${tickerTopWidth}" height="${tickerHalfHeight}" fill="${fgColor}"/>`;
-    }
-
-    for (let i = 0; i < tickerBottomTicks; i++) {
-      const topIndex = i * tickerRatio;
-      const x = barStartX + topIndex * tickerSpacing;
-      pattern += `\n    <rect x="${x}" y="${barY + tickerHalfHeight}" width="${tickerBottomWidth}" height="${tickerHalfHeight}" fill="${fgColor}"/>`;
+    for (let i = 0; i < tickerGeometry.rects.length; i++) {
+      const rect = tickerGeometry.rects[i];
+      pattern += `\n    <rect x="${rect.x}" y="${rect.y}" width="${rect.width}" height="${rect.height}" fill="${fgColor}"/>`;
     }
     return pattern;
   }
@@ -1764,6 +1891,7 @@ if (typeof window !== 'undefined') {
   window.createLinesPatternGeometry = createLinesPatternGeometry;
   window.createNeuralNetworkPatternGeometry = createNeuralNetworkPatternGeometry;
   window.createPointConnectPatternGeometry = createPointConnectPatternGeometry;
+  window.createTickerPatternGeometry = createTickerPatternGeometry;
   window.createTriangleGridPatternGeometry = createTriangleGridPatternGeometry;
   window.createTrussPatternGeometry = createTrussPatternGeometry;
   window.createTrianglesPatternGeometry = createTrianglesPatternGeometry;
@@ -1786,6 +1914,7 @@ if (typeof module !== 'undefined' && module.exports) {
     createLinesPatternGeometry,
     createNeuralNetworkPatternGeometry,
     createPointConnectPatternGeometry,
+    createTickerPatternGeometry,
     createTriangleGridPatternGeometry,
     createTrussPatternGeometry,
     createTrianglesPatternGeometry,
