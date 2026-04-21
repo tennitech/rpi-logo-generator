@@ -87,19 +87,6 @@ let circlesOverlapSlider;
 let circlesOverlapDisplay;
 let circlesFillSelect;
 let circlesModeSelect;
-let circlesPackingControls;
-let circlesGridControls;
-let circlesRowsSlider;
-let circlesRowsDisplay;
-let circlesGridDensitySlider;
-let circlesGridDensityDisplay;
-let circlesSizeVariationYSlider;
-let circlesSizeVariationYDisplay;
-let circlesSizeVariationXSlider;
-let circlesSizeVariationXDisplay;
-let circlesGridOverlapSlider;
-let circlesGridOverlapDisplay;
-let circlesLayoutSelect;
 let numericGroup;
 let numericInput;
 let numericModeSelect;
@@ -195,8 +182,15 @@ let appSidebar;
 let sidebarScroll;
 let mobileMenuToggle;
 let saveButton;
+let saveButtonLabel;
 let saveMenu;
+let savePngButton;
+let saveSvgButton;
 let saveLoopGifButton;
+let copyEmbedButton;
+let styleSelectLabel;
+let colorModeSelectLabel;
+let reportProblemLabel;
 let reportProblemBtn;
 let bugReportDialog;
 let bugReportForm;
@@ -232,6 +226,68 @@ let easterEggResumeAudio = false;
 let easterEggLastFocusedElement = null;
 let easterEggProfile = null;
 let easterEggRunState = null;
+const ARTEMIS_II_SPLASHDOWN_AT = Date.parse('2026-04-10T20:07:00-04:00');
+const ARTEMIS_CREDIT_LINKS = {
+  reidWiseman: 'https://news.rpi.edu/2026/04/13/engineers-who-reached-moon-how-rpi-became-launchpad-stars',
+  rpiEngineers: 'https://news.rpi.edu/2026/03/31/meet-rpi-engineers-guiding-artemis-ii-moon-and-back',
+  lunarImageCredit: 'https://github.com/the-astronot/boromir/blob/main/README.md'
+};
+const DEFAULT_SAVE_MENU_COPY = {
+  button: 'Download Asset',
+  png: {
+    label: 'PNG IMAGE',
+    description: 'High resolution raster'
+  },
+  svg: {
+    label: 'SVG VECTOR',
+    description: 'Scalable format'
+  },
+  gif: {
+    label: 'LOOPING GIF',
+    description: 'Seamless animation for repeat styles'
+  },
+  copy: {
+    label: 'COPY EMBED CODE',
+    description: 'For Frontify / Web'
+  }
+};
+const MISSION_CONTROL_SAVE_MENU_COPY = {
+  button: 'Learn About RPI x Artemis',
+  png: {
+    label: "Reid Wiseman '97",
+    description: 'Commander'
+  },
+  svg: {
+    label: "Maeve Marshall '23, M.Eng. '24",
+    description: 'GNC Engineer'
+  },
+  gif: {
+    label: "Paul McKee '17, MS '18, Ph.D. '23",
+    description: 'Orion Optical Navigation Engineer'
+  },
+  copy: {
+    label: 'Moon Surface Credit',
+    description: "Maeve Marshall's thesis image source"
+  }
+};
+const DEFAULT_INTERFACE_COPY = {
+  styleLabel: 'BAR STYLE',
+  colorLabel: 'COLOR THEME',
+  reportProblem: 'Report a Problem'
+};
+const MISSION_CONTROL_INTERFACE_COPY = {
+  styleLabel: 'SIGNAL',
+  colorLabel: 'DISPLAY MODE',
+  reportProblem: 'Report Anomaly'
+};
+let lunarCounterRoot = null;
+let lunarCounterToggle = null;
+let lunarCounterDetail = null;
+let lunarCounterDays = null;
+let lunarCounterHours = null;
+let lunarCounterMinutes = null;
+let lunarCounterSeconds = null;
+let lunarCounterInterval = 0;
 let tickerShader1, tickerShader2, binaryShader;
 let currentShader = 1;
 let barBuffer;
@@ -276,7 +332,7 @@ const DEFAULT_COLOR_MODE = themeModeUtils && typeof themeModeUtils.DEFAULT_COLOR
   : 'black';
 const AVAILABLE_COLOR_MODES = themeModeUtils && Array.isArray(themeModeUtils.AVAILABLE_COLOR_MODES)
   ? themeModeUtils.AVAILABLE_COLOR_MODES.slice()
-  : ['black', 'white', 'red', 'blue', 'gold', 'silver', 'gray'];
+  : ['black', 'white', 'red', 'blue', 'gold', 'silver', 'gray', 'lunar'];
 const AVAILABLE_COLOR_MODE_SET = themeModeUtils && themeModeUtils.AVAILABLE_COLOR_MODE_SET instanceof Set
   ? themeModeUtils.AVAILABLE_COLOR_MODE_SET
   : new Set(AVAILABLE_COLOR_MODES);
@@ -324,7 +380,9 @@ const getPreviewButtonState = previewControlUtils && typeof previewControlUtils.
   };
 
 let currentColorMode = DEFAULT_COLOR_MODE;
+let lastNonLunarColorMode = DEFAULT_COLOR_MODE;
 const colors = {
+  lunar: { bg: '#05070a', fg: '#f4f7fb' },
   black: { bg: '#ffffff', fg: '#000000' },
   white: { bg: '#000000', fg: '#ffffff' },
   red: { bg: '#ffffff', fg: '#d6001c' },
@@ -334,7 +392,94 @@ const colors = {
   gray: { bg: '#151b21', fg: '#B9CCD8' }
 };
 
+function padCounterValue(value, digits) {
+  return String(Math.max(0, Math.floor(value) || 0)).padStart(digits, '0');
+}
+
+function updateLunarSplashdownCounter(now = Date.now()) {
+  if (!lunarCounterRoot || Number.isNaN(ARTEMIS_II_SPLASHDOWN_AT)) return;
+
+  const elapsedSeconds = Math.max(0, Math.floor((now - ARTEMIS_II_SPLASHDOWN_AT) / 1000));
+  const days = Math.floor(elapsedSeconds / 86400);
+  const hours = Math.floor((elapsedSeconds % 86400) / 3600);
+  const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+  const seconds = elapsedSeconds % 60;
+
+  if (lunarCounterDays) lunarCounterDays.textContent = padCounterValue(days, 3);
+  if (lunarCounterHours) lunarCounterHours.textContent = padCounterValue(hours, 2);
+  if (lunarCounterMinutes) lunarCounterMinutes.textContent = padCounterValue(minutes, 2);
+  if (lunarCounterSeconds) lunarCounterSeconds.textContent = padCounterValue(seconds, 2);
+
+  lunarCounterRoot.setAttribute(
+    'aria-label',
+    `Time since Artemis II splashdown: ${days} days, ${hours} hours, ${minutes} minutes, ${seconds} seconds`
+  );
+  if (lunarCounterToggle) {
+    lunarCounterToggle.setAttribute(
+      'aria-label',
+      `Show Artemis II splashdown details. Elapsed time: ${days} days, ${hours} hours, ${minutes} minutes, ${seconds} seconds`
+    );
+  }
+}
+
+function setupLunarSplashdownCounter() {
+  lunarCounterRoot = document.getElementById('lunar-splashdown-counter');
+  lunarCounterToggle = document.getElementById('lunar-counter-detail-toggle');
+  lunarCounterDetail = document.getElementById('lunar-counter-detail');
+  lunarCounterDays = document.getElementById('lunar-counter-days');
+  lunarCounterHours = document.getElementById('lunar-counter-hours');
+  lunarCounterMinutes = document.getElementById('lunar-counter-minutes');
+  lunarCounterSeconds = document.getElementById('lunar-counter-seconds');
+
+  if (!lunarCounterRoot) return;
+
+  if (lunarCounterToggle && lunarCounterDetail) {
+    lunarCounterToggle.addEventListener('click', toggleLunarCounterDetail);
+    document.addEventListener('click', handleLunarCounterOutsideClick);
+    document.addEventListener('keydown', handleLunarCounterKeydown);
+  }
+
+  updateLunarSplashdownCounter();
+  if (lunarCounterInterval) {
+    clearInterval(lunarCounterInterval);
+  }
+  lunarCounterInterval = setInterval(updateLunarSplashdownCounter, 1000);
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      updateLunarSplashdownCounter();
+    }
+  });
+}
+
+function toggleLunarCounterDetail(event) {
+  if (event) event.stopPropagation();
+  if (!lunarCounterToggle || !lunarCounterDetail) return;
+
+  const shouldOpen = lunarCounterDetail.hidden;
+  lunarCounterDetail.hidden = !shouldOpen;
+  lunarCounterToggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+}
+
+function closeLunarCounterDetail() {
+  if (!lunarCounterToggle || !lunarCounterDetail || lunarCounterDetail.hidden) return;
+
+  lunarCounterDetail.hidden = true;
+  lunarCounterToggle.setAttribute('aria-expanded', 'false');
+}
+
+function handleLunarCounterOutsideClick(event) {
+  if (!lunarCounterRoot || lunarCounterRoot.contains(event.target)) return;
+  closeLunarCounterDetail();
+}
+
+function handleLunarCounterKeydown(event) {
+  if (event.key !== 'Escape') return;
+  closeLunarCounterDetail();
+}
+
 const themeClassByColorMode = {
+  lunar: 'theme-lunar',
   black: 'theme-black',
   white: 'theme-white',
   red: 'theme-red',
@@ -476,6 +621,10 @@ let panOffset = { x: 0, y: 0 };
 let panTargetOffset = { x: 0, y: 0 };
 let panVelocity = { x: 0, y: 0 };
 let panAnimationFrame = 0;
+let responsiveWorkspaceResizeObserver = null;
+let responsiveWorkspaceSyncFrame = 0;
+let workspaceResizeTransitionFrame = 0;
+let lastCanvasSize = { width: 0, height: 0 };
 let isPanDragging = false;
 let isPanningMode = false;
 let isAnimated = false;
@@ -489,6 +638,15 @@ const PAN_INERTIA_STOP_THRESHOLD = 0.025;
 const PAN_SETTLE_THRESHOLD = 0.04;
 const PAN_EDGE_PADDING = 12;
 
+const CIRCLES_GRID_ROWS = 2;
+const CIRCLES_GRID_LAYOUT = 'straight';
+const MISSION_CONTROL_GRID_TARGET_CELL = 64;
+const MISSION_CONTROL_GRID_GROUP_SIZE = 10;
+const MISSION_CONTROL_GRID_MIN_COLUMNS = 10;
+const MISSION_CONTROL_GRID_MAX_COLUMNS = 40;
+const MISSION_CONTROL_GRID_MIN_ROWS = 10;
+const MISSION_CONTROL_GRID_MAX_ROWS = 30;
+
 // Zoom/Pan/Playback UI references
 let zoomInBtn, zoomOutBtn, zoomResetBtn, panBtn, zoomLevelDisplay;
 
@@ -497,7 +655,7 @@ const AVAILABLE_STYLE_VALUES = new Set([
   'numeric', 'morse', 'circles-gradient', 'gradient', 'grid',
   'lines', 'point-connect', 'neural-network', 'triangle-grid', 'triangles',
   'fibonacci-sequence', 'union', 'wave-quantum',
-  'runway', 'truss', 'music', 'graph'
+  'runway', 'lunar', 'truss', 'music', 'graph'
 ]);
 
 function normalizeStyleValue(style) {
@@ -781,21 +939,10 @@ function resetStyleParameters(style) {
       if (circlesDensitySlider) circlesDensitySlider.value = 50;
       if (circlesSizeVariationSlider) circlesSizeVariationSlider.value = 0;
       if (circlesOverlapSlider) circlesOverlapSlider.value = 0;
-      if (circlesRowsSlider) circlesRowsSlider.value = 2;
-      if (circlesGridDensitySlider) circlesGridDensitySlider.value = 100;
-      if (circlesSizeVariationYSlider) circlesSizeVariationYSlider.value = 0;
-      if (circlesSizeVariationXSlider) circlesSizeVariationXSlider.value = 0;
-      if (circlesGridOverlapSlider) circlesGridOverlapSlider.value = 0;
-      if (circlesLayoutSelect) circlesLayoutSelect.value = 'straight';
       handleCirclesModeChange();
       updateCirclesDensityDisplay();
       updateCirclesSizeVariationDisplay();
       updateCirclesOverlapDisplay();
-      updateCirclesRowsDisplay();
-      updateCirclesGridDensityDisplay();
-      updateCirclesSizeVariationYDisplay();
-      updateCirclesSizeVariationXDisplay();
-      updateCirclesGridOverlapDisplay();
       break;
     case 'numeric':
       if (numericInput) numericInput.value = '3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679';
@@ -942,7 +1089,10 @@ function randomizeStyleParameters(style) {
     case 'ticker':
       if (tickerSlider) tickerSlider.value = randomStepValue(8, 40, 1);
       if (tickerRatioSlider) tickerRatioSlider.value = randomStepValue(1, 5, 1);
-      if (tickerWidthRatioSlider) tickerWidthRatioSlider.value = randomStepValue(1, 5, 1);
+      if (tickerWidthRatioSlider) {
+        applyTickerWidthRatioBounds(tickerRatioSlider, tickerWidthRatioSlider);
+        tickerWidthRatioSlider.value = randomStepValue(1, parseInt(tickerWidthRatioSlider.max, 10), 1);
+      }
       updateTickerDisplay();
       updateTickerRatioDisplay();
       updateTickerWidthRatioDisplay();
@@ -974,26 +1124,12 @@ function randomizeStyleParameters(style) {
       if (circlesModeSelect) circlesModeSelect.value = pickRandom(['packing', 'grid']);
       if (circlesFillSelect) circlesFillSelect.value = pickRandom(['stroke', 'fill']);
       handleCirclesModeChange();
-      if (circlesModeSelect && circlesModeSelect.value === 'grid') {
-        if (circlesRowsSlider) circlesRowsSlider.value = randomStepValue(1, 6, 1);
-        if (circlesGridDensitySlider) circlesGridDensitySlider.value = randomStepValue(30, 100, 1);
-        if (circlesSizeVariationYSlider) circlesSizeVariationYSlider.value = randomStepValue(-80, 80, 1);
-        if (circlesSizeVariationXSlider) circlesSizeVariationXSlider.value = randomStepValue(-80, 80, 1);
-        if (circlesGridOverlapSlider) circlesGridOverlapSlider.value = randomStepValue(0, 220, 1);
-        if (circlesLayoutSelect) circlesLayoutSelect.value = pickRandom(['straight', 'stagger']);
-        updateCirclesRowsDisplay();
-        updateCirclesGridDensityDisplay();
-        updateCirclesSizeVariationYDisplay();
-        updateCirclesSizeVariationXDisplay();
-        updateCirclesGridOverlapDisplay();
-      } else {
-        if (circlesDensitySlider) circlesDensitySlider.value = randomStepValue(20, 95, 1);
-        if (circlesSizeVariationSlider) circlesSizeVariationSlider.value = randomStepValue(0, 85, 1);
-        if (circlesOverlapSlider) circlesOverlapSlider.value = randomStepValue(0, 70, 1);
-        updateCirclesDensityDisplay();
-        updateCirclesSizeVariationDisplay();
-        updateCirclesOverlapDisplay();
-      }
+      if (circlesDensitySlider) circlesDensitySlider.value = randomStepValue(20, 95, 1);
+      if (circlesSizeVariationSlider) circlesSizeVariationSlider.value = randomStepValue(0, 85, 1);
+      if (circlesOverlapSlider) circlesOverlapSlider.value = randomStepValue(0, 70, 1);
+      updateCirclesDensityDisplay();
+      updateCirclesSizeVariationDisplay();
+      updateCirclesOverlapDisplay();
       break;
     case 'numeric':
       if (numericInput) numericInput.value = pickRandom(SURPRISE_NUMERIC_OPTIONS);
@@ -1223,6 +1359,39 @@ function syncAllCustomSelects() {
       selectedOption ? selectedOption.textContent : selectElement.value
     );
   });
+}
+
+function isLunarStyleSelected() {
+  return normalizeStyleValue(styleSelect ? styleSelect.value : 'solid') === 'lunar';
+}
+
+function getSelectableColorModes() {
+  return isLunarStyleSelected()
+    ? AVAILABLE_COLOR_MODES.slice()
+    : AVAILABLE_COLOR_MODES.filter(mode => mode !== 'lunar');
+}
+
+function syncLunarColorOptionAvailability() {
+  if (!colorModeSelect) return;
+
+  const allowLunarTheme = isLunarStyleSelected();
+  const lunarOption = colorModeSelect.querySelector('option[value="lunar"]');
+
+  if (lunarOption) {
+    lunarOption.hidden = !allowLunarTheme;
+    lunarOption.disabled = !allowLunarTheme;
+  }
+
+  const wrapperElement = colorModeSelect.parentElement;
+  const customLunarOption = wrapperElement
+    ? wrapperElement.querySelector('.custom-option[data-value="lunar"]')
+    : null;
+
+  if (customLunarOption) {
+    customLunarOption.classList.toggle('is-hidden', !allowLunarTheme);
+    customLunarOption.setAttribute('aria-hidden', String(!allowLunarTheme));
+    customLunarOption.setAttribute('aria-disabled', String(!allowLunarTheme));
+  }
 }
 
 function zoomLevelToDisplayPercent(level) {
@@ -1460,6 +1629,106 @@ function buildGraphSeriesData(streamTexts) {
 
 // Create texture from numeric data
 
+function quantizeMissionControlGridCount(size, minCount, maxCount) {
+  const rawGroupCount = Math.max(1, Math.round(size / (MISSION_CONTROL_GRID_TARGET_CELL * MISSION_CONTROL_GRID_GROUP_SIZE)));
+  const quantizedCount = rawGroupCount * MISSION_CONTROL_GRID_GROUP_SIZE;
+  return Math.max(minCount, Math.min(maxCount, quantizedCount));
+}
+
+function syncMissionControlGrid() {
+  const logoContainer = document.querySelector('.logo-container');
+  if (!logoContainer) return;
+
+  const width = logoContainer.clientWidth;
+  const height = logoContainer.clientHeight;
+  if (!width || !height) return;
+
+  const columns = quantizeMissionControlGridCount(
+    width,
+    MISSION_CONTROL_GRID_MIN_COLUMNS,
+    MISSION_CONTROL_GRID_MAX_COLUMNS
+  );
+  const rows = quantizeMissionControlGridCount(
+    height,
+    MISSION_CONTROL_GRID_MIN_ROWS,
+    MISSION_CONTROL_GRID_MAX_ROWS
+  );
+
+  const cellX = width / columns;
+  const cellY = height / rows;
+
+  logoContainer.style.setProperty('--lunar-grid-cell-x', `${cellX}px`);
+  logoContainer.style.setProperty('--lunar-grid-cell-y', `${cellY}px`);
+  logoContainer.style.setProperty('--lunar-grid-major-x', `${cellX * 5}px`);
+  logoContainer.style.setProperty('--lunar-grid-major-y', `${cellY * 5}px`);
+}
+
+function syncResponsiveWorkspaceSizing() {
+  responsiveWorkspaceSyncFrame = 0;
+  syncSidebarToggleState();
+  syncMissionControlGrid();
+
+  const container = document.getElementById('p5-container');
+  if (container && typeof resizeCanvas === 'function') {
+    const nextWidth = Math.round(container.offsetWidth);
+    const nextHeight = Math.round(container.offsetHeight);
+
+    if (
+      nextWidth > 0 &&
+      nextHeight > 0 &&
+      (lastCanvasSize.width !== nextWidth || lastCanvasSize.height !== nextHeight)
+    ) {
+      resizeCanvas(nextWidth, nextHeight);
+      lastCanvasSize = { width: nextWidth, height: nextHeight };
+      clampPanOffset();
+      renderPanOffsetChange();
+    }
+  }
+
+  updateEasterEggHotspotBounds();
+  resizeEasterEggCanvas();
+}
+
+function requestResponsiveWorkspaceSizing() {
+  if (responsiveWorkspaceSyncFrame) return;
+  responsiveWorkspaceSyncFrame = requestAnimationFrame(syncResponsiveWorkspaceSizing);
+}
+
+function startWorkspaceResizeTransitionSync(duration = 450) {
+  if (workspaceResizeTransitionFrame) {
+    cancelAnimationFrame(workspaceResizeTransitionFrame);
+  }
+
+  const startedAt = performance.now();
+  const step = (now) => {
+    requestResponsiveWorkspaceSizing();
+    if (now - startedAt < duration) {
+      workspaceResizeTransitionFrame = requestAnimationFrame(step);
+      return;
+    }
+    workspaceResizeTransitionFrame = 0;
+    requestResponsiveWorkspaceSizing();
+  };
+
+  workspaceResizeTransitionFrame = requestAnimationFrame(step);
+}
+
+function setupResponsiveWorkspaceSizing() {
+  requestResponsiveWorkspaceSizing();
+
+  if (responsiveWorkspaceResizeObserver) {
+    responsiveWorkspaceResizeObserver.disconnect();
+  }
+
+  const resizeTarget = document.querySelector('.canvas-viewport');
+  if (!resizeTarget || typeof ResizeObserver === 'undefined') return;
+
+  responsiveWorkspaceResizeObserver = new ResizeObserver(() => {
+    requestResponsiveWorkspaceSizing();
+  });
+  responsiveWorkspaceResizeObserver.observe(resizeTarget);
+}
+
 
 // Shader storage
 let shaders = {
@@ -1490,6 +1759,8 @@ async function setup() {
 
   let canvas = createCanvas(width, height, WEBGL);
   canvas.parent('p5-container');
+  lastCanvasSize = { width, height };
+  setupResponsiveWorkspaceSizing();
 
   // Handle WebGL context loss to prevent crashes
   canvas.elt.addEventListener('webglcontextlost', (event) => {
@@ -1658,19 +1929,6 @@ async function setup() {
   circlesOverlapDisplay = document.getElementById('circles-overlap-display');
   circlesFillSelect = document.getElementById('circles-fill-select');
   circlesModeSelect = document.getElementById('circles-mode-select');
-  circlesPackingControls = document.getElementById('circles-packing-controls');
-  circlesGridControls = document.getElementById('circles-grid-controls');
-  circlesRowsSlider = document.getElementById('circles-rows-slider');
-  circlesRowsDisplay = document.getElementById('circles-rows-display');
-  circlesGridDensitySlider = document.getElementById('circles-grid-density-slider');
-  circlesGridDensityDisplay = document.getElementById('circles-grid-density-display');
-  circlesSizeVariationYSlider = document.getElementById('circles-size-variation-y-slider');
-  circlesSizeVariationYDisplay = document.getElementById('circles-size-variation-y-display');
-  circlesSizeVariationXSlider = document.getElementById('circles-size-variation-x-slider');
-  circlesSizeVariationXDisplay = document.getElementById('circles-size-variation-x-display');
-  circlesGridOverlapSlider = document.getElementById('circles-grid-overlap-slider');
-  circlesGridOverlapDisplay = document.getElementById('circles-grid-overlap-display');
-  circlesLayoutSelect = document.getElementById('circles-layout-select');
   numericGroup = document.getElementById('numeric-group');
   numericInput = document.getElementById('numeric-input');
   numericModeSelect = document.getElementById('numeric-mode-select');
@@ -1733,7 +1991,10 @@ async function setup() {
   sidebarScroll = document.getElementById('sidebar-scroll');
   headerLogoPreview = document.getElementById('header-logo-preview');
   mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+  styleSelectLabel = document.getElementById('style-select-label');
+  colorModeSelectLabel = document.getElementById('color-mode-select-label');
   reportProblemBtn = document.getElementById('report-problem-btn');
+  reportProblemLabel = document.getElementById('report-problem-label');
   bugReportDialog = document.getElementById('bug-report-dialog');
   bugReportForm = document.getElementById('bug-report-form');
   bugReportContext = document.getElementById('bug-report-context');
@@ -1753,10 +2014,14 @@ async function setup() {
 
   // Get save control references (globals declared at top so toggleSaveMenu can access them)
   saveButton = document.getElementById('save-button');
+  saveButtonLabel = document.getElementById('save-button-label');
   saveMenu = document.getElementById('save-menu');
-  const savePngButton = document.getElementById('save-png');
-  const saveSvgButton = document.getElementById('save-svg');
+  savePngButton = document.getElementById('save-png');
+  saveSvgButton = document.getElementById('save-svg');
   saveLoopGifButton = document.getElementById('save-loop-gif');
+  copyEmbedButton = document.getElementById('copy-embed');
+  syncMissionControlInterfaceCopy();
+  syncMissionControlSaveMenu();
 
   initializePreviewButtons();
 
@@ -1947,37 +2212,6 @@ async function setup() {
     updateUrlParameters();
   });
 
-  // Setup grid mode sliders with display updates and debouncing
-  circlesRowsSlider.addEventListener('input', () => {
-    updateCirclesRowsDisplay();
-    debouncedCircleUpdate();
-  });
-  circlesGridDensitySlider.addEventListener('input', () => {
-    updateCirclesGridDensityDisplay();
-    debouncedCircleUpdate();
-  });
-  circlesSizeVariationYSlider.addEventListener('input', () => {
-    updateCirclesSizeVariationYDisplay();
-    debouncedCircleUpdate();
-  });
-  circlesSizeVariationXSlider.addEventListener('input', () => {
-    updateCirclesSizeVariationXDisplay();
-    debouncedCircleUpdate();
-  });
-  circlesGridOverlapSlider.addEventListener('input', () => {
-    updateCirclesGridOverlapDisplay();
-    debouncedCircleUpdate();
-  });
-  circlesLayoutSelect.addEventListener('change', function () {
-    debouncedCircleUpdate();
-  });
-
-  updateCirclesRowsDisplay(); // Set initial value
-  updateCirclesGridDensityDisplay(); // Set initial value
-  updateCirclesSizeVariationYDisplay(); // Set initial value
-  updateCirclesSizeVariationXDisplay(); // Set initial value
-  updateCirclesGridOverlapDisplay(); // Set initial value
-
   // Setup mobile menu toggle
   if (mobileMenuToggle) {
     mobileMenuToggle.addEventListener('click', function (e) {
@@ -2082,34 +2316,17 @@ async function setup() {
   });
 
   if (savePngButton) {
-    savePngButton.addEventListener('click', savePNG);
+    savePngButton.addEventListener('click', handleSavePngClick);
   }
   if (saveSvgButton) {
-    saveSvgButton.addEventListener('click', saveSVG);
+    saveSvgButton.addEventListener('click', handleSaveSvgClick);
   }
   if (saveLoopGifButton) {
-    saveLoopGifButton.addEventListener('click', saveLoopingGIF);
+    saveLoopGifButton.addEventListener('click', handleSaveLoopGifClick);
   }
 
-  const copyEmbedButton = document.getElementById('copy-embed');
   if (copyEmbedButton) {
-    copyEmbedButton.addEventListener('click', (e) => {
-      e.stopPropagation();
-
-      // Get current URL which includes all active parameters
-      const embedUrl = window.location.href;
-      const embedCode = `<iframe src="${embedUrl}" width="100%" height="600" frameborder="0" allowfullscreen style="border: none; overflow: hidden; background: transparent;"></iframe>`;
-
-      navigator.clipboard.writeText(embedCode).then(() => {
-        Toast.show('Embed code copied to clipboard!', 'success');
-      }).catch(err => {
-        console.error('Failed to copy:', err);
-        Toast.show('Failed to copy embed code: ' + err.message, 'error');
-      });
-
-      // Hide menu
-      if (saveMenu) saveMenu.classList.add('hidden');
-    });
+    copyEmbedButton.addEventListener('click', handleCopyEmbedClick);
   }
 
   // Close save menu when clicking outside
@@ -2119,8 +2336,7 @@ async function setup() {
 
     if (btn && menu && !btn.contains(event.target) && !menu.contains(event.target)) {
       if (!menu.classList.contains('hidden')) {
-        menu.classList.add('hidden');
-        btn.setAttribute('aria-expanded', 'false');
+        hideSaveMenu();
       }
     }
   });
@@ -2446,20 +2662,18 @@ async function setup() {
 
   // Apply URL parameters if present, otherwise use defaults
   applyUrlParameters();
-
-  // If no URL parameters were present, set defaults
-  if (!window.location.search) {
-    styleSelect.value = "solid";
-    currentShader = 0;
-    applyColorMode(DEFAULT_COLOR_MODE);
-  }
+  updateUrlParameters();
 
   // Initialize Web Audio API
   initializeAudio();
 
   // Initialize custom dropdowns
   setupCustomDropdowns();
+  syncLunarColorOptionAvailability();
+  syncAllCustomSelects();
   updateHeaderBrandPreview(true);
+
+  setupLunarSplashdownCounter();
 
   // Initialize the hidden retro rink experience.
   setupEasterEggExperience();
@@ -2541,8 +2755,8 @@ async function setup() {
     if (event.shiftKey && (event.code === 'ArrowUp' || event.code === 'ArrowDown')) {
       event.preventDefault();
 
-      const colorModes = AVAILABLE_COLOR_MODES;
-      const currentIndex = colorModes.indexOf(currentColorMode);
+      const colorModes = getSelectableColorModes();
+      const currentIndex = Math.max(0, colorModes.indexOf(currentColorMode));
 
       let nextIndex;
       if (event.code === 'ArrowUp') {
@@ -2670,9 +2884,12 @@ function updateTickerRatioDisplay() {
   // Display the current ticker ratio slider value as ratio
   const sliderValue = parseInt(tickerRatioSlider.value);
   tickerRatioDisplay.textContent = sliderValue + ':1';
+  applyTickerWidthRatioBounds(tickerRatioSlider, tickerWidthRatioSlider);
+  setTickerWidthRatioDisplayValue(tickerWidthRatioSlider, tickerWidthRatioDisplay);
 }
 
 function updateTickerWidthRatioDisplay() {
+  applyTickerWidthRatioBounds(tickerRatioSlider, tickerWidthRatioSlider);
   setTickerWidthRatioDisplayValue(tickerWidthRatioSlider, tickerWidthRatioDisplay);
 }
 
@@ -2765,54 +2982,8 @@ function updateCirclesOverlapDisplay() {
 }
 
 function handleCirclesModeChange() {
-  const selectedMode = circlesModeSelect.value;
-
-  if (selectedMode === 'grid') {
-    circlesPackingControls.style.display = 'none';
-    circlesGridControls.style.display = 'block';
-  } else {
-    circlesPackingControls.style.display = 'block';
-    circlesGridControls.style.display = 'none';
-  }
-
-  // Invalidate cache when mode changes
   staticCircleData = null;
   redraw();
-}
-
-function updateCirclesRowsDisplay() {
-  const sliderValue = parseInt(circlesRowsSlider.value);
-  circlesRowsDisplay.textContent = sliderValue;
-  // Invalidate cache when rows change
-  staticCircleData = null;
-}
-
-function updateCirclesGridDensityDisplay() {
-  const sliderValue = parseInt(circlesGridDensitySlider.value);
-  circlesGridDensityDisplay.textContent = sliderValue;
-  // Invalidate cache when grid density changes
-  staticCircleData = null;
-}
-
-function updateCirclesSizeVariationYDisplay() {
-  const sliderValue = parseInt(circlesSizeVariationYSlider.value);
-  circlesSizeVariationYDisplay.textContent = sliderValue;
-  // Invalidate cache when Y variation changes
-  staticCircleData = null;
-}
-
-function updateCirclesSizeVariationXDisplay() {
-  const sliderValue = parseInt(circlesSizeVariationXSlider.value);
-  circlesSizeVariationXDisplay.textContent = sliderValue;
-  // Invalidate cache when X variation changes
-  staticCircleData = null;
-}
-
-function updateCirclesGridOverlapDisplay() {
-  const sliderValue = parseInt(circlesGridOverlapSlider.value);
-  circlesGridOverlapDisplay.textContent = sliderValue;
-  // Invalidate cache when grid overlap changes
-  staticCircleData = null;
 }
 
 function toggleMobileMenu() {
@@ -2843,11 +3014,8 @@ function toggleMobileMenu() {
   } else {
     // Desktop behavior (collapsible)
     appSidebar.classList.toggle('sidebar-collapsed');
-
-    // Resize the canvas gracefully to fill the newfound space
-    setTimeout(() => {
-      windowResized();
-    }, 450); // Slightly longer than transition to ensure layout is done
+    requestResponsiveWorkspaceSizing();
+    startWorkspaceResizeTransitionSync(460);
   }
 
   syncSidebarToggleState();
@@ -2875,11 +3043,130 @@ function handleClickOutside(event) {
   }
 }
 
+function isMissionControlCreditsMenuActive() {
+  return currentColorMode === 'lunar';
+}
+
+function hideSaveMenu() {
+  if (saveMenu) saveMenu.classList.add('hidden');
+  if (saveButton) saveButton.setAttribute('aria-expanded', 'false');
+}
+
+function openMissionControlCreditLink(url) {
+  const linkedWindow = window.open(url, '_blank', 'noopener,noreferrer');
+  if (linkedWindow) linkedWindow.opener = null;
+  hideSaveMenu();
+}
+
+function setSaveOptionCopy(optionElement, optionCopy) {
+  if (!optionElement || !optionCopy) return;
+
+  const labelElement = optionElement.querySelector('.option-label');
+  const descriptionElement = optionElement.querySelector('.option-desc');
+
+  if (labelElement) labelElement.textContent = optionCopy.label;
+  if (descriptionElement) descriptionElement.textContent = optionCopy.description;
+  optionElement.setAttribute('aria-label', `${optionCopy.label}: ${optionCopy.description}`);
+}
+
+function syncMissionControlInterfaceCopy() {
+  const missionControlActive = isMissionControlCreditsMenuActive();
+  const interfaceCopy = missionControlActive ? MISSION_CONTROL_INTERFACE_COPY : DEFAULT_INTERFACE_COPY;
+
+  if (styleSelectLabel) styleSelectLabel.textContent = interfaceCopy.styleLabel;
+  if (colorModeSelectLabel) colorModeSelectLabel.textContent = interfaceCopy.colorLabel;
+  if (reportProblemLabel) reportProblemLabel.textContent = interfaceCopy.reportProblem;
+  if (reportProblemBtn) {
+    reportProblemBtn.setAttribute('aria-label', interfaceCopy.reportProblem);
+  }
+  if (!missionControlActive) closeLunarCounterDetail();
+}
+
+function syncMissionControlSaveMenu() {
+  const missionControlActive = isMissionControlCreditsMenuActive();
+  const menuCopy = missionControlActive ? MISSION_CONTROL_SAVE_MENU_COPY : DEFAULT_SAVE_MENU_COPY;
+
+  if (saveButtonLabel) saveButtonLabel.textContent = menuCopy.button;
+  if (saveButton) {
+    saveButton.setAttribute(
+      'aria-label',
+      missionControlActive ? 'Open RPI x Artemis II credits' : 'Open asset download menu'
+    );
+  }
+
+  setSaveOptionCopy(savePngButton, menuCopy.png);
+  setSaveOptionCopy(saveSvgButton, menuCopy.svg);
+  setSaveOptionCopy(saveLoopGifButton, menuCopy.gif);
+  setSaveOptionCopy(copyEmbedButton, menuCopy.copy);
+
+  if (saveLoopGifButton && missionControlActive) {
+    saveLoopGifButton.hidden = false;
+  } else {
+    updateLoopingGifSaveOption();
+  }
+}
+
+function handleSavePngClick(event) {
+  if (isMissionControlCreditsMenuActive()) {
+    event.preventDefault();
+    event.stopPropagation();
+    openMissionControlCreditLink(ARTEMIS_CREDIT_LINKS.reidWiseman);
+    return;
+  }
+
+  savePNG();
+}
+
+function handleSaveSvgClick(event) {
+  if (isMissionControlCreditsMenuActive()) {
+    event.preventDefault();
+    event.stopPropagation();
+    openMissionControlCreditLink(ARTEMIS_CREDIT_LINKS.rpiEngineers);
+    return;
+  }
+
+  saveSVG();
+}
+
+function handleSaveLoopGifClick(event) {
+  if (isMissionControlCreditsMenuActive()) {
+    event.preventDefault();
+    event.stopPropagation();
+    openMissionControlCreditLink(ARTEMIS_CREDIT_LINKS.rpiEngineers);
+    return;
+  }
+
+  saveLoopingGIF();
+}
+
+function handleCopyEmbedClick(event) {
+  event.stopPropagation();
+
+  if (isMissionControlCreditsMenuActive()) {
+    event.preventDefault();
+    openMissionControlCreditLink(ARTEMIS_CREDIT_LINKS.lunarImageCredit);
+    return;
+  }
+
+  // Get current URL which includes all active parameters
+  const embedUrl = window.location.href;
+  const embedCode = `<iframe src="${embedUrl}" width="100%" height="600" frameborder="0" allowfullscreen style="border: none; overflow: hidden; background: transparent;"></iframe>`;
+
+  navigator.clipboard.writeText(embedCode).then(() => {
+    Toast.show('Embed code copied to clipboard!', 'success');
+  }).catch(err => {
+    console.error('Failed to copy:', err);
+    Toast.show('Failed to copy embed code: ' + err.message, 'error');
+  });
+
+  hideSaveMenu();
+}
+
 function toggleSaveMenu(e) {
   if (e) e.stopPropagation();
 
   if (saveMenu) {
-    updateLoopingGifSaveOption();
+    syncMissionControlSaveMenu();
     saveMenu.classList.toggle('hidden');
     const isExpanded = !saveMenu.classList.contains('hidden');
     if (saveButton) saveButton.setAttribute('aria-expanded', isExpanded);
@@ -2888,6 +3175,10 @@ function toggleSaveMenu(e) {
 
 function updateLoopingGifSaveOption() {
   if (!saveLoopGifButton) return;
+  if (isMissionControlCreditsMenuActive()) {
+    saveLoopGifButton.hidden = false;
+    return;
+  }
 
   const selectedStyle = normalizeStyleValue(styleSelect ? styleSelect.value : 'solid');
   const canExportLoopGif = Boolean(
@@ -2917,6 +3208,11 @@ function handleStyleChange() {
   const selectedStyle = normalizeStyleValue(styleSelect ? styleSelect.value : 'solid');
   if (styleSelect && styleSelect.value !== selectedStyle) {
     styleSelect.value = selectedStyle;
+  }
+
+  syncLunarColorOptionAvailability();
+  if (selectedStyle !== 'lunar' && currentColorMode === 'lunar') {
+    applyColorMode(lastNonLunarColorMode || DEFAULT_COLOR_MODE);
   }
 
   // Set currentShader based on selected style
@@ -2980,6 +3276,9 @@ function handleStyleChange() {
       break;
     case 'runway':
       currentShader = 8;
+      break;
+    case 'lunar':
+      currentShader = 24;
       break;
     case 'truss':
       currentShader = 9;
@@ -3093,7 +3392,7 @@ function handleStyleChange() {
   }
 
   console.log('Style changed to:', selectedStyle, 'currentShader:', currentShader);
-  updateLoopingGifSaveOption();
+  syncMissionControlSaveMenu();
   updateSidebarScrollFadeState();
   updateAudioControlsUI();
   requestUpdate();
@@ -3105,7 +3404,16 @@ function handleColorModeChange() {
 }
 
 function applyColorMode(colorMode) {
-  currentColorMode = normalizeColorModeValue(colorMode);
+  const normalizedColorMode = normalizeColorModeValue(colorMode);
+  currentColorMode = normalizedColorMode === 'lunar' && !isLunarStyleSelected()
+    ? (lastNonLunarColorMode || DEFAULT_COLOR_MODE)
+    : normalizedColorMode;
+
+  if (currentColorMode !== 'lunar') {
+    lastNonLunarColorMode = currentColorMode;
+  }
+
+  syncLunarColorOptionAvailability();
 
   // Remove all theme classes first
   document.body.classList.remove(...new Set(Object.values(themeClassByColorMode)));
@@ -3121,6 +3429,8 @@ function applyColorMode(colorMode) {
     syncCustomSelectUI(colorModeSelect, customSelectWrapper, currentColorMode, currentColorMode);
   }
 
+  syncMissionControlInterfaceCopy();
+  syncMissionControlSaveMenu();
   console.log('Color mode applied:', currentColorMode);
   requestUpdate();
 }
@@ -3185,12 +3495,12 @@ function buildHeaderPreviewSVG() {
         circlesDensity: circlesDensitySlider ? circlesDensitySlider.value : 50,
         circlesSizeVariation: circlesSizeVariationSlider ? circlesSizeVariationSlider.value : 0,
         circlesOverlap: circlesOverlapSlider ? circlesOverlapSlider.value : 0,
-        circlesRows: circlesRowsSlider ? circlesRowsSlider.value : 2,
-        circlesGridDensity: circlesGridDensitySlider ? circlesGridDensitySlider.value : 100,
-        circlesSizeVariationY: circlesSizeVariationYSlider ? circlesSizeVariationYSlider.value : 0,
-        circlesSizeVariationX: circlesSizeVariationXSlider ? circlesSizeVariationXSlider.value : 0,
-        circlesGridOverlap: circlesGridOverlapSlider ? circlesGridOverlapSlider.value : 0,
-        circlesLayout: circlesLayoutSelect ? circlesLayoutSelect.value : 'straight',
+        circlesRows: CIRCLES_GRID_ROWS,
+        circlesGridDensity: circlesDensitySlider ? circlesDensitySlider.value : 50,
+        circlesSizeVariationY: circlesSizeVariationSlider ? circlesSizeVariationSlider.value : 0,
+        circlesSizeVariationX: 0,
+        circlesGridOverlap: circlesOverlapSlider ? circlesOverlapSlider.value : 0,
+        circlesLayout: CIRCLES_GRID_LAYOUT,
         numericValue: numericInput ? numericInput.value : '',
         numericMode: numericModeSelect ? numericModeSelect.value : 'dotmatrix',
         circlesGradientVariant: circlesGradientVariantSlider ? circlesGradientVariantSlider.value : 1,
@@ -4625,18 +4935,22 @@ function generateGridCircles(barWidth, barHeight, rows, gridDensity, sizeVariati
 
   // Safety guards
   if (barWidth <= 0 || barHeight <= 0 || rows < 1) return [];
+  const safeDensity = Math.max(10, Math.min(100, parseFloat(gridDensity) || 50));
+  const safeOverlap = Math.max(0, Math.min(100, parseFloat(gridOverlap) || 0));
+  const safeVariationY = Math.max(0, Math.min(100, parseFloat(sizeVariationY) || 0));
+  const safeVariationX = Math.max(0, Math.min(100, parseFloat(sizeVariationX) || 0));
 
   // Calculate base circle radius that fits the number of rows
-  const baseRadius = (barHeight / (rows * 2)) * (gridDensity / 100);
+  const baseRadius = Math.max(0.5, (barHeight / (rows * 2)) * (safeDensity / 100));
   const rowHeight = barHeight / rows;
 
   // Calculate how many circles fit horizontally based on circle diameter
   const circleDiameter = baseRadius * 2;
-  const baseColsPerRow = Math.floor(barWidth / circleDiameter);
+  const baseColsPerRow = Math.max(2, Math.ceil(barWidth / circleDiameter) + 1);
 
   // Add extra circles based on overlap
-  const overlapFactor = 1 + (gridOverlap / 100);
-  const colsPerRow = Math.floor(baseColsPerRow * overlapFactor);
+  const overlapFactor = 1 + (safeOverlap / 100);
+  const colsPerRow = Math.max(2, Math.floor(baseColsPerRow * overlapFactor));
 
   for (let row = 0; row < rows; row++) {
     const rowProgress = rows > 1 ? row / (rows - 1) : 0.5; // 0 to 1 from top to bottom
@@ -4645,7 +4959,7 @@ function generateGridCircles(barWidth, barHeight, rows, gridDensity, sizeVariati
     const baseY = rowHeight * row + rowHeight / 2;
 
     // Calculate size variation for Y (top to bottom)
-    const yVariationFactor = 1 + (sizeVariationY / 100) * (1 - rowProgress * 2); // -1 to 1, then scaled
+    const yVariationFactor = 1 + (safeVariationY / 100) * (1 - rowProgress * 2); // -1 to 1, then scaled
 
     // Determine number of columns and spacing for this row
     let currentCols = colsPerRow;
@@ -4674,25 +4988,16 @@ function generateGridCircles(barWidth, barHeight, rows, gridDensity, sizeVariati
       // Calculate X position for this column
       const baseX = startOffset + col * horizontalSpacing;
 
-      // Skip circles that would go outside the bar width
-      if (baseX < baseRadius || baseX > barWidth - baseRadius) {
-        continue;
-      }
-
       // Calculate size variation for X (left to right)
-      const xVariationFactor = 1 + (sizeVariationX / 100) * (colProgress * 2 - 1); // -1 to 1, then scaled
+      const xVariationFactor = 1 + (safeVariationX / 100) * (colProgress * 2 - 1); // -1 to 1, then scaled
 
       // Combine both variation factors
       const combinedVariationFactor = yVariationFactor * xVariationFactor;
       const finalRadius = Math.max(0.5, baseRadius * combinedVariationFactor);
 
-      // Ensure circles stay within bounds
-      const clampedX = Math.max(finalRadius, Math.min(barWidth - finalRadius, baseX));
-      const clampedY = Math.max(finalRadius, Math.min(barHeight - finalRadius, baseY));
-
       circles.push({
-        x: clampedX,
-        y: clampedY,
+        x: Math.max(0, Math.min(barWidth, baseX)),
+        y: Math.max(0, Math.min(barHeight, baseY)),
         r: finalRadius
       });
     }
@@ -5468,9 +5773,20 @@ function scheduleStaffNote() {
 // URL parameter management
 function getUrlParameters() {
   const params = new URLSearchParams(window.location.search);
+  const routeStyle = window.__RPI_GENERATOR_ROUTE_STYLE__
+    ? normalizeStyleValue(window.__RPI_GENERATOR_ROUTE_STYLE__)
+    : (window.GeneratorRoutes && typeof window.GeneratorRoutes.getGeneratorRouteStyleFromPathname === 'function'
+      ? window.GeneratorRoutes.getGeneratorRouteStyleFromPathname(window.location.pathname)
+      : null);
+  const style = normalizeStyleValue(routeStyle || params.get('style') || 'solid');
+  const requestedColorMode = normalizeColorModeValue(params.get('colorMode') || DEFAULT_COLOR_MODE);
+  const colorMode = style === 'lunar' || requestedColorMode !== 'lunar'
+    ? requestedColorMode
+    : DEFAULT_COLOR_MODE;
+
   return {
-    style: normalizeStyleValue(params.get('style') || 'solid'),
-    colorMode: normalizeColorModeValue(params.get('colorMode') || DEFAULT_COLOR_MODE),
+    style,
+    colorMode,
 
     // Binary parameters
     binaryText: params.get('binaryText') || 'RPI',
@@ -5520,14 +5836,6 @@ function getUrlParameters() {
     circlesSizeVariation: parseInt(params.get('circlesSizeVariation')) || 0,
     circlesOverlap: parseInt(params.get('circlesOverlap')) || 0,
 
-    // Grid circles parameters
-    circlesRows: parseInt(params.get('circlesRows')) || 2,
-    circlesGridDensity: parseInt(params.get('circlesGridDensity')) || 100,
-    circlesSizeVariationY: parseInt(params.get('circlesSizeVariationY')) || 0,
-    circlesSizeVariationX: parseInt(params.get('circlesSizeVariationX')) || 0,
-    circlesGridOverlap: parseInt(params.get('circlesGridOverlap')) || 0,
-    circlesLayout: params.get('circlesLayout') || 'straight',
-
     // Truss parameters
     trussFamily: normalizeTrussFamilyValue(params.get('trussFamily') || 'flat'),
     trussSegments: parseInt(params.get('trussSegments')) || 15,
@@ -5561,11 +5869,7 @@ function getUrlParameters() {
 
 function updateUrlParameters() {
   const params = new URLSearchParams();
-
-  // Only add parameters that differ from defaults to keep URLs clean
-  if (styleSelect && styleSelect.value !== 'solid') {
-    params.set('style', styleSelect.value);
-  }
+  const selectedStyle = normalizeStyleValue(styleSelect ? styleSelect.value : 'solid');
 
   if (colorModeSelect && colorModeSelect.value !== DEFAULT_COLOR_MODE) {
     params.set('colorMode', colorModeSelect.value);
@@ -5763,40 +6067,21 @@ function updateUrlParameters() {
       params.set('circlesFill', circlesFillSelect.value);
     }
 
-    if (circlesModeSelect && circlesModeSelect.value === 'packing') {
-      if (circlesDensitySlider && parseInt(circlesDensitySlider.value) !== 50) {
-        params.set('circlesDensity', circlesDensitySlider.value);
-      }
-      if (circlesSizeVariationSlider && parseInt(circlesSizeVariationSlider.value) !== 0) {
-        params.set('circlesSizeVariation', circlesSizeVariationSlider.value);
-      }
-      if (circlesOverlapSlider && parseInt(circlesOverlapSlider.value) !== 0) {
-        params.set('circlesOverlap', circlesOverlapSlider.value);
-      }
-    } else {
-      if (circlesRowsSlider && parseInt(circlesRowsSlider.value) !== 2) {
-        params.set('circlesRows', circlesRowsSlider.value);
-      }
-      if (circlesGridDensitySlider && parseInt(circlesGridDensitySlider.value) !== 100) {
-        params.set('circlesGridDensity', circlesGridDensitySlider.value);
-      }
-      if (circlesSizeVariationYSlider && parseInt(circlesSizeVariationYSlider.value) !== 0) {
-        params.set('circlesSizeVariationY', circlesSizeVariationYSlider.value);
-      }
-      if (circlesSizeVariationXSlider && parseInt(circlesSizeVariationXSlider.value) !== 0) {
-        params.set('circlesSizeVariationX', circlesSizeVariationXSlider.value);
-      }
-      if (circlesGridOverlapSlider && parseInt(circlesGridOverlapSlider.value) !== 0) {
-        params.set('circlesGridOverlap', circlesGridOverlapSlider.value);
-      }
-      if (circlesLayoutSelect && circlesLayoutSelect.value !== 'straight') {
-        params.set('circlesLayout', circlesLayoutSelect.value);
-      }
+    if (circlesDensitySlider && parseInt(circlesDensitySlider.value) !== 50) {
+      params.set('circlesDensity', circlesDensitySlider.value);
+    }
+    if (circlesSizeVariationSlider && parseInt(circlesSizeVariationSlider.value) !== 0) {
+      params.set('circlesSizeVariation', circlesSizeVariationSlider.value);
+    }
+    if (circlesOverlapSlider && parseInt(circlesOverlapSlider.value) !== 0) {
+      params.set('circlesOverlap', circlesOverlapSlider.value);
     }
   }
 
   // Update URL without reloading the page
-  const newUrl = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
+  const newUrl = window.GeneratorRoutes && typeof window.GeneratorRoutes.buildGeneratorUrl === 'function'
+    ? window.GeneratorRoutes.buildGeneratorUrl(selectedStyle, params, window.location.pathname)
+    : (params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname);
   window.history.replaceState({}, '', newUrl);
 }
 
@@ -6016,26 +6301,6 @@ function applyUrlParameters() {
     circlesOverlapSlider.value = params.circlesOverlap;
   }
 
-  // Apply grid circles parameters
-  if (circlesRowsSlider) {
-    circlesRowsSlider.value = params.circlesRows;
-  }
-  if (circlesGridDensitySlider) {
-    circlesGridDensitySlider.value = params.circlesGridDensity;
-  }
-  if (circlesSizeVariationYSlider) {
-    circlesSizeVariationYSlider.value = params.circlesSizeVariationY;
-  }
-  if (circlesSizeVariationXSlider) {
-    circlesSizeVariationXSlider.value = params.circlesSizeVariationX;
-  }
-  if (circlesGridOverlapSlider) {
-    circlesGridOverlapSlider.value = params.circlesGridOverlap;
-  }
-  if (circlesLayoutSelect) {
-    circlesLayoutSelect.value = params.circlesLayout;
-  }
-
   // Update all displays and trigger style change
   updateAllDisplays();
   handleStyleChange();
@@ -6058,11 +6323,6 @@ function updateAllDisplays() {
   updateCirclesDensityDisplay();
   updateCirclesSizeVariationDisplay();
   updateCirclesOverlapDisplay();
-  updateCirclesRowsDisplay();
-  updateCirclesGridDensityDisplay();
-  updateCirclesSizeVariationYDisplay();
-  updateCirclesSizeVariationXDisplay();
-  updateCirclesGridOverlapDisplay();
   updateNeuralNetworkHiddenLayersDisplay();
 }
 
@@ -6165,16 +6425,8 @@ let resizeTimeout;
 function windowResized() {
   clearTimeout(resizeTimeout);
   resizeTimeout = setTimeout(() => {
-    syncSidebarToggleState();
-    const container = document.getElementById('p5-container');
-    if (container) {
-      resizeCanvas(container.offsetWidth, container.offsetHeight);
-    } else {
-      resizeCanvas(windowWidth, windowHeight);
-    }
-    updateEasterEggHotspotBounds();
-    resizeEasterEggCanvas();
-  }, 100);
+    requestResponsiveWorkspaceSizing();
+  }, 16);
 }
 
 // Frame rate limiting for performance
@@ -6374,33 +6626,19 @@ function drawBottomBar(currentWidth) {
     fill(fgColor);
     noStroke();
 
-    // Split the bar into top and bottom halves
-    const halfHeight = rectHeight / 2;
+    const tickerGeometry = createTickerPatternGeometry({
+      barStartX,
+      barY: 0,
+      exactBarWidth,
+      barHeight: rectHeight,
+      tickerRepeats: tickerSlider ? tickerSlider.value : 34,
+      tickerRatio: tickerRatioSlider ? tickerRatioSlider.value : 2,
+      tickerWidthRatio: tickerWidthRatioSlider ? tickerWidthRatioSlider.value : 2
+    });
 
-    // Get ratio from sliders
-    const ratio = parseInt(tickerRatioSlider.value);
-    const widthRatio = parseInt(tickerWidthRatioSlider.value);
-
-    // Calculate tick counts
-    const bottomTicks = parseInt(tickerSlider.value);
-    const topTicks = bottomTicks * ratio;
-
-    // Calculate spacing - divide available width by number of ticks
-    const tickSpacing = exactBarWidth / topTicks;
-    const topTickWidth = tickSpacing / 2; // Half spacing for tick, half for gap
-    const bottomTickWidth = topTickWidth * widthRatio;
-
-    // Draw top row - every position
-    for (let i = 0; i < topTicks; i++) {
-      const x = barStartX + i * tickSpacing;
-      rect(x, 0, topTickWidth, halfHeight);
-    }
-
-    // Draw bottom row - only at positions that align with the ratio
-    for (let i = 0; i < bottomTicks; i++) {
-      const topIndex = i * ratio;
-      const x = barStartX + topIndex * tickSpacing;
-      rect(x, halfHeight, bottomTickWidth, halfHeight);
+    for (let i = 0; i < tickerGeometry.rects.length; i++) {
+      const tickerRect = tickerGeometry.rects[i];
+      rect(tickerRect.x, tickerRect.y, tickerRect.width, tickerRect.height);
     }
 
   } else if (currentShader === 3) {
@@ -6551,17 +6789,11 @@ function drawBottomBar(currentWidth) {
       strokeWeight(1);
     }
 
-    if (selectedMode === 'grid') {
-      // Grid mode - parameters will be read inside drawCirclePattern
-      drawCirclePattern(null, barStartX, 0, exactBarWidth, rectHeight, 0, 0, 0);
-    } else {
-      // Packing mode
-      const density = parseInt(circlesDensitySlider.value);
-      const sizeVariation = parseInt(circlesSizeVariationSlider.value);
-      const overlapAmount = parseInt(circlesOverlapSlider.value);
+    const density = parseInt(circlesDensitySlider.value);
+    const sizeVariation = parseInt(circlesSizeVariationSlider.value);
+    const overlapAmount = parseInt(circlesOverlapSlider.value);
 
-      drawCirclePattern(null, barStartX, 0, exactBarWidth, rectHeight, density, sizeVariation, overlapAmount);
-    }
+    drawCirclePattern(null, barStartX, 0, exactBarWidth, rectHeight, density, sizeVariation, overlapAmount);
   } else if (currentShader === 6) {
     // Numeric mode - get visualization mode
     resetShader();
@@ -6700,6 +6932,10 @@ function drawBottomBar(currentWidth) {
     // Runway pattern sourced from the Flying Club bar asset.
     resetShader();
     drawRunwayBarPattern(null, barStartX, 0, exactBarWidth, rectHeight, fgColor);
+  } else if (currentShader === 24) {
+    // Lunar pattern sourced from the Artemis bar asset.
+    resetShader();
+    drawLunarBarPattern(null, barStartX, 0, exactBarWidth, rectHeight, colorScheme ? colorScheme.fg : '#000000');
   } else if (currentShader === 9) {
     // Truss / Geometric pattern
     resetShader();
@@ -7324,8 +7560,17 @@ function setupCustomDropdowns() {
         customOption.classList.add('selected');
       }
 
+      if (option.hidden || option.disabled) {
+        customOption.classList.add('is-hidden');
+        customOption.setAttribute('aria-hidden', 'true');
+        customOption.setAttribute('aria-disabled', 'true');
+      }
+
       customOption.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (customOption.classList.contains('is-hidden') || customOption.getAttribute('aria-disabled') === 'true') {
+          return;
+        }
 
         // Update native select
         select.value = option.value;

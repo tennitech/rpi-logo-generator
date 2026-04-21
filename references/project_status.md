@@ -1,6 +1,6 @@
 # RPI Logo Generator - Project Status & Master Documentation
 
-**Last Updated:** 2026-04-17
+**Last Updated:** 2026-04-20
 **Current Phase:** Phase 3 (Advanced Features & Refinement)
 
 ## 1. Project Overview
@@ -48,6 +48,30 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 *   [ ] **AI Exploration:** (Future) Event-specific background generation.
 
 ## 5. Recent Updates
+- **[2026-04-20] Marquee UI Promoted To Home And Generator Moved To Style Routes**:
+    - Switched the default site entry point from the generator workspace to the marquee experience, making `/` the primary home page while preserving `marquee-ui.html` as an alias.
+    - Moved the generator onto style-specific paths under `/generator/[style]/` and updated generator URL synchronization so the active bar style now lives in the pathname instead of the query string.
+    - Added a static route bootstrap layer so style-specific generator paths work on plain static hosting without framework rewrites, and kept legacy query-based generator links compatible by redirecting them into the new `/generator/[style]/` paths.
+    - Made marquee bar assets real links into the generator, and then simplified that interaction so every marquee click now opens the default generator view instead of style-specific destinations.
+    - Fixed a routed-generator startup regression where the shell HTML loaded but the canvas stayed blank because `p5.js` initialized before the injected generator scripts defined `window.setup`; the bootstrap now explicitly starts one p5 instance after those scripts finish loading.
+- **[2026-04-20] Mission Control Theme And Splashdown Counter**:
+    - Reworked the former visible `LUNAR` color option into `MISSION CONTROL` while keeping the underlying `lunar` value for URL and legacy state compatibility.
+    - Refined the mission-control chrome back toward the design system by removing the decorative header divider, sidebar plaque, workspace-control label/dot treatment, and oversized workspace counter treatment while preserving restrained RPI Red command accents and RPI Blue/Silver signal details.
+    - Added a compact Artemis II splashdown elapsed-time counter centered in the header, using NASA's reported splashdown timestamp of April 10, 2026 at 8:07 p.m. EDT as the fixed start time.
+    - Normalized Mission Control divider and border colors around a shared blue divider token, then restyled the T-plus counter with a small `Since splashdown` caption and a subtler panel shape.
+    - Added Mission Control-only interface copy for `SIGNAL`, `DISPLAY MODE`, and `Report Anomaly`, plus a sidebar `BOROMIR - Lunar surface source` credit block below the main divider linking Maeve Marshall's thesis repository.
+    - Refined the Mission Control canvas grid with subtle major grid lines and coordinate ticks, added hover readouts to workspace controls, added blue/red launch-key focus states, and made the T-plus counter open a compact splashdown detail popover with the same reveal motion as the header Learn menu.
+    - Reworked the Mission Control grid into a responsive overlay that scales to the visible canvas so cells stay complete on each device, the center lines stay aligned to the RPI mark and bottom controls, and the canvas resize tracks the sidebar transition smoothly instead of snapping at the end.
+    - Converted the header asset menu into a contextual `Learn About RPI x Artemis` credits panel while Mission Control is active, linking Reid Wiseman, Maeve Marshall, Paul McKee, and Maeve Marshall's lunar thesis-image source without changing the normal export menu in other themes.
+    - Kept the hidden Rink Rush easter egg unchanged; the new treatment applies to the Mission Control theme interface and header counter only.
+- **[2026-04-19] Added `SPECIAL / ARTEMIS II` Static Bar Option**:
+    - Added a new `SPECIAL` section above `UNDER CONSTRUCTION` in the `BAR STYLE` dropdown with an `ARTEMIS II` option.
+    - Copied the user-provided Artemis bar SVG into `assets/bars/bar-lunar.svg` and generated a shared JS asset from it so the live canvas and export paths use the same vector source.
+    - Updated live preview, PNG rendering, and SVG export so Lunar bar artwork inherits the active logo/theme color instead of staying black.
+    - Renamed the visible special bar option to `ARTEMIS II` and added a `LUNAR` color theme using the provided moon-horizon image as the canvas backdrop. The Artemis II bar defaults into that theme while keeping manual color overrides available.
+    - Refined the Lunar theme toward a restrained white, dark-blue, and RPI-red interface treatment and lowered the moon surface in the canvas backdrop so the logo sits primarily against space.
+    - Normalized Lunar theme hover, border, selected, and focus states against the shared control token system so default structure uses dark-blue borders while active and focus affordances use RPI red consistently.
+    - Changed the Lunar color theme to behave like an optional Artemis II-only easter-egg theme: it sits at the bottom of the color dropdown, is hidden for all other bar styles, and no longer becomes the default when ARTEMIS II is selected.
 - **[2026-04-17] Added `NEURAL NETWORK` As A New Scientific Bar Pattern**:
     - Introduced a new `NEURAL NETWORK` bar style in the main generator, designed as a feedforward multilayer node-and-connection diagram that stays inside the official bar geometry and uses the existing one-color brand system.
     - Implemented the pattern through the shared `js/utils/barPattern.js` geometry/export pipeline so live preview, header preview, and SVG export all use the same source of truth instead of drifting.
@@ -75,6 +99,8 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
     - Softened logo panning with resisted drag deltas, eased offset following, and short decaying inertia so the pan tool feels less twitchy while preserving the existing pan bounds.
     - Added a small shared pan-edge inset so the logo can get close to the viewport edges on desktop and mobile without clamping flush against them.
     - Kept the header height consistent across desktop and mobile by removing the mobile-only shorter header override.
+    - Simplified the `CIRCLES` parameter panel so it only exposes `MODE` (`PACKING`/`GRID`), `STYLE` (`STROKE`/`FILL`), and the shared density, variation, and overlap sliders; grid mode now uses those same controls with fixed internal grid defaults.
+    - Tightened `CIRCLES` rendering so generated grid and packing circles keep usable multi-circle coverage across the full bar bounds and are clipped to the official bar rectangle, keeping live canvas, header preview, and SVG export visually full-bleed without leaking outside the mark geometry.
 - **[2026-04-15] Runtime Control Redesign Rolled Back After Stylesheet Corruption**:
     - Restored `css/style.css` after it was accidentally overwritten, then reapplied the current right-sidebar shell, scroll-fade, sticky report rail, report dialog, and parameter-header utility styling as an override layer.
     - Reverted the unfinished `LIVE` runtime-control treatment back to the prior `PREVIEW` structure so the interface returns to the last stable control layout.

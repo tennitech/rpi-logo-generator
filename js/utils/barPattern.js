@@ -157,6 +157,138 @@ function createLinesPatternGeometry(options = {}) {
   return { rects };
 }
 
+function normalizeTickerWholeNumber(value, fallback, min = 1) {
+  const parsed = Math.round(parseFloat(value));
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+
+  return Math.max(min, parsed);
+}
+
+function clipTickerRectToBar(rect, barStartX, barY, exactBarWidth, barHeight, maxX) {
+  const barEndX = Number.isFinite(maxX) ? Math.min(barStartX + exactBarWidth, maxX) : barStartX + exactBarWidth;
+  const barEndY = barY + barHeight;
+  const rectEndX = rect.x + rect.width;
+  const rectEndY = rect.y + rect.height;
+  const clippedX = Math.max(barStartX, rect.x);
+  const clippedY = Math.max(barY, rect.y);
+  const clippedEndX = Math.min(barEndX, rectEndX);
+  const clippedEndY = Math.min(barEndY, rectEndY);
+  const clippedWidth = clippedEndX - clippedX;
+  const clippedHeight = clippedEndY - clippedY;
+
+  if (clippedWidth <= 0 || clippedHeight <= 0) {
+    return null;
+  }
+
+  return {
+    ...rect,
+    x: clippedX,
+    y: clippedY,
+    width: clippedWidth,
+    height: clippedHeight
+  };
+}
+
+function createTickerPatternGeometry(options = {}) {
+  const barStartX = Number(options.barStartX || 0);
+  const barY = Number(options.barY || 0);
+  const exactBarWidth = Math.max(1, Number(options.exactBarWidth || 250));
+  const barHeight = Math.max(1, Number(options.barHeight || 18));
+  const tickerRepeats = normalizeTickerWholeNumber(options.tickerRepeats, 34);
+  const tickerRatio = normalizeTickerWholeNumber(options.tickerRatio, 2);
+  const tickerWidthRatio = normalizeTickerWholeNumber(options.tickerWidthRatio, 2);
+  const halfHeight = barHeight / 2;
+  const rects = [];
+  const addRect = (rect, maxX) => {
+    const clippedRect = clipTickerRectToBar(rect, barStartX, barY, exactBarWidth, barHeight, maxX);
+    if (clippedRect) {
+      rects.push(clippedRect);
+    }
+  };
+
+  if (Number.isFinite(options.loopOffsetX)) {
+    const repeatWidth = exactBarWidth / tickerRepeats;
+    const topTickSpacing = repeatWidth / tickerRatio;
+    const topTickWidth = topTickSpacing / 2;
+    const bottomTickWidth = Math.min(topTickWidth * tickerWidthRatio, repeatWidth);
+    const wrappedOffset = ((options.loopOffsetX % repeatWidth) + repeatWidth) % repeatWidth;
+    const drawBaseX = barStartX - wrappedOffset;
+    const drawEndX = barStartX + exactBarWidth;
+    const maxTickWidth = Math.max(topTickWidth, bottomTickWidth);
+    const startPaddingRepeats = Math.ceil(maxTickWidth / repeatWidth) + 1;
+
+    for (
+      let repeatX = drawBaseX - startPaddingRepeats * repeatWidth;
+      repeatX <= drawEndX + repeatWidth;
+      repeatX += repeatWidth
+    ) {
+      for (let tickIndex = 0; tickIndex < tickerRatio; tickIndex++) {
+        const topTickX = repeatX + tickIndex * topTickSpacing;
+        addRect({
+          x: topTickX,
+          y: barY,
+          width: topTickWidth,
+          height: halfHeight,
+          row: 'top'
+        });
+      }
+
+      addRect({
+        x: repeatX,
+        y: barY + halfHeight,
+        width: bottomTickWidth,
+        height: halfHeight,
+        row: 'bottom'
+      });
+    }
+
+    return {
+      rects,
+      repeatWidth,
+      topTickWidth,
+      bottomTickWidth,
+      patternEndX: barStartX + exactBarWidth
+    };
+  }
+
+  const topTicks = tickerRepeats * tickerRatio;
+  const topTickWidth = exactBarWidth / ((topTicks * 2) - 1);
+  const tickerSpacing = topTickWidth * 2;
+  const repeatWidth = tickerSpacing * tickerRatio;
+  const bottomTickWidth = Math.min(topTickWidth * tickerWidthRatio, repeatWidth);
+  const patternEndX = barStartX + exactBarWidth;
+
+  for (let i = 0; i < topTicks; i++) {
+    addRect({
+      x: barStartX + i * tickerSpacing,
+      y: barY,
+      width: topTickWidth,
+      height: halfHeight,
+      row: 'top'
+    });
+  }
+
+  for (let i = 0; i < tickerRepeats; i++) {
+    addRect({
+      x: barStartX + i * tickerRatio * tickerSpacing,
+      y: barY + halfHeight,
+      width: bottomTickWidth,
+      height: halfHeight,
+      row: 'bottom'
+    }, patternEndX);
+  }
+
+  return {
+    rects,
+    repeatWidth,
+    topTickWidth,
+    bottomTickWidth,
+    patternEndX
+  };
+}
+
 function createPointConnectPatternGeometry(options = {}) {
   const barStartX = Number(options.barStartX || 0);
   const barY = Number(options.barY || 0);
@@ -1023,6 +1155,154 @@ function createRunwayBarPatternSVG(barStartX, barY, exactBarWidth, barHeight, fg
   return pattern;
 }
 
+function getLunarBarSVGSource() {
+  if (typeof window !== 'undefined' && window.LUNAR_BAR_SVG_SOURCE) {
+    return window.LUNAR_BAR_SVG_SOURCE;
+  }
+
+  if (typeof LUNAR_BAR_SVG_SOURCE !== 'undefined') {
+    return LUNAR_BAR_SVG_SOURCE;
+  }
+
+  if (typeof require !== 'undefined') {
+    try {
+      return require('./lunarBarAsset').LUNAR_BAR_SVG_SOURCE || '';
+    } catch (error) {
+      return '';
+    }
+  }
+
+  return '';
+}
+
+function createLunarBarPatternSVG(barStartX, barY, exactBarWidth, barHeight, fgColor) {
+  const lunarSource = getLunarBarSVGSource();
+  const lunarContentMatch = lunarSource.match(/<svg\b[^>]*>([\s\S]*?)<\/svg>/i);
+  const lunarContent = lunarContentMatch ? lunarContentMatch[1].trim() : '';
+
+  if (!lunarContent) {
+    return '';
+  }
+
+  const scaleX = exactBarWidth / 499.92;
+  const scaleY = barHeight / 36;
+
+  return `\n    <g fill="${fgColor}" color="${fgColor}" transform="translate(${barStartX} ${barY}) scale(${scaleX} ${scaleY})">\n      ${lunarContent}\n    </g>`;
+}
+
+function ensureCirclePatternCoverageForSVG(circles, barWidth, barHeight) {
+  if (!Array.isArray(circles) || barWidth <= 0 || barHeight <= 0) {
+    return [];
+  }
+
+  const validCircles = circles
+    .filter((circle) => circle &&
+      Number.isFinite(circle.x) &&
+      Number.isFinite(circle.y) &&
+      Number.isFinite(circle.r) &&
+      circle.r > 0)
+    .map((circle) => ({
+      x: Math.max(0, Math.min(barWidth, circle.x)),
+      y: Math.max(0, Math.min(barHeight, circle.y)),
+      r: Math.max(0.5, Math.min(circle.r, Math.max(barWidth, barHeight)))
+    }));
+
+  if (validCircles.length === 0) {
+    return createFullBleedCircleFallbackForSVG(barWidth, barHeight, barHeight * 0.25);
+  }
+
+  const radius = getRepresentativeCircleRadiusForSVG(validCircles, barHeight);
+  const minCircleCount = Math.max(8, Math.ceil(barWidth / Math.max(6, radius * 3.2)));
+
+  if (validCircles.length < minCircleCount * 0.35) {
+    return createFullBleedCircleFallbackForSVG(barWidth, barHeight, radius);
+  }
+
+  const coveredCircles = validCircles.slice();
+  addMissingCircleEdgeCoverageForSVG(coveredCircles, barWidth, barHeight, radius);
+  return coveredCircles;
+}
+
+function getRepresentativeCircleRadiusForSVG(circles, barHeight) {
+  const radii = circles
+    .map((circle) => circle.r)
+    .filter((radius) => Number.isFinite(radius) && radius > 0)
+    .sort((a, b) => a - b);
+  const medianRadius = radii.length > 0 ? radii[Math.floor(radii.length / 2)] : barHeight * 0.25;
+  return Math.max(1.25, Math.min(barHeight * 0.36, medianRadius));
+}
+
+function createFullBleedCircleFallbackForSVG(barWidth, barHeight, radius) {
+  const circles = [];
+  const safeRadius = Math.max(1.25, Math.min(barHeight * 0.36, radius));
+  const cols = Math.max(8, Math.ceil(barWidth / Math.max(5, safeRadius * 2.8)));
+  const rows = barHeight > safeRadius * 3 ? 3 : 2;
+
+  for (let row = 0; row < rows; row++) {
+    const y = rows === 1 ? barHeight / 2 : (row / (rows - 1)) * barHeight;
+    const offset = row % 2 === 0 ? 0 : 0.5;
+    for (let col = 0; col < cols; col++) {
+      const progress = cols === 1 ? 0.5 : col / (cols - 1);
+      const x = Math.max(0, Math.min(barWidth, (progress + offset / (cols - 1)) * barWidth));
+      circles.push({ x, y, r: safeRadius });
+    }
+  }
+
+  return circles;
+}
+
+function addMissingCircleEdgeCoverageForSVG(circles, barWidth, barHeight, radius) {
+  const bounds = circles.reduce((acc, circle) => ({
+    left: Math.min(acc.left, circle.x - circle.r),
+    right: Math.max(acc.right, circle.x + circle.r),
+    top: Math.min(acc.top, circle.y - circle.r),
+    bottom: Math.max(acc.bottom, circle.y + circle.r)
+  }), {
+    left: Infinity,
+    right: -Infinity,
+    top: Infinity,
+    bottom: -Infinity
+  });
+
+  const edgeGap = Math.max(0.5, radius * 0.35);
+  const addHorizontalEdge = (y) => {
+    const count = Math.max(4, Math.ceil(barWidth / Math.max(8, radius * 4)));
+    for (let i = 0; i < count; i++) {
+      const x = count === 1 ? barWidth / 2 : (i / (count - 1)) * barWidth;
+      circles.push({ x, y, r: radius });
+    }
+  };
+  const addVerticalEdge = (x) => {
+    const count = Math.max(2, Math.ceil(barHeight / Math.max(4, radius * 3)));
+    for (let i = 0; i < count; i++) {
+      const y = count === 1 ? barHeight / 2 : (i / (count - 1)) * barHeight;
+      circles.push({ x, y, r: radius });
+    }
+  };
+
+  if (bounds.left > edgeGap) {
+    addVerticalEdge(0);
+  }
+  if (bounds.right < barWidth - edgeGap) {
+    addVerticalEdge(barWidth);
+  }
+  if (bounds.left > edgeGap || bounds.right < barWidth - edgeGap) {
+    addHorizontalEdge(barHeight / 2);
+  }
+  if (bounds.top > edgeGap) {
+    addHorizontalEdge(0);
+  }
+  if (bounds.bottom < barHeight - edgeGap) {
+    addHorizontalEdge(barHeight);
+  }
+}
+
+function createCirclePatternClipId(barStartX, barY, exactBarWidth, barHeight) {
+  const idParts = [barStartX, barY, exactBarWidth, barHeight]
+    .map((value) => Math.round((parseFloat(value) || 0) * 1000));
+  return `circle-bar-clip-${idParts.join('-')}`;
+}
+
 function createBarPatternSVG(config) {
   const {
     currentShader,
@@ -1078,24 +1358,19 @@ function createBarPatternSVG(config) {
   }
 
   if (currentShader === 2) {
-    const tickerRatio = parseInt(values.tickerRatio, 10);
-    const tickerWidthRatio = parseInt(values.tickerWidthRatio, 10);
-    const tickerBottomTicks = parseInt(values.tickerRepeats, 10);
-    const tickerTopTicks = tickerBottomTicks * tickerRatio;
-    const tickerHalfHeight = barHeight / 2;
-    const tickerSpacing = exactBarWidth / tickerTopTicks;
-    const tickerTopWidth = tickerSpacing / 2;
-    const tickerBottomWidth = tickerTopWidth * tickerWidthRatio;
+    const tickerGeometry = createTickerPatternGeometry({
+      barStartX,
+      barY,
+      exactBarWidth,
+      barHeight,
+      tickerRepeats: values.tickerRepeats,
+      tickerRatio: values.tickerRatio,
+      tickerWidthRatio: values.tickerWidthRatio
+    });
 
-    for (let i = 0; i < tickerTopTicks; i++) {
-      const x = barStartX + i * tickerSpacing;
-      pattern += `\n    <rect x="${x}" y="${barY}" width="${tickerTopWidth}" height="${tickerHalfHeight}" fill="${fgColor}"/>`;
-    }
-
-    for (let i = 0; i < tickerBottomTicks; i++) {
-      const topIndex = i * tickerRatio;
-      const x = barStartX + topIndex * tickerSpacing;
-      pattern += `\n    <rect x="${x}" y="${barY + tickerHalfHeight}" width="${tickerBottomWidth}" height="${tickerHalfHeight}" fill="${fgColor}"/>`;
+    for (let i = 0; i < tickerGeometry.rects.length; i++) {
+      const rect = tickerGeometry.rects[i];
+      pattern += `\n    <rect x="${rect.x}" y="${rect.y}" width="${rect.width}" height="${rect.height}" fill="${fgColor}"/>`;
     }
     return pattern;
   }
@@ -1164,15 +1439,18 @@ function createBarPatternSVG(config) {
     let circleData = [];
 
     if (circlesMode === 'grid') {
+      const sharedDensity = parseInt(values.circlesDensity, 10);
+      const sharedVariation = parseInt(values.circlesSizeVariation, 10);
+      const sharedOverlap = parseInt(values.circlesOverlap, 10);
       circleData = generateGridCircles(
         exactBarWidth,
         barHeight,
-        parseInt(values.circlesRows, 10),
-        parseInt(values.circlesGridDensity, 10),
-        parseInt(values.circlesSizeVariationY, 10),
-        parseInt(values.circlesSizeVariationX, 10),
-        parseInt(values.circlesGridOverlap, 10),
-        values.circlesLayout
+        parseInt(values.circlesRows, 10) || 2,
+        parseInt(values.circlesGridDensity, 10) || sharedDensity || 50,
+        parseInt(values.circlesSizeVariationY, 10) || sharedVariation || 0,
+        parseInt(values.circlesSizeVariationX, 10) || 0,
+        parseInt(values.circlesGridOverlap, 10) || sharedOverlap || 0,
+        values.circlesLayout || 'straight'
       );
     } else {
       circleData = generateStaticPackedCircles(
@@ -1184,14 +1462,20 @@ function createBarPatternSVG(config) {
       );
     }
 
+    circleData = ensureCirclePatternCoverageForSVG(circleData, exactBarWidth, barHeight);
+    const clipId = createCirclePatternClipId(barStartX, barY, exactBarWidth, barHeight);
+    pattern += `\n    <clipPath id="${clipId}"><rect x="${barStartX}" y="${barY}" width="${exactBarWidth}" height="${barHeight}"/></clipPath>`;
+    pattern += `\n    <g clip-path="url(#${clipId})">`;
+
     for (let i = 0; i < circleData.length; i++) {
       const circle = circleData[i];
       if (circlesFill === 'fill') {
-        pattern += `\n    <circle cx="${barStartX + circle.x}" cy="${barY + circle.y}" r="${circle.r}" fill="${fgColor}"/>`;
+        pattern += `\n      <circle cx="${barStartX + circle.x}" cy="${barY + circle.y}" r="${circle.r}" fill="${fgColor}"/>`;
       } else {
-        pattern += `\n    <circle cx="${barStartX + circle.x}" cy="${barY + circle.y}" r="${circle.r}" fill="none" stroke="${fgColor}" stroke-width="1"/>`;
+        pattern += `\n      <circle cx="${barStartX + circle.x}" cy="${barY + circle.y}" r="${circle.r}" fill="none" stroke="${fgColor}" stroke-width="1"/>`;
       }
     }
+    pattern += '\n    </g>';
     return pattern;
   }
 
@@ -1283,6 +1567,10 @@ function createBarPatternSVG(config) {
 
   if (currentShader === 8) {
     return createRunwayBarPatternSVG(barStartX, barY, exactBarWidth, barHeight, fgColor);
+  }
+
+  if (currentShader === 24) {
+    return createLunarBarPatternSVG(barStartX, barY, exactBarWidth, barHeight, fgColor);
   }
 
   if (currentShader === 9) {
@@ -1642,6 +1930,7 @@ if (typeof window !== 'undefined') {
   window.createLinesPatternGeometry = createLinesPatternGeometry;
   window.createNeuralNetworkPatternGeometry = createNeuralNetworkPatternGeometry;
   window.createPointConnectPatternGeometry = createPointConnectPatternGeometry;
+  window.createTickerPatternGeometry = createTickerPatternGeometry;
   window.createTriangleGridPatternGeometry = createTriangleGridPatternGeometry;
   window.createTrussPatternGeometry = createTrussPatternGeometry;
   window.createTrianglesPatternGeometry = createTrianglesPatternGeometry;
@@ -1664,6 +1953,7 @@ if (typeof module !== 'undefined' && module.exports) {
     createLinesPatternGeometry,
     createNeuralNetworkPatternGeometry,
     createPointConnectPatternGeometry,
+    createTickerPatternGeometry,
     createTriangleGridPatternGeometry,
     createTrussPatternGeometry,
     createTrianglesPatternGeometry,

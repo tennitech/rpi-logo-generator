@@ -124,6 +124,84 @@ function drawSVGPathOnGraphics(pg, pathData) {
   pg.endShape(CLOSE);
 }
 
+const lunarBarImageCache = new Map();
+const lunarBarPendingColors = new Set();
+
+function normalizeLunarBarColor(value) {
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+
+  return '#000000';
+}
+
+function createColorizedLunarBarDataURI(fgColor) {
+  const source = typeof window !== 'undefined' ? window.LUNAR_BAR_SVG_SOURCE : '';
+  if (!source) {
+    return '';
+  }
+
+  const color = normalizeLunarBarColor(fgColor);
+  const colorizedSource = source.replace(
+    /<svg\b([^>]*)>/i,
+    `<svg$1 fill="${color}" color="${color}">`
+  );
+
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(colorizedSource)}`;
+}
+
+function getLunarBarImage(fgColor) {
+  const color = normalizeLunarBarColor(fgColor);
+
+  if (lunarBarImageCache.has(color)) {
+    return lunarBarImageCache.get(color);
+  }
+
+  if (lunarBarPendingColors.has(color) || typeof loadImage !== 'function') {
+    return null;
+  }
+
+  const dataURI = createColorizedLunarBarDataURI(color);
+  if (!dataURI) {
+    return null;
+  }
+
+  lunarBarPendingColors.add(color);
+  loadImage(
+    dataURI,
+    (imageAsset) => {
+      lunarBarPendingColors.delete(color);
+      lunarBarImageCache.set(color, imageAsset);
+      if (typeof requestUpdate === 'function') {
+        requestUpdate();
+      }
+    },
+    (error) => {
+      lunarBarPendingColors.delete(color);
+      console.warn('Unable to load Lunar bar SVG:', error);
+    }
+  );
+
+  return null;
+}
+
+function drawLunarBarPattern(target, barStartX, barY, exactBarWidth, barHeight, fgColor = '#000000') {
+  const surface = target || window;
+  const imageAsset = getLunarBarImage(fgColor);
+
+  if (!imageAsset || !imageAsset.width || typeof surface.image !== 'function') {
+    return;
+  }
+
+  if (typeof surface.push === 'function') surface.push();
+  if (typeof surface.imageMode === 'function') {
+    const cornerMode = surface.CORNER || (typeof CORNER !== 'undefined' ? CORNER : undefined);
+    if (cornerMode !== undefined) surface.imageMode(cornerMode);
+  }
+  surface.image(imageAsset, barStartX, barY, exactBarWidth, barHeight);
+  if (typeof surface.pop === 'function') surface.pop();
+}
+
 function drawMusicHeadOnGraphics(pg, shape, x, y, rx, ry, filled, fgColor) {
   const normalizedShape = normalizeMusicNoteShape(shape);
 
@@ -224,29 +302,20 @@ function drawLoopingRulerPatternOnGraphics(pg, barStartX, barY, exactBarWidth, r
 }
 
 function drawLoopingTickerPatternOnGraphics(pg, barStartX, barY, exactBarWidth, rectHeight, loopOffsetX) {
-  const tickerRatio = parseInt(tickerRatioSlider.value, 10);
-  const tickerWidthRatio = parseInt(tickerWidthRatioSlider.value, 10);
-  const tickerBottomTicks = parseInt(tickerSlider.value, 10);
-  const repeatWidth = exactBarWidth / tickerBottomTicks;
-  const topTickSpacing = repeatWidth / tickerRatio;
-  const topTickWidth = topTickSpacing / 2;
-  const bottomTickWidth = topTickWidth * tickerWidthRatio;
-  const tickerHalfHeight = rectHeight / 2;
-  const wrappedOffset = ((loopOffsetX % repeatWidth) + repeatWidth) % repeatWidth;
-  const drawStartX = barStartX - wrappedOffset;
-  const drawEndX = barStartX + exactBarWidth;
+  const tickerGeometry = createTickerPatternGeometry({
+    barStartX,
+    barY,
+    exactBarWidth,
+    barHeight: rectHeight,
+    tickerRepeats: tickerSlider ? tickerSlider.value : 34,
+    tickerRatio: tickerRatioSlider ? tickerRatioSlider.value : 2,
+    tickerWidthRatio: tickerWidthRatioSlider ? tickerWidthRatioSlider.value : 2,
+    loopOffsetX
+  });
 
-  for (let repeatX = drawStartX - repeatWidth; repeatX <= drawEndX + repeatWidth; repeatX += repeatWidth) {
-    for (let tickIndex = 0; tickIndex < tickerRatio; tickIndex++) {
-      const topTickX = repeatX + tickIndex * topTickSpacing;
-      if (topTickX + topTickWidth > barStartX && topTickX < drawEndX) {
-        pg.rect(topTickX, barY, topTickWidth, tickerHalfHeight);
-      }
-    }
-
-    if (repeatX + bottomTickWidth > barStartX && repeatX < drawEndX) {
-      pg.rect(repeatX, barY + tickerHalfHeight, bottomTickWidth, tickerHalfHeight);
-    }
+  for (let i = 0; i < tickerGeometry.rects.length; i++) {
+    const rect = tickerGeometry.rects[i];
+    pg.rect(rect.x, rect.y, rect.width, rect.height);
   }
 }
 
@@ -360,27 +429,19 @@ function drawBarPatternOnGraphics(pg, barStartX, barY, exactBarWidth, rectHeight
       return;
     }
 
-    // Ticker pattern
-    const tickerRatio = parseInt(tickerRatioSlider.value);
-    const tickerWidthRatio = parseInt(tickerWidthRatioSlider.value);
-    const tickerBottomTicks = parseInt(tickerSlider.value);
-    const tickerTopTicks = tickerBottomTicks * tickerRatio;
-    const tickerHalfHeight = rectHeight / 2;
-    const tickerSpacing = exactBarWidth / tickerTopTicks;
-    const tickerTopWidth = tickerSpacing / 2;
-    const tickerBottomWidth = tickerTopWidth * tickerWidthRatio;
+    const tickerGeometry = createTickerPatternGeometry({
+      barStartX,
+      barY,
+      exactBarWidth,
+      barHeight: rectHeight,
+      tickerRepeats: tickerSlider ? tickerSlider.value : 34,
+      tickerRatio: tickerRatioSlider ? tickerRatioSlider.value : 2,
+      tickerWidthRatio: tickerWidthRatioSlider ? tickerWidthRatioSlider.value : 2
+    });
 
-    // Top row
-    for (let i = 0; i < tickerTopTicks; i++) {
-      const x = barStartX + i * tickerSpacing;
-      pg.rect(x, barY, tickerTopWidth, tickerHalfHeight);
-    }
-
-    // Bottom row
-    for (let i = 0; i < tickerBottomTicks; i++) {
-      const topIndex = i * tickerRatio;
-      const x = barStartX + topIndex * tickerSpacing;
-      pg.rect(x, barY + tickerHalfHeight, tickerBottomWidth, tickerHalfHeight);
+    for (let i = 0; i < tickerGeometry.rects.length; i++) {
+      const rect = tickerGeometry.rects[i];
+      pg.rect(rect.x, rect.y, rect.width, rect.height);
     }
   } else if (currentShader === 3) {
     // Binary pattern
@@ -629,6 +690,9 @@ function drawBarPatternOnGraphics(pg, barStartX, barY, exactBarWidth, rectHeight
   } else if (currentShader === 8) {
     // Runway pattern sourced from the Flying Club bar asset.
     drawRunwayBarPattern(pg, barStartX, barY, exactBarWidth, rectHeight, fgColor);
+  } else if (currentShader === 24) {
+    // Lunar pattern sourced from the Artemis bar asset.
+    drawLunarBarPattern(pg, barStartX, barY, exactBarWidth, rectHeight, fgColor);
   } else if (currentShader === 9) {
     // Truss / Geometric pattern
     const trussGeometry = createTrussPatternGeometry({
@@ -805,20 +869,23 @@ function drawCirclePattern(pg, barStartX, barY, barWidth, barHeight, density, si
     const selectedMode = circlesModeSelect ? circlesModeSelect.value : 'packing';
 
     if (selectedMode === 'grid') {
-      // Grid mode
-      const rows = parseInt(circlesRowsSlider.value);
-      const gridDensity = parseInt(circlesGridDensitySlider.value);
-      const sizeVariationY = parseInt(circlesSizeVariationYSlider.value);
-      const sizeVariationX = parseInt(circlesSizeVariationXSlider.value);
-      const gridOverlap = parseInt(circlesGridOverlapSlider.value);
-      const layout = circlesLayoutSelect.value;
+      const rows = typeof CIRCLES_GRID_ROWS === 'number' ? CIRCLES_GRID_ROWS : 2;
+      const layout = typeof CIRCLES_GRID_LAYOUT === 'string' ? CIRCLES_GRID_LAYOUT : 'straight';
+      const gridDensity = density;
+      const sizeVariationY = sizeVariation;
+      const sizeVariationX = 0;
+      const gridOverlap = overlapAmount;
 
       // Create parameter string for caching
       const params = `grid-${rows}-${gridDensity}-${sizeVariationY}-${sizeVariationX}-${gridOverlap}-${layout}-${barWidth}-${barHeight}`;
 
       // Only regenerate if parameters changed
       if (!staticCircleData || lastCircleParams !== params) {
-        staticCircleData = generateGridCircles(barWidth, barHeight, rows, gridDensity, sizeVariationY, sizeVariationX, gridOverlap, layout);
+        staticCircleData = ensureStaticCirclePatternCoverage(
+          generateGridCircles(barWidth, barHeight, rows, gridDensity, sizeVariationY, sizeVariationX, gridOverlap, layout),
+          barWidth,
+          barHeight
+        );
         lastCircleParams = params;
       }
     } else {
@@ -827,7 +894,11 @@ function drawCirclePattern(pg, barStartX, barY, barWidth, barHeight, density, si
 
       // Only regenerate if parameters changed
       if (!staticCircleData || lastCircleParams !== params) {
-        staticCircleData = generateStaticPackedCircles(barWidth, barHeight, density, sizeVariation, overlapAmount);
+        staticCircleData = ensureStaticCirclePatternCoverage(
+          generateStaticPackedCircles(barWidth, barHeight, density, sizeVariation, overlapAmount),
+          barWidth,
+          barHeight
+        );
         lastCircleParams = params;
       }
     }
@@ -838,19 +909,33 @@ function drawCirclePattern(pg, barStartX, barY, barWidth, barHeight, density, si
       return;
     }
 
-    // Draw circles using the cached static data
-    for (let i = 0; i < staticCircleData.length; i++) {
-      const circle = staticCircleData[i];
+    const ctx = pg ? pg.drawingContext : (typeof drawingContext !== 'undefined' ? drawingContext : null);
+    if (ctx) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(barStartX, barY, barWidth, barHeight);
+      ctx.clip();
+    }
 
-      // Safety check for valid circle data
-      if (!circle || typeof circle.x !== 'number' || typeof circle.y !== 'number' || typeof circle.r !== 'number') {
-        continue;
+    try {
+      // Draw circles using the cached static data
+      for (let i = 0; i < staticCircleData.length; i++) {
+        const circle = staticCircleData[i];
+
+        // Safety check for valid circle data
+        if (!circle || typeof circle.x !== 'number' || typeof circle.y !== 'number' || typeof circle.r !== 'number') {
+          continue;
+        }
+
+        if (pg) {
+          pg.ellipse(barStartX + circle.x, barY + circle.y, circle.r * 2, circle.r * 2);
+        } else {
+          ellipse(barStartX + circle.x, barY + circle.y, circle.r * 2, circle.r * 2);
+        }
       }
-
-      if (pg) {
-        pg.ellipse(barStartX + circle.x, barY + circle.y, circle.r * 2, circle.r * 2);
-      } else {
-        ellipse(barStartX + circle.x, barY + circle.y, circle.r * 2, circle.r * 2);
+    } finally {
+      if (ctx) {
+        ctx.restore();
       }
     }
   } catch (error) {
@@ -861,6 +946,113 @@ function drawCirclePattern(pg, barStartX, barY, barWidth, barHeight, density, si
     } else {
       ellipse(barStartX + barWidth / 2, barY + barHeight / 2, Math.min(barWidth, barHeight) * 0.8, Math.min(barWidth, barHeight) * 0.8);
     }
+  }
+}
+
+function ensureStaticCirclePatternCoverage(circles, barWidth, barHeight) {
+  if (!Array.isArray(circles) || barWidth <= 0 || barHeight <= 0) {
+    return [];
+  }
+
+  const validCircles = circles
+    .filter((circle) => circle &&
+      Number.isFinite(circle.x) &&
+      Number.isFinite(circle.y) &&
+      Number.isFinite(circle.r) &&
+      circle.r > 0)
+    .map((circle) => ({
+      x: Math.max(0, Math.min(barWidth, circle.x)),
+      y: Math.max(0, Math.min(barHeight, circle.y)),
+      r: Math.max(0.5, Math.min(circle.r, Math.max(barWidth, barHeight)))
+    }));
+
+  if (validCircles.length === 0) {
+    return createFullBleedCircleFallback(barWidth, barHeight, barHeight * 0.25);
+  }
+
+  const radius = getRepresentativeCircleRadius(validCircles, barHeight);
+  const minCircleCount = Math.max(8, Math.ceil(barWidth / Math.max(6, radius * 3.2)));
+
+  if (validCircles.length < minCircleCount * 0.35) {
+    return createFullBleedCircleFallback(barWidth, barHeight, radius);
+  }
+
+  const coveredCircles = validCircles.slice();
+  addMissingCircleEdgeCoverage(coveredCircles, barWidth, barHeight, radius);
+  return coveredCircles;
+}
+
+function getRepresentativeCircleRadius(circles, barHeight) {
+  const radii = circles
+    .map((circle) => circle.r)
+    .filter((radius) => Number.isFinite(radius) && radius > 0)
+    .sort((a, b) => a - b);
+  const medianRadius = radii.length > 0 ? radii[Math.floor(radii.length / 2)] : barHeight * 0.25;
+  return Math.max(1.25, Math.min(barHeight * 0.36, medianRadius));
+}
+
+function createFullBleedCircleFallback(barWidth, barHeight, radius) {
+  const circles = [];
+  const safeRadius = Math.max(1.25, Math.min(barHeight * 0.36, radius));
+  const cols = Math.max(8, Math.ceil(barWidth / Math.max(5, safeRadius * 2.8)));
+  const rows = barHeight > safeRadius * 3 ? 3 : 2;
+
+  for (let row = 0; row < rows; row++) {
+    const y = rows === 1 ? barHeight / 2 : (row / (rows - 1)) * barHeight;
+    const offset = row % 2 === 0 ? 0 : 0.5;
+    for (let col = 0; col < cols; col++) {
+      const progress = cols === 1 ? 0.5 : col / (cols - 1);
+      const x = Math.max(0, Math.min(barWidth, (progress + offset / (cols - 1)) * barWidth));
+      circles.push({ x, y, r: safeRadius });
+    }
+  }
+
+  return circles;
+}
+
+function addMissingCircleEdgeCoverage(circles, barWidth, barHeight, radius) {
+  const bounds = circles.reduce((acc, circle) => ({
+    left: Math.min(acc.left, circle.x - circle.r),
+    right: Math.max(acc.right, circle.x + circle.r),
+    top: Math.min(acc.top, circle.y - circle.r),
+    bottom: Math.max(acc.bottom, circle.y + circle.r)
+  }), {
+    left: Infinity,
+    right: -Infinity,
+    top: Infinity,
+    bottom: -Infinity
+  });
+
+  const edgeGap = Math.max(0.5, radius * 0.35);
+  const addHorizontalEdge = (y) => {
+    const count = Math.max(4, Math.ceil(barWidth / Math.max(8, radius * 4)));
+    for (let i = 0; i < count; i++) {
+      const x = count === 1 ? barWidth / 2 : (i / (count - 1)) * barWidth;
+      circles.push({ x, y, r: radius });
+    }
+  };
+  const addVerticalEdge = (x) => {
+    const count = Math.max(2, Math.ceil(barHeight / Math.max(4, radius * 3)));
+    for (let i = 0; i < count; i++) {
+      const y = count === 1 ? barHeight / 2 : (i / (count - 1)) * barHeight;
+      circles.push({ x, y, r: radius });
+    }
+  };
+
+  if (bounds.left > edgeGap) {
+    addVerticalEdge(0);
+  }
+  if (bounds.right < barWidth - edgeGap) {
+    addVerticalEdge(barWidth);
+  }
+  if (bounds.left > edgeGap || bounds.right < barWidth - edgeGap) {
+    addHorizontalEdge(barHeight / 2);
+  }
+  if (bounds.top > edgeGap) {
+    addHorizontalEdge(0);
+  }
+  if (bounds.bottom < barHeight - edgeGap) {
+    addHorizontalEdge(barHeight);
   }
 }
 
@@ -1129,12 +1321,12 @@ function saveSVG() {
           circlesDensity: circlesDensitySlider.value,
           circlesSizeVariation: circlesSizeVariationSlider.value,
           circlesOverlap: circlesOverlapSlider.value,
-          circlesRows: circlesRowsSlider.value,
-          circlesGridDensity: circlesGridDensitySlider.value,
-          circlesSizeVariationY: circlesSizeVariationYSlider.value,
-          circlesSizeVariationX: circlesSizeVariationXSlider.value,
-          circlesGridOverlap: circlesGridOverlapSlider.value,
-          circlesLayout: circlesLayoutSelect ? circlesLayoutSelect.value : 'straight',
+          circlesRows: typeof CIRCLES_GRID_ROWS === 'number' ? CIRCLES_GRID_ROWS : 2,
+          circlesGridDensity: circlesDensitySlider.value,
+          circlesSizeVariationY: circlesSizeVariationSlider.value,
+          circlesSizeVariationX: 0,
+          circlesGridOverlap: circlesOverlapSlider.value,
+          circlesLayout: typeof CIRCLES_GRID_LAYOUT === 'string' ? CIRCLES_GRID_LAYOUT : 'straight',
           numericValue: numericInput ? numericInput.value : '',
           numericMode: numericModeSelect ? numericModeSelect.value : 'dotmatrix',
           neuralNetworkHiddenLayers: neuralNetworkHiddenLayersSlider ? neuralNetworkHiddenLayersSlider.value : 1,
