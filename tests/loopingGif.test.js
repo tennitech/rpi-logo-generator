@@ -39,10 +39,10 @@ describe('loopingGif utils', () => {
     expect(plan.style).toBe('ticker');
     expect(plan.periodSeconds).toBeCloseTo(2);
     expect(plan.repeatWidth).toBeCloseTo(10);
-    expect(plan.getLoopOffsetX(0.25)).toBeCloseTo(2.5);
+    expect(plan.getLoopOffsetX(0.25)).toBeCloseTo(-2.5);
   });
 
-  test('reverses ticker loop offsets when reverse is enabled', () => {
+  test('flips ticker loop offsets when reverse is enabled', () => {
     const plan = getLoopingGifFramePlan('ticker', {
       tickerRepeats: 25,
       tickerSpeed: 1,
@@ -51,7 +51,7 @@ describe('loopingGif utils', () => {
       barWidth: 250
     });
 
-    expect(plan.getLoopOffsetX(0.25)).toBeCloseTo(-2.5);
+    expect(plan.getLoopOffsetX(0.25)).toBeCloseTo(2.5);
   });
 
   test('builds a waveform loop plan from waveform speed', () => {
@@ -98,6 +98,6 @@ describe('loopingGif utils', () => {
 
     expect(state.periodSeconds).toBeCloseTo(0.5);
     expect(state.progress).toBeCloseTo(0.25);
-    expect(state.loopOffsetX).toBeCloseTo(2.5);
+    expect(state.loopOffsetX).toBeCloseTo(-2.5);
   });
 });

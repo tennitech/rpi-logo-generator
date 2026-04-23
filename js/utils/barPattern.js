@@ -1477,7 +1477,6 @@ function createBarPatternSVG(config) {
     textToBinary,
     textToMorse,
     parseNumericString,
-    generateGridCircles,
     generateStaticPackedCircles,
     values
   } = config;
@@ -1580,30 +1579,13 @@ function createBarPatternSVG(config) {
   }
 
   if (currentShader === 5) {
-    const circlesMode = values.circlesMode || 'packing';
     const circlesFill = normalizeCircleFillStyle(values.circlesFill || 'stroke');
-    let circleData = [];
-
-    if (circlesMode === 'grid') {
-      const sharedDensity = parseInt(values.circlesDensity, 10);
-      const sharedVariation = parseInt(values.circlesSizeVariation, 10);
-      circleData = generateGridCircles(
-        exactBarWidth,
-        barHeight,
-        parseInt(values.circlesRows, 10) || 2,
-        parseInt(values.circlesGridDensity, 10) || sharedDensity || 50,
-        parseInt(values.circlesSizeVariationY, 10) || sharedVariation || 0,
-        parseInt(values.circlesSizeVariationX, 10) || 0,
-        values.circlesLayout || 'straight'
-      );
-    } else {
-      circleData = generateStaticPackedCircles(
-        exactBarWidth,
-        barHeight,
-        parseInt(values.circlesDensity, 10),
-        parseInt(values.circlesSizeVariation, 10)
-      );
-    }
+    let circleData = generateStaticPackedCircles(
+      exactBarWidth,
+      barHeight,
+      parseInt(values.circlesDensity, 10),
+      parseInt(values.circlesSizeVariation, 10)
+    );
 
     circleData = ensureCirclePatternCoverageForSVG(circleData, exactBarWidth, barHeight);
     const clipId = createCirclePatternClipId(barStartX, barY, exactBarWidth, barHeight);

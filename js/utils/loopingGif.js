@@ -101,7 +101,10 @@
     }
 
     if (normalizedStyle === 'ticker') {
-      return normalizeLoopReverse(normalizedStyle, values.tickerReverse);
+      // Ticker shipped with the reverse semantics flipped relative to the desired UI.
+      // Keep the existing checkbox/URL key, but invert the effective direction here so
+      // unchecked ticker motion runs in the reverse direction and checked runs forward.
+      return !normalizeLoopReverse(normalizedStyle, values.tickerReverse);
     }
 
     if (normalizedStyle === 'waveform') {

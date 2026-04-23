@@ -809,41 +809,18 @@ function drawBarPatternOnGraphics(pg, barStartX, barY, exactBarWidth, rectHeight
 
 function drawCirclePattern(pg, barStartX, barY, barWidth, barHeight, density, sizeVariation) {
   try {
-    const selectedMode = circlesModeSelect ? circlesModeSelect.value : 'packing';
     const circlesFill = circlesFillSelect ? circlesFillSelect.value : 'stroke';
 
-    if (selectedMode === 'grid') {
-      const rows = typeof CIRCLES_GRID_ROWS === 'number' ? CIRCLES_GRID_ROWS : 2;
-      const layout = typeof CIRCLES_GRID_LAYOUT === 'string' ? CIRCLES_GRID_LAYOUT : 'straight';
-      const gridDensity = density;
-      const sizeVariationY = sizeVariation;
-      const sizeVariationX = 0;
+    const params = `packing-${circlesFill}-${density}-${sizeVariation}-${barWidth}-${barHeight}`;
 
-      // Create parameter string for caching
-      const params = `grid-${circlesFill}-${rows}-${gridDensity}-${sizeVariationY}-${sizeVariationX}-${layout}-${barWidth}-${barHeight}`;
-
-      // Only regenerate if parameters changed
-      if (!staticCircleData || lastCircleParams !== params) {
-        staticCircleData = ensureStaticCirclePatternCoverage(
-          generateGridCircles(barWidth, barHeight, rows, gridDensity, sizeVariationY, sizeVariationX, layout),
-          barWidth,
-          barHeight
-        );
-        lastCircleParams = params;
-      }
-    } else {
-      // Packing mode (existing functionality)
-      const params = `packing-${circlesFill}-${density}-${sizeVariation}-${barWidth}-${barHeight}`;
-
-      // Only regenerate if parameters changed
-      if (!staticCircleData || lastCircleParams !== params) {
-        staticCircleData = ensureStaticCirclePatternCoverage(
-          generateStaticPackedCircles(barWidth, barHeight, density, sizeVariation),
-          barWidth,
-          barHeight
-        );
-        lastCircleParams = params;
-      }
+    // Only regenerate if parameters changed
+    if (!staticCircleData || lastCircleParams !== params) {
+      staticCircleData = ensureStaticCirclePatternCoverage(
+        generateStaticPackedCircles(barWidth, barHeight, density, sizeVariation),
+        barWidth,
+        barHeight
+      );
+      lastCircleParams = params;
     }
 
     // Safety check for data validity
@@ -1361,7 +1338,6 @@ function saveSVG() {
         textToBinary,
         textToMorse,
         parseNumericString,
-        generateGridCircles,
         generateStaticPackedCircles,
         values: {
           rulerRepeats: rulerRepeatsSlider.value,
@@ -1388,15 +1364,9 @@ function saveSVG() {
           timeSeconds: loopAnimationState
             ? loopAnimationState.timeSeconds
             : (typeof window.animationTime !== 'undefined' ? window.animationTime : millis() / 1000.0),
-          circlesMode: circlesModeSelect ? circlesModeSelect.value : 'packing',
           circlesFill: circlesFillSelect ? circlesFillSelect.value : 'stroke',
           circlesDensity: circlesDensitySlider.value,
           circlesSizeVariation: circlesSizeVariationSlider.value,
-          circlesRows: typeof CIRCLES_GRID_ROWS === 'number' ? CIRCLES_GRID_ROWS : 2,
-          circlesGridDensity: circlesDensitySlider.value,
-          circlesSizeVariationY: circlesSizeVariationSlider.value,
-          circlesSizeVariationX: 0,
-          circlesLayout: typeof CIRCLES_GRID_LAYOUT === 'string' ? CIRCLES_GRID_LAYOUT : 'straight',
           numericValue: numericInput ? numericInput.value : '',
           numericMode: numericModeSelect ? numericModeSelect.value : 'dotmatrix',
           neuralNetworkHiddenLayers: neuralNetworkHiddenLayersSlider ? neuralNetworkHiddenLayersSlider.value : 1,

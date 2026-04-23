@@ -52,6 +52,8 @@ let binaryAudioBtn;
 let morseInput;
 let morseGroup;
 let morseAudioBtn;
+let lunarGroup;
+let lunarAudioBtn;
 let staffAudioBtn;
 let rulerGroup;
 let rulerRepeatsSlider;
@@ -98,7 +100,6 @@ let circlesDensityDisplay;
 let circlesSizeVariationSlider;
 let circlesSizeVariationDisplay;
 let circlesFillSelect;
-let circlesModeSelect;
 let numericGroup;
 let numericInput;
 let numericModeSelect;
@@ -156,9 +157,7 @@ let graphMultiToggle;
 let graphMultiInputs;
 let graphScaleSlider;
 let graphScaleDisplay;
-const DISCRETE_SLIDER_TICK_MAX = 12;
 const sliderValueEditorConfigs = [];
-const sliderTickRows = new Map();
 
 const TRUSS_FAMILY_OPTIONS = [
   'flat',
@@ -218,6 +217,7 @@ let bugReportEmailInput;
 let appMain;
 let canvasViewport;
 const ARTEMIS_II_SPLASHDOWN_AT = Date.parse('2026-04-10T20:07:00-04:00');
+const ARTEMIS_II_AUDIO_SOURCE = 'assets/audio/artemis-ii-liftoff.mp3';
 const ARTEMIS_CREDIT_LINKS = {
   reidWiseman: 'https://news.rpi.edu/2026/04/13/engineers-who-reached-moon-how-rpi-became-launchpad-stars',
   rpiEngineers: 'https://news.rpi.edu/2026/03/31/meet-rpi-engineers-guiding-artemis-ii-moon-and-back'
@@ -290,6 +290,7 @@ let gainNode;
 let isAudioPlaying = false;
 let activeAudioPreviewType = null;
 let hasShownAudioHintToast = false;
+let artemisMissionAudio = null;
 
 // Crossfader audio system - multiple simultaneous oscillators
 let oscillators = {
@@ -491,6 +492,7 @@ const themeClassByColorMode = {
 
 // Set this to a deployed Google Apps Script web app URL to send reports directly into a Google Sheet.
 const BUG_REPORT_APPS_SCRIPT_URL = '';
+const GITHUB_NEW_ISSUE_URL = 'https://github.com/tennitech/rpi-logo-generator/issues/new';
 const SURPRISE_TEXT_OPTIONS = [
   'RPI',
   'BUILD',
@@ -678,7 +680,7 @@ function getResponsiveLogoScale(viewportWidth = width, viewportHeight = height) 
 }
 
 // Zoom/Pan/Playback UI references
-let zoomInBtn, zoomOutBtn, zoomResetBtn, panBtn, zoomLevelDisplay;
+let zoomInBtn, zoomOutBtn, zoomResetBtn, zoomLevelDisplay;
 
 const AVAILABLE_STYLE_VALUES = new Set([
   'solid', 'ruler', 'ticker', 'binary', 'waveform', 'circles',
@@ -769,6 +771,7 @@ function initializePreviewButtons() {
   [
     [binaryAudioBtn, 'audio'],
     [morseAudioBtn, 'audio'],
+    [lunarAudioBtn, 'audio'],
     [tickerAudioBtn, 'audio'],
     [waveformAudioBtn, 'audio'],
     [staffAudioBtn, 'audio']
@@ -855,66 +858,6 @@ function normalizeSliderValue(slider, rawValue) {
   return String(Math.round(clampedValue));
 }
 
-function getDiscreteSliderStepCount(slider) {
-  if (!slider || slider.step === 'any') {
-    return 0;
-  }
-
-  const min = parseFloat(slider.min);
-  const max = parseFloat(slider.max);
-  const step = parseFloat(slider.step || '1');
-  if (!Number.isFinite(min) || !Number.isFinite(max) || !Number.isFinite(step) || step <= 0) {
-    return 0;
-  }
-
-  const rawStepCount = (max - min) / step;
-  const roundedStepCount = Math.round(rawStepCount);
-  if (Math.abs(rawStepCount - roundedStepCount) > 0.00001) {
-    return 0;
-  }
-
-  return roundedStepCount + 1;
-}
-
-function syncSliderTickRow(slider) {
-  if (!slider) return;
-
-  const sliderControl = slider.closest('.slider-control');
-  if (!sliderControl) return;
-
-  const tickCount = getDiscreteSliderStepCount(slider);
-  let tickRow = sliderTickRows.get(slider);
-
-  if (tickCount < 2 || tickCount > DISCRETE_SLIDER_TICK_MAX) {
-    sliderControl.classList.remove('has-step-ticks');
-    if (tickRow) {
-      tickRow.remove();
-      sliderTickRows.delete(slider);
-    }
-    return;
-  }
-
-  if (!tickRow) {
-    tickRow = document.createElement('div');
-    tickRow.className = 'slider_tick-row';
-    tickRow.setAttribute('aria-hidden', 'true');
-    slider.insertAdjacentElement('afterend', tickRow);
-    sliderTickRows.set(slider, tickRow);
-  }
-
-  if (tickRow.childElementCount !== tickCount) {
-    tickRow.replaceChildren();
-    for (let i = 0; i < tickCount; i++) {
-      const tick = document.createElement('span');
-      tick.className = 'slider_tick';
-      tickRow.appendChild(tick);
-    }
-  }
-
-  tickRow.style.setProperty('--slider-tick-count', String(tickCount));
-  sliderControl.classList.add('has-step-ticks');
-}
-
 function resizeSliderValueEditorInput(input) {
   if (!input) return;
   const nextWidth = Math.max(2, String(input.value || '').length + 0.75);
@@ -927,7 +870,6 @@ function cancelSliderValueEditor(config) {
   const valueGroup = config.display.parentElement;
   config.editorInput.remove();
   config.editorInput = null;
-  config.display.hidden = false;
   config.display.removeAttribute('aria-hidden');
   if (valueGroup) {
     valueGroup.classList.remove('is-editing');
@@ -945,7 +887,6 @@ function commitSliderValueEditor(config) {
   const rawValue = config.editorInput.value;
   config.editorInput.remove();
   config.editorInput = null;
-  config.display.hidden = false;
   config.display.removeAttribute('aria-hidden');
   if (valueGroup) {
     valueGroup.classList.remove('is-editing');
@@ -966,7 +907,6 @@ function commitSliderValueEditor(config) {
     } else if (typeof config.refreshDisplay === 'function') {
       config.refreshDisplay();
     }
-    syncSliderTickRow(config.slider);
     return;
   }
 
@@ -996,7 +936,6 @@ function activateSliderValueEditor(config) {
   if (valueGroup) {
     valueGroup.classList.add('is-editing');
   }
-  config.display.hidden = true;
   config.display.setAttribute('aria-hidden', 'true');
   valueGroup.appendChild(input);
   resizeSliderValueEditorInput(input);
@@ -1101,7 +1040,6 @@ function registerSliderValueEditor(config) {
   });
 
   sliderValueEditorConfigs.push(config);
-  syncSliderTickRow(config.slider);
 }
 
 function randomStepValue(min, max, step = 1) {
@@ -1295,6 +1233,8 @@ function getCurrentAudioPreviewType() {
       return 'morse';
     case 10:
       return 'staff';
+    case 24:
+      return isMissionControlThemeActive() ? 'lunar' : null;
     default:
       return null;
   }
@@ -1358,6 +1298,7 @@ function getAudioButtonConfig() {
     { type: 'morse', button: morseAudioBtn, currentShader: 7 },
     { type: 'ticker', button: tickerAudioBtn, currentShader: 2 },
     { type: 'waveform', button: waveformAudioBtn, currentShader: 4 },
+    { type: 'lunar', button: lunarAudioBtn, currentShader: 24 },
     { type: 'staff', button: staffAudioBtn, currentShader: 10 }
   ];
 }
@@ -1371,7 +1312,7 @@ function resetAudioSequencePosition(type) {
     sequenceContext.nextNoteTime = audioContext.currentTime + 0.1;
   }
 
-  if (currentType === 'waveform') {
+  if (currentType === 'waveform' || currentType === 'lunar') {
     return;
   }
 
@@ -1402,7 +1343,7 @@ function togglePreviewAudio(type) {
     }
   }
 
-  if (type !== 'waveform') {
+  if (type !== 'waveform' && type !== 'lunar') {
     resetAudioSequencePosition(type);
   }
   startAudio();
@@ -1465,11 +1406,10 @@ function resetStyleParameters(style) {
       setMotionEnabledForStyle('waveform', true);
       break;
     case 'circles':
-      if (circlesModeSelect) circlesModeSelect.value = 'packing';
       if (circlesFillSelect) circlesFillSelect.value = 'stroke';
       if (circlesDensitySlider) circlesDensitySlider.value = 50;
       if (circlesSizeVariationSlider) circlesSizeVariationSlider.value = 0;
-      handleCirclesModeChange();
+      resetCirclePatternCache();
       updateCirclesDensityDisplay();
       updateCirclesSizeVariationDisplay();
       break;
@@ -1653,9 +1593,8 @@ function randomizeStyleParameters(style) {
       updateAudioParameters();
       break;
     case 'circles':
-      if (circlesModeSelect) circlesModeSelect.value = pickRandom(['packing', 'grid']);
       if (circlesFillSelect) circlesFillSelect.value = pickRandom(['stroke', 'fill']);
-      handleCirclesModeChange();
+      resetCirclePatternCache();
       if (circlesDensitySlider) circlesDensitySlider.value = randomStepValue(20, 95, 1);
       if (circlesSizeVariationSlider) circlesSizeVariationSlider.value = randomStepValue(0, 85, 1);
       updateCirclesDensityDisplay();
@@ -1784,6 +1723,35 @@ function openBugReportDialog() {
   window.requestAnimationFrame(() => {
     if (bugReportSubjectInput) bugReportSubjectInput.focus();
   });
+}
+
+function buildGitHubIssueUrl() {
+  const payload = buildBugReportPayload();
+  const colorThemeLabel = String(payload.colorMode || DEFAULT_COLOR_MODE).replace(/-/g, ' ').toUpperCase();
+  const issueTitle = `${payload.styleLabel} issue`;
+  const issueBody = [
+    '### Summary',
+    'Describe the issue here.',
+    '',
+    '### Context',
+    `- Style: ${payload.styleLabel}`,
+    `- Color theme: ${colorThemeLabel}`,
+    `- Viewport: ${payload.viewport}`,
+    `- URL: ${payload.stateUrl}`,
+    `- User agent: ${payload.userAgent}`,
+    `- Timestamp: ${payload.timestamp}`
+  ].join('\n');
+  const params = new URLSearchParams({
+    title: issueTitle,
+    body: issueBody
+  });
+
+  return `${GITHUB_NEW_ISSUE_URL}?${params.toString()}`;
+}
+
+function openGitHubIssue() {
+  const issueWindow = window.open(buildGitHubIssueUrl(), '_blank', 'noopener,noreferrer');
+  if (issueWindow) issueWindow.opener = null;
 }
 
 function closeBugReportDialog(shouldReset = false) {
@@ -2360,6 +2328,8 @@ async function setup() {
   morseInput = document.getElementById('morse-input');
   morseGroup = document.getElementById('morse-group');
   morseAudioBtn = document.getElementById('morse-audio-btn');
+  lunarGroup = document.getElementById('lunar-group');
+  lunarAudioBtn = document.getElementById('lunar-audio-btn');
   rulerGroup = document.getElementById('ruler-group');
   rulerRepeatsSlider = document.getElementById('ruler-repeats-slider');
   rulerRepeatsDisplay = document.getElementById('ruler-repeats-display');
@@ -2406,7 +2376,6 @@ async function setup() {
   zoomInBtn = document.getElementById('zoom-in-btn');
   zoomOutBtn = document.getElementById('zoom-out-btn');
   zoomResetBtn = document.getElementById('zoom-reset-btn');
-  panBtn = document.getElementById('pan-btn');
   zoomLevelDisplay = document.getElementById('zoom-level');
 
   // Setup Zoom Listeners and Input
@@ -2477,15 +2446,9 @@ async function setup() {
     });
   }
 
-  // Setup Pan Listener
-  if (panBtn) {
-    panBtn.addEventListener('click', togglePanMode);
-  }
-  document.addEventListener('pointerdown', handlePanModeOutsidePointerDown, true);
   circlesSizeVariationSlider = document.getElementById('circles-size-variation-slider');
   circlesSizeVariationDisplay = document.getElementById('circles-size-variation-display');
   circlesFillSelect = document.getElementById('circles-fill-select');
-  circlesModeSelect = document.getElementById('circles-mode-select');
   numericGroup = document.getElementById('numeric-group');
   numericInput = document.getElementById('numeric-input');
   numericModeSelect = document.getElementById('numeric-mode-select');
@@ -2778,12 +2741,6 @@ async function setup() {
   updateCirclesDensityDisplay(); // Set initial value
   updateCirclesSizeVariationDisplay(); // Set initial value
 
-  // Setup circles mode selector
-  circlesModeSelect.addEventListener('change', function () {
-    handleCirclesModeChange();
-    updateUrlParameters();
-  });
-
   // Setup circles fill selector
   circlesFillSelect.addEventListener('change', function () {
     updateUrlParameters();
@@ -2803,7 +2760,7 @@ async function setup() {
   if (reportProblemBtn) {
     reportProblemBtn.addEventListener('click', function (e) {
       e.preventDefault();
-      openBugReportDialog();
+      openGitHubIssue();
     });
   }
 
@@ -2964,6 +2921,13 @@ async function setup() {
     morseAudioBtn.addEventListener('click', function (e) {
       e.preventDefault();
       togglePreviewAudio('morse');
+    });
+  }
+
+  if (lunarAudioBtn) {
+    lunarAudioBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      togglePreviewAudio('lunar');
     });
   }
 
@@ -3453,8 +3417,8 @@ async function setup() {
 
     // Handle spacebar for motion and audio preview shortcuts.
     if (event.code === 'Space' && !event.shiftKey) {
-      // Morse and music use spacebar for audio transport.
-      if (currentShader === 7 || currentShader === 10) {
+      // Morse, Artemis II mission audio, and music use spacebar for audio transport.
+      if (currentShader === 7 || currentShader === 10 || (currentShader === 24 && isMissionControlThemeActive())) {
         event.preventDefault();
         if (isAudioPlaying) {
           stopAudio();
@@ -3633,7 +3597,6 @@ function updateTickerRatioDisplay() {
 function updateTickerWidthRatioDisplay() {
   applyTickerWidthRatioBounds(tickerRatioSlider, tickerWidthRatioSlider);
   setTickerWidthRatioDisplayValue(tickerWidthRatioSlider, tickerWidthRatioDisplay);
-  syncSliderTickRow(tickerWidthRatioSlider);
 }
 
 function updateTickerSpeedDisplay() {
@@ -3764,7 +3727,7 @@ function updateGraphScaleDisplay() {
   graphScaleDisplay.textContent = graphScaleSlider.value;
 }
 
-function handleCirclesModeChange() {
+function resetCirclePatternCache() {
   staticCircleData = null;
   redraw();
 }
@@ -3897,7 +3860,7 @@ function syncMissionControlInterfaceCopy() {
   if (colorModeSelectLabel) colorModeSelectLabel.textContent = interfaceCopy.colorLabel;
   if (reportProblemLabel) reportProblemLabel.textContent = interfaceCopy.reportProblem;
   if (reportProblemBtn) {
-    reportProblemBtn.setAttribute('aria-label', interfaceCopy.reportProblem);
+    reportProblemBtn.setAttribute('aria-label', `${interfaceCopy.reportProblem} on GitHub`);
   }
   if (!missionControlActive) closeLunarCounterDetail();
 }
@@ -4115,6 +4078,7 @@ function handleStyleChange() {
     circlesGroup.style.display = 'none';
     numericGroup.style.display = 'none';
     morseGroup.style.display = 'none';
+    if (lunarGroup) lunarGroup.style.display = 'none';
     if (circlesGradientGroup) circlesGradientGroup.style.display = 'none';
     if (gradientGroup) gradientGroup.style.display = 'none';
     if (gridGroup) gridGroup.style.display = 'none';
@@ -4157,6 +4121,9 @@ function handleStyleChange() {
       case 'morse':
         morseGroup.style.display = 'block';
         break;
+      case 'lunar':
+        syncLunarPreviewVisibility(selectedStyle);
+        break;
       case 'circles-gradient':
         if (circlesGradientGroup) circlesGradientGroup.style.display = 'block';
         break;
@@ -4197,6 +4164,7 @@ function handleStyleChange() {
     stopAudio();
   }
 
+  syncLunarPreviewVisibility(selectedStyle);
   console.log('Style changed to:', selectedStyle, 'currentShader:', currentShader);
   syncMissionControlSaveMenu();
   updateSidebarScrollFadeState();
@@ -4237,6 +4205,11 @@ function applyColorMode(colorMode) {
 
   syncMissionControlInterfaceCopy();
   syncMissionControlSaveMenu();
+  syncLunarPreviewVisibility();
+  updateAudioControlsUI();
+  if (activeAudioPreviewType === 'lunar' && !isMissionControlThemeActive(currentColorMode)) {
+    stopAudio();
+  }
   console.log('Color mode applied:', currentColorMode);
   requestUpdate();
 }
@@ -4300,15 +4273,9 @@ function buildHeaderPreviewSVG() {
         waveformEnvelopeCenter: waveformEnvelopeCenterSlider ? waveformEnvelopeCenterSlider.value : 0,
         waveformEnvelopeBipolar: waveformEnvelopeBipolarToggle ? waveformEnvelopeBipolarToggle.checked : false,
         timeSeconds,
-        circlesMode: circlesModeSelect ? circlesModeSelect.value : 'packing',
         circlesFill: circlesFillSelect ? circlesFillSelect.value : 'stroke',
         circlesDensity: circlesDensitySlider ? circlesDensitySlider.value : 50,
         circlesSizeVariation: circlesSizeVariationSlider ? circlesSizeVariationSlider.value : 0,
-        circlesRows: CIRCLES_GRID_ROWS,
-        circlesGridDensity: circlesDensitySlider ? circlesDensitySlider.value : 50,
-        circlesSizeVariationY: circlesSizeVariationSlider ? circlesSizeVariationSlider.value : 0,
-        circlesSizeVariationX: 0,
-        circlesLayout: CIRCLES_GRID_LAYOUT,
         numericValue: numericInput ? numericInput.value : '',
         numericMode: numericModeSelect ? numericModeSelect.value : 'dotmatrix',
         circlesGradientVariant: circlesGradientVariantSlider ? circlesGradientVariantSlider.value : 1,
@@ -4364,7 +4331,12 @@ function requestUpdate() {
 }
 
 function styleSupportsAudio(style) {
-  return style === 'binary' || style === 'ticker' || style === 'waveform' || style === 'morse' || style === 'music';
+  return style === 'binary'
+    || style === 'ticker'
+    || style === 'waveform'
+    || style === 'morse'
+    || style === 'music'
+    || style === 'lunar';
 }
 
 function showAudioToast(message, type = 'info') {
@@ -4376,15 +4348,20 @@ function showAudioToast(message, type = 'info') {
 function updateAudioControlsUI() {
   const activeType = getActiveAudioPreviewType();
   const staffPreviewDisabled = !currentStaffNotes || currentStaffNotes.length === 0;
+  const lunarPreviewDisabled = !isMissionControlThemeActive();
 
   getAudioButtonConfig().forEach(({ type, button, currentShader: shaderId }) => {
     const isStaffControl = type === 'staff' && shaderId === 10;
-    const disabled = isStaffControl && staffPreviewDisabled;
+    const isLunarControl = type === 'lunar' && shaderId === 24;
+    const disabled = (isStaffControl && staffPreviewDisabled) || (isLunarControl && lunarPreviewDisabled);
+    const disabledReason = isStaffControl
+      ? 'Add notes first'
+      : (isLunarControl ? 'Use Mission Control theme' : 'Unavailable');
 
     renderPreviewButton(button, 'audio', {
       active: activeType === type && isAudioPlaying,
       disabled,
-      disabledReason: 'Add notes first'
+      disabledReason
     });
   });
 }
@@ -4920,6 +4897,45 @@ function disconnectNode(node) {
   }
 }
 
+function isMissionControlThemeActive(colorMode = currentColorMode) {
+  return normalizeColorModeValue(colorMode) === 'lunar';
+}
+
+function syncLunarPreviewVisibility(selectedStyle = normalizeStyleValue(styleSelect ? styleSelect.value : 'solid')) {
+  if (!lunarGroup) return;
+
+  lunarGroup.style.display = selectedStyle === 'lunar' && isMissionControlThemeActive()
+    ? 'block'
+    : 'none';
+}
+
+function handleArtemisMissionAudioEnded() {
+  if (activeAudioPreviewType !== 'lunar') {
+    return;
+  }
+
+  isAudioPlaying = false;
+  activeAudioPreviewType = null;
+  updateAudioControlsUI();
+}
+
+function ensureArtemisMissionAudio() {
+  if (artemisMissionAudio) {
+    return artemisMissionAudio;
+  }
+
+  if (typeof Audio !== 'function') {
+    return null;
+  }
+
+  artemisMissionAudio = new Audio(ARTEMIS_II_AUDIO_SOURCE);
+  artemisMissionAudio.preload = 'auto';
+  artemisMissionAudio.playsInline = true;
+  artemisMissionAudio.addEventListener('ended', handleArtemisMissionAudioEnded);
+
+  return artemisMissionAudio;
+}
+
 async function initializeAudio() {
   try {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -4989,12 +5005,6 @@ function setupStaffEffectsChain() {
 }
 
 async function startAudio() {
-  // Only play audio if audioContext exists
-  if (!audioContext || isAudioPlaying) {
-    updateAudioControlsUI();
-    return;
-  }
-
   try {
     const requestedType = getCurrentAudioPreviewType();
     if (!requestedType) {
@@ -5002,32 +5012,46 @@ async function startAudio() {
       return;
     }
 
-    // Resume audio context if suspended (required by browsers)
-    if (audioContext.state === 'suspended') {
-      await audioContext.resume();
-    }
-
-    if (audioContext.state !== 'running') {
-      showAudioToast('Audio is blocked by the browser. Click the page and try again.', 'warning');
+    if (isAudioPlaying) {
       updateAudioControlsUI();
       return;
     }
 
-    if (requestedType === 'waveform') {
-      startWaveformAudio();
-    } else if (requestedType === 'binary') {
-      startSequenceAudio('binary');
-    } else if (requestedType === 'morse') {
-      startSequenceAudio('morse');
-    } else if (requestedType === 'ticker') {
-      startSequenceAudio('ticker');
-    } else if (requestedType === 'staff') {
-      if (!currentStaffNotes || currentStaffNotes.length === 0) {
-        showAudioToast('Add notes to the keyboard before previewing music audio.', 'info');
+    if (requestedType === 'lunar') {
+      await startArtemisMissionAudio();
+    } else {
+      if (!audioContext) {
         updateAudioControlsUI();
         return;
       }
-      startSequenceAudio('staff');
+
+      // Resume audio context if suspended (required by browsers)
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
+      if (audioContext.state !== 'running') {
+        showAudioToast('Audio is blocked by the browser. Click the page and try again.', 'warning');
+        updateAudioControlsUI();
+        return;
+      }
+
+      if (requestedType === 'waveform') {
+        startWaveformAudio();
+      } else if (requestedType === 'binary') {
+        startSequenceAudio('binary');
+      } else if (requestedType === 'morse') {
+        startSequenceAudio('morse');
+      } else if (requestedType === 'ticker') {
+        startSequenceAudio('ticker');
+      } else if (requestedType === 'staff') {
+        if (!currentStaffNotes || currentStaffNotes.length === 0) {
+          showAudioToast('Add notes to the keyboard before previewing music audio.', 'info');
+          updateAudioControlsUI();
+          return;
+        }
+        startSequenceAudio('staff');
+      }
     }
     if (isAudioPlaying) {
       activeAudioPreviewType = requestedType;
@@ -5042,6 +5066,29 @@ async function startAudio() {
     showAudioToast('Could not start audio. Check browser audio permissions.', 'error');
     updateAudioControlsUI();
   }
+}
+
+async function startArtemisMissionAudio() {
+  if (!isMissionControlThemeActive()) {
+    showAudioToast('Artemis II audio is only available in the Mission Control theme.', 'info');
+    return;
+  }
+
+  const audioElement = ensureArtemisMissionAudio();
+  if (!audioElement) {
+    throw new Error('Unable to initialize Artemis II audio element');
+  }
+
+  audioElement.pause();
+  audioElement.currentTime = 0;
+
+  const playResult = audioElement.play();
+  if (playResult && typeof playResult.then === 'function') {
+    await playResult;
+  }
+
+  isAudioPlaying = true;
+  console.log('Artemis II audio started');
 }
 
 async function startWaveformAudio() {
@@ -5151,6 +5198,8 @@ function stopAudio() {
 
   if (activeType === 'waveform') {
     stopWaveformAudio();
+  } else if (activeType === 'lunar') {
+    stopArtemisMissionAudio();
   } else {
     stopSequenceAudio();
   }
@@ -5159,6 +5208,19 @@ function stopAudio() {
   activeAudioPreviewType = null;
   console.log('Audio stopped');
   updateAudioControlsUI();
+}
+
+function stopArtemisMissionAudio() {
+  if (!artemisMissionAudio) {
+    return;
+  }
+
+  artemisMissionAudio.pause();
+  try {
+    artemisMissionAudio.currentTime = 0;
+  } catch (error) {
+    console.warn('Unable to reset Artemis II audio position:', error);
+  }
 }
 
 function stopWaveformAudio() {
@@ -5679,7 +5741,6 @@ function getUrlParameters() {
     waveformEnvelopeBipolar: params.get('waveformEnvelopeBipolar') || 'false',
 
     // Circles parameters
-    circlesMode: params.get('circlesMode') || 'packing',
     circlesFill: params.get('circlesFill') || 'stroke',
     circlesDensity: parseInt(params.get('circlesDensity')) || 50,
     circlesSizeVariation: parseInt(params.get('circlesSizeVariation')) || 0,
@@ -5923,9 +5984,6 @@ function updateUrlParameters() {
   }
 
   if (styleSelect && styleSelect.value === 'circles') {
-    if (circlesModeSelect && circlesModeSelect.value !== 'packing') {
-      params.set('circlesMode', circlesModeSelect.value);
-    }
     if (circlesFillSelect && circlesFillSelect.value !== 'stroke') {
       params.set('circlesFill', circlesFillSelect.value);
     }
@@ -6156,9 +6214,6 @@ function applyUrlParameters() {
   }
 
   // Apply circles parameters
-  if (circlesModeSelect) {
-    circlesModeSelect.value = params.circlesMode;
-  }
   if (circlesFillSelect) {
     circlesFillSelect.value = params.circlesFill;
   }
@@ -6172,7 +6227,7 @@ function applyUrlParameters() {
   // Update all displays and trigger style change
   updateAllDisplays();
   handleStyleChange();
-  handleCirclesModeChange();
+  resetCirclePatternCache();
 
   // Update binary data
   updateBinaryData(params.binaryText);
@@ -6205,7 +6260,6 @@ function updateAllDisplays() {
   updateTrussThicknessDisplay();
   updateStaffTempoDisplay();
   updateGraphScaleDisplay();
-  sliderValueEditorConfigs.forEach(({ slider }) => syncSliderTickRow(slider));
 }
 
 function updateAudioParameters() {
@@ -7458,34 +7512,6 @@ function bindBrowserZoomGuards() {
     safariGestureStartZoomLevel = null;
     event.preventDefault();
   }, { passive: false });
-}
-
-function setPanMode(nextActive) {
-  isPanningMode = !!nextActive;
-  if (!isPanningMode) {
-    isPanDragging = false;
-    stopPanAnimation();
-    panTargetOffset = { ...panOffset };
-    panVelocity = { x: 0, y: 0 };
-    clearPanPointerState();
-  }
-  if (panBtn) {
-    panBtn.classList.toggle('is-active', isPanningMode);
-    document.body.style.cursor = isPanningMode ? 'move' : 'default';
-  }
-  updatePanTouchAction();
-}
-
-function togglePanMode() {
-  setPanMode(!isPanningMode);
-}
-
-function handlePanModeOutsidePointerDown(event) {
-  if (!isPanningMode) return;
-  if (panBtn && panBtn.contains(event.target)) return;
-  if (canvasViewport && canvasViewport.contains(event.target)) return;
-
-  setPanMode(false);
 }
 
 function mouseDragged() {

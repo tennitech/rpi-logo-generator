@@ -23,6 +23,10 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 
 ## 3. Completed Milestones
 
+- **[2026-04-23] Workspace Controls Simplified To Zoom And Reset Only**:
+    - Removed the dedicated pan button from the generator workspace controls so the preview toolbar stays aligned with the app’s primary job: adjusting and exporting a single fitted RPI logo bar rather than navigating a freeform canvas.
+    - Cleaned up the unused pan-button event wiring in `js/main.js` while keeping existing zoom, reset, pinch, and internal viewport offset behavior intact.
+
 ### Phase 0: Analysis & Setup
 *   [x] Analyzed Project Proposal and Brand Guidelines.
 *   [x] Extracted condensed brand rules for agent usage.
@@ -48,6 +52,36 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 *   [ ] **AI Exploration:** (Future) Event-specific background generation.
 
 ## 5. Recent Updates
+- **[2026-04-23] Ticker Reverse Direction Mapping Was Corrected**:
+    - Flipped the ticker style’s effective reverse-direction mapping inside the shared loop runtime so its unchecked state now runs in the opposite direction from before, and enabling `REVERSE` now sends it the other way as expected.
+    - Applied that correction at the shared motion-helper layer so live preview, sharable URL playback, and looping GIF export all keep the same ticker direction behavior.
+- **[2026-04-23] Report Action Now Opens A Prefilled GitHub New-Issue Page**:
+    - Replaced the old in-app report dialog trigger with a direct GitHub `issues/new` action so the sidebar report button now opens issue creation for this repository instead of the internal form.
+    - Prefilled the new GitHub issue with the current style, theme, viewport, sharable URL, user agent, and timestamp so the reporting flow still carries the key runtime context without requiring the local dialog.
+- **[2026-04-23] Mission Control Removed The Top Sidebar Divider Under The Selectors**:
+    - Hid the divider line directly beneath the style and color dropdowns when the `MISSION CONTROL` theme is active so the top of the lunar sidebar reads as a single uninterrupted control cluster.
+    - Corrected the lunar-theme selector afterward so the hide rule targets the real `.sidebar-content` container instead of the outer scroll wrapper, which had left the divider visible.
+    - Restored the removed divider block’s vertical footprint as spacing above `COMMS`, so the first Mission Control section now sits at the same distance from the dropdowns as the first section in the standard sidebar layouts.
+- **[2026-04-23] Mission Control Source Credit Moved Into The Footer Rail**:
+    - Moved the Boromir lunar-surface credit block from the top of the sidebar into the sticky footer area so it now sits directly above `Report Anomaly` in Mission Control instead of interrupting the main control stack.
+    - Updated the link copy from `View repository` to `View source code` and placed that link on its own line beneath the attribution sentence for a cleaner footer reading order.
+    - Added a dedicated footer divider between that source-credit card and `Report Anomaly` so the lower action rail keeps a visible separation even after the top Mission Control divider was removed.
+- **[2026-04-23] Mission Control Fun Panel Now Stays Theme-Gated And Visually Quiet**:
+    - Limited the special `ARTEMIS II` `FUN` panel so it only appears when the current bar style is `ARTEMIS II` and the active color theme is `MISSION CONTROL`, instead of appearing for the style under other themes.
+    - Removed the lunar header’s red status marker from that special panel and kept its `FUN` header aligned flush left so the section reads like the rest of the sidebar rather than like a flagged alert.
+- **[2026-04-23] Audio Preview Coverage Expanded And Artemis II Mission Audio Added**:
+    - Fixed the shared preview-audio transport so the bar styles that are supposed to expose sound previews continue to work consistently through the current unified runtime, including `WAVEFORM`, `TICKER`, and `MORSE CODE`.
+    - Added a dedicated `ARTEMIS II` audio preview using the provided liftoff clip, but gated it to the `MISSION CONTROL` color theme only so the special mission audio does not leak into the standard exported-mark theme set.
+    - Stopped that mission audio automatically when users leave the Mission Control theme or switch away from the Artemis II style, keeping transport state and accessibility copy in sync with the visible controls.
+- **[2026-04-23] Slider Value Editing No Longer Clips Digits Or Reflows Labels**:
+    - Reworked the click-to-edit slider value treatment so the inline input now overlays the existing value footprint instead of replacing it in normal layout flow, which stops adjacent label content from shifting when editing begins.
+    - Fixed the edit field sizing and alignment so values no longer lose a digit while editing, especially on compact numeric readouts with suffixes such as `%` or ratio formatting.
+- **[2026-04-23] Slider Tick Markers Removed From Sidebar Controls**:
+    - Removed the recently added discrete-step tick markers beneath sidebar range inputs so the sliders return to the cleaner uninterrupted track treatment.
+    - Kept the click-to-edit numeric value labels and all existing slider bounds, snapping, and parameter behavior intact; this change only removes the visual tick decoration and its helper DOM/CSS.
+- **[2026-04-23] Audio Preview Section Clarified In The Sidebar**:
+    - Renamed the runtime section header for preview-audio controls from `AUDIO` to `PREVIEW` across the generator sidebar so the grouping reads as an on-canvas preview feature rather than an exported asset feature.
+    - Restored the row label beside the preview icon itself to `AUDIO`, keeping the control purpose explicit while avoiding the misleading impression that exported downloads include sound.
 - **[2026-04-23] Looping GIF Timing Now Respects Viewer-Safe Frame Delays**:
     - Updated the shared looping GIF planner to reduce frame count for very fast loops instead of always forcing at least 24 frames, which caused some downloaded GIFs to play slower than the live preview once viewers clamped tiny frame delays.
     - Preserved the same loop-period math between preview and export, but now keep the exported frame delay at a safer floor so the downloaded GIF’s real playback speed tracks the on-canvas motion much more closely.
