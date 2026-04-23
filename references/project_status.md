@@ -1,6 +1,6 @@
 # RPI Logo Generator - Project Status & Master Documentation
 
-**Last Updated:** 2026-04-21
+**Last Updated:** 2026-04-23
 **Current Phase:** Phase 3 (Advanced Features & Refinement)
 
 ## 1. Project Overview
@@ -48,6 +48,51 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 *   [ ] **AI Exploration:** (Future) Event-specific background generation.
 
 ## 5. Recent Updates
+- **[2026-04-23] Looping GIF Timing Now Respects Viewer-Safe Frame Delays**:
+    - Updated the shared looping GIF planner to reduce frame count for very fast loops instead of always forcing at least 24 frames, which caused some downloaded GIFs to play slower than the live preview once viewers clamped tiny frame delays.
+    - Preserved the same loop-period math between preview and export, but now keep the exported frame delay at a safer floor so the downloaded GIF’s real playback speed tracks the on-canvas motion much more closely.
+- **[2026-04-23] Looping Styles Gained A Reverse Direction Toggle**:
+    - Added `REVERSE` motion toggles for `RULER`, `TICKER`, and `WAVEFORM` so loop previews can run in either direction without changing the underlying pattern geometry or brand-safe defaults.
+    - Wired reverse state through the shared loop runtime helper, sharable URL parameters, reset/randomize flows, and looping GIF export so live preview and exported motion stay aligned.
+    - Kept the default direction unchanged, preserving existing links and the prior motion behavior unless the reverse option is explicitly enabled.
+- **[2026-04-23] Numeric Slider Labels Became Editable And Discrete Stops Gained Tick Dots**:
+    - Added click-to-edit behavior to the numeric slider readouts in the generator sidebar so users can type exact values directly from the label, matching the existing zoom percentage control pattern instead of relying only on dragging.
+    - Added subtle vertical notch rows for low-count discrete sliders such as units, variants, envelope controls, and ratio selectors so the fixed snap positions are visible before interaction, then aligned those notches to the slider thumb travel instead of the full input width.
+    - Refined the inline edit state so typing temporarily replaces the entire displayed value treatment, including affixes like `%`, rather than leaving adjacent static fragments visible beside the active field.
+    - Tightened that edit state again so the active field now fully replaces the sidebar readout container while editing, preventing any duplicate number from remaining visible beside the temporary input and matching the focused zoom-field behavior more closely.
+    - Kept the existing per-style normalization rules intact, including ticker width-ratio bounds, graph scale clamping, loop speed rounding, and waveform envelope snapping when values are typed manually.
+- **[2026-04-23] GitHub Pages 404 Fallback Restyled Into A Branded Recovery Screen**:
+    - Replaced the old bare redirect card in root `404.html` with a homepage-aligned marquee fallback that keeps the existing all-black shell, animated bar background, and hero lockup language while swapping in 404-specific recovery copy.
+    - Preserved the existing GitHub Pages auto-reroute logic while adding a short visible countdown, the missing route label, and direct links back to the homepage or a clean `solid` generator entry.
+- **[2026-04-23] Under-Construction Bar Styles Disabled In The Picker And Routing**:
+    - Marked `MUSIC`, `DATA GRAPH`, and `TRUSS` as unavailable options in the bar-style dropdown so they remain visible for roadmap context but cannot be selected from the custom picker.
+    - Updated generator route normalization and GitHub Pages fallback handling so direct `/generator/music/`, `/generator/graph/`, `/generator/truss/`, and legacy `staff` links now canonicalize back to `/generator/solid/` instead of loading unfinished styles.
+- **[2026-04-23] Circles Now Reject Interlocking Ring Layouts**:
+    - Removed the old circles-overlap feature from the circles UI, sharable URL state, and generator core so randomize and deep links can no longer land on any legacy interlocking-circle behavior.
+    - Included circle fill style in the live geometry cache key and versioned the updated pattern scripts so switching between `FILL` and `STROKE` reliably regenerates the correct safe layout instead of reusing stale geometry.
+    - Replaced the old row-based circle fallback and edge-coverage repair pass with deterministic scatter generation so under-filled or repaired circles bars still resolve as irregular random dots rather than aligned horizontal bands.
+- **[2026-04-23] Motion Controls Split From Audio And Synced To Export Timing**:
+    - Reworked the sidebar runtime areas so animated styles now use a dedicated `MOTION` section with loop on-off toggles and style-local speed sliders, while `AUDIO` stays isolated as a separate non-essential preview feature.
+    - Added motion speed controls for `RULER` and `TICKER`, moved `WAVEFORM` speed out of the main parameter block into `MOTION`, and routed live canvas motion, header preview timing, PNG/SVG snapshots, and looping GIF export through the same shared loop-duration math.
+    - Replaced the old play-pause preview behavior with deterministic loop toggles that reset animated styles to the loop start instead of freezing on an arbitrary mid-animation frame.
+- **[2026-04-23] GIF Export Description Tightened To Match The Other Download Labels**:
+    - Shortened the standard GIF menu description to the same `Best for...` style as the PNG and SVG options while still making the animated use case explicit.
+- **[2026-04-23] Export Menu Copy Simplified For Broader Campus Use**:
+    - Renamed the standard download options to plain `PNG`, `SVG`, and `GIF` so the picker reads more directly instead of using file-type jargon in the labels.
+    - Rewrote the supporting descriptions in simpler terms aimed at general student and faculty use cases, including slides, documents, sharing, resizing, and motion previews.
+- **[2026-04-23] Download Picker Simplified To Export-Only Actions**:
+    - Removed the `Copy Embed Code` entry from the download picker so the menu now contains only direct asset-export actions.
+    - Cleaned up the associated save-menu copy tables and event wiring so the picker no longer carries an unused fourth action in standard or mission-control states.
+- **[2026-04-23] PNG Download Resolution Increased For Sharper Logo Exports**:
+    - Raised the PNG export render scale from `1.5x` to `4x`, which substantially increases the downloaded raster dimensions without changing the live preview or SVG output.
+    - Kept the existing transparent-background export path and padding behavior intact; this change only affects the pixel density of the downloaded PNG.
+- **[2026-04-23] Runtime Sidebar Section Restyled To Match Parameters Header**:
+    - Replaced the old `PREVIEW` subheader treatment in the dynamic sidebar groups with a full `RUNTIME` section header so motion and audio controls now read as a separate runtime block instead of another parameter row.
+    - Moved the divider to the bottom edge of that section title by reusing the shared `control-header` styling, which makes the runtime section visually match `PARAMETERS` and removes the stray line above the label.
+- **[2026-04-23] SVG Bar Export Height Corrected To Preserve Full Bottom Edge**:
+    - Fixed the SVG export frame so the saved wordmark now uses the full reference logo height derived from the bar's actual `y + height` bounds instead of the previously shorter hardcoded value that clipped the bottom edge.
+    - Applied the same reference-height correction to the header preview SVG builder so the in-app vector preview and the downloaded SVG now use the same overall logo box.
+    - Kept PNG and GIF export behavior unchanged; the regression was isolated to SVG markup sizing rather than the bar pattern geometry itself.
 - **[2026-04-21] GitHub Pages 404 Fallback Added For Legacy And Bad Deep Links**:
     - Audited the live GitHub Pages deployment at `https://tennitech.github.io/rpi-logo-generator/` and confirmed the intended primary routes still work directly under the real repo base path: `/`, `/generator/`, and valid `/generator/[style]/` pages all serve the expected shells and shared assets.
     - Added a custom root `404.html` plus a dedicated Pages fallback utility so unsupported or legacy deep links such as `/generator/staff/`, `/generator/matrix/`, and unknown `/generator/[bar-style]/` paths now recover automatically into valid generator routes instead of stopping at GitHub's default 404 page.
@@ -152,7 +197,7 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
     - Softened logo panning with resisted drag deltas, eased offset following, and short decaying inertia so the pan tool feels less twitchy while preserving the existing pan bounds.
     - Added a small shared pan-edge inset so the logo can get close to the viewport edges on desktop and mobile without clamping flush against them.
     - Kept the header height consistent across desktop and mobile by removing the mobile-only shorter header override.
-    - Simplified the `CIRCLES` parameter panel so it only exposes `MODE` (`PACKING`/`GRID`), `STYLE` (`STROKE`/`FILL`), and the shared density, variation, and overlap sliders; grid mode now uses those same controls with fixed internal grid defaults.
+    - Simplified the `CIRCLES` parameter panel so it only exposes `MODE` (`PACKING`/`GRID`), `STYLE` (`STROKE`/`FILL`), and the shared density and variation sliders; grid mode now uses those same controls with fixed internal grid defaults.
     - Tightened `CIRCLES` rendering so generated grid and packing circles keep usable multi-circle coverage across the full bar bounds and are clipped to the official bar rectangle, keeping live canvas, header preview, and SVG export visually full-bleed without leaking outside the mark geometry.
 - **[2026-04-15] Runtime Control Redesign Rolled Back After Stylesheet Corruption**:
     - Restored `css/style.css` after it was accidentally overwritten, then reapplied the current right-sidebar shell, scroll-fade, sticky report rail, report dialog, and parameter-header utility styling as an override layer.

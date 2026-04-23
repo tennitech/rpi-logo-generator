@@ -7,7 +7,7 @@
   <meta name="description" content="Generate unique, brand-compliant RPI logos and lockups with dynamic bar patterns.">
   <title>RPI Logo Generator</title>
   <base href="../">
-  <link href="css/style.css?v=20260420-mission-control-polish" rel="stylesheet" type="text/css" />
+  <link href="css/style.css?v=20260423-motion-runtime-sync" rel="stylesheet" type="text/css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
 </head>
 
@@ -77,21 +77,16 @@
         </button>
         <div id="save-menu" class="save-menu hidden" role="menu">
           <button id="save-png" class="save-option" role="menuitem">
-            <span class="option-label">PNG IMAGE</span>
-            <span class="option-desc">High resolution raster</span>
+            <span class="option-label">PNG</span>
+            <span class="option-desc">Best for slides, docs, and sharing</span>
           </button>
           <button id="save-svg" class="save-option" role="menuitem">
-            <span class="option-label">SVG VECTOR</span>
-            <span class="option-desc">Scalable format</span>
+            <span class="option-label">SVG</span>
+            <span class="option-desc">Best for resizing without losing quality</span>
           </button>
           <button id="save-loop-gif" class="save-option" role="menuitem" hidden>
-            <span class="option-label">LOOPING GIF</span>
-            <span class="option-desc">Seamless animation for repeat styles</span>
-          </button>
-          <div class="save-divider"></div>
-          <button id="copy-embed" class="save-option" role="menuitem">
-            <span class="option-label">COPY EMBED CODE</span>
-            <span class="option-desc">For Frontify / Web</span>
+            <span class="option-label">GIF</span>
+            <span class="option-desc">Best for animated slides and screens</span>
           </button>
         </div>
       </div>
@@ -162,9 +157,9 @@
                   <option value="lunar">ARTEMIS II</option>
                 </optgroup>
                 <optgroup label="UNDER CONSTRUCTION">
-                  <option value="music">MUSIC</option>
-                  <option value="graph">DATA GRAPH</option>
-                  <option value="truss">TRUSS</option>
+                  <option value="music" disabled>MUSIC</option>
+                  <option value="graph" disabled>DATA GRAPH</option>
+                  <option value="truss" disabled>TRUSS</option>
                 </optgroup>
               </select>
             </div>
@@ -212,6 +207,28 @@
             <input type="range" id="ruler-units-slider" min="2" max="10" step="2" value="4" class="control-slider"
               aria-label="Ruler Units">
           </div>
+          <div class="runtime_section motion_section">
+            <div class="control-header">MOTION</div>
+            <div class="control control_row control_row-toggle">
+              <label for="ruler-motion-toggle" class="control-label control_row-label">LOOP</label>
+              <label class="switch">
+                <input type="checkbox" id="ruler-motion-toggle" checked>
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="control control_row control_row-toggle">
+              <label for="ruler-reverse-toggle" class="control-label control_row-label">REVERSE</label>
+              <label class="switch">
+                <input type="checkbox" id="ruler-reverse-toggle">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="control slider-control runtime_speed-control">
+              <label for="ruler-speed-slider" class="control-label">SPEED <span id="ruler-speed-display">1.0</span></label>
+              <input type="range" id="ruler-speed-slider" min="0.2" max="5" step="0.1" value="1" class="control-slider"
+                aria-label="Ruler Motion Speed">
+            </div>
+          </div>
         </div>
 
         <div id="binary-group" class="control-group" style="display: none;">
@@ -222,8 +239,8 @@
               aria-label="Binary Text Input">
             <div class="control-hint">Type to translate to binary code</div>
           </div>
-          <div class="control preview_section">
-            <div class="control_subheader">PREVIEW</div>
+          <div class="runtime_section audio_section">
+            <div class="control-header">AUDIO</div>
             <div class="control_row control_row-preview">
               <div class="control-label control_row-label">AUDIO</div>
               <div class="preview-controls">
@@ -242,8 +259,8 @@
               aria-label="Morse Text Input">
             <div class="control-hint">Type to translate to morse code</div>
           </div>
-          <div class="control preview_section">
-            <div class="control_subheader">PREVIEW</div>
+          <div class="runtime_section audio_section">
+            <div class="control-header">AUDIO</div>
             <div class="control_row control_row-preview">
               <div class="control-label control_row-label">AUDIO</div>
               <div class="preview-controls">
@@ -275,15 +292,30 @@
             <input type="range" id="ticker-width-ratio-slider" min="1" max="3" value="2" class="control-slider"
               aria-label="Ticker Width Ratio">
           </div>
-          <div class="control preview_section">
-            <div class="control_subheader">PREVIEW</div>
-            <div class="control_row control_row-preview">
-              <div class="control-label control_row-label">MOTION</div>
-              <div class="preview-controls">
-                <button id="ticker-motion-btn" class="preview-control-btn" data-preview-kind="motion"
-                  aria-label="Pause motion preview"></button>
-              </div>
+          <div class="runtime_section motion_section">
+            <div class="control-header">MOTION</div>
+            <div class="control control_row control_row-toggle">
+              <label for="ticker-motion-toggle" class="control-label control_row-label">LOOP</label>
+              <label class="switch">
+                <input type="checkbox" id="ticker-motion-toggle" checked>
+                <span class="slider round"></span>
+              </label>
             </div>
+            <div class="control control_row control_row-toggle">
+              <label for="ticker-reverse-toggle" class="control-label control_row-label">REVERSE</label>
+              <label class="switch">
+                <input type="checkbox" id="ticker-reverse-toggle">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="control slider-control runtime_speed-control">
+              <label for="ticker-speed-slider" class="control-label">SPEED <span id="ticker-speed-display">1.0</span></label>
+              <input type="range" id="ticker-speed-slider" min="0.2" max="5" step="0.1" value="1" class="control-slider"
+                aria-label="Ticker Motion Speed">
+            </div>
+          </div>
+          <div class="runtime_section audio_section">
+            <div class="control-header">AUDIO</div>
             <div class="control_row control_row-preview">
               <div class="control-label control_row-label">AUDIO</div>
               <div class="preview-controls">
@@ -308,13 +340,6 @@
                 id="waveform-frequency-display">24</span></label>
             <input type="range" id="waveform-frequency-slider" min="10" max="100" value="24" class="control-slider"
               aria-label="Waveform Frequency">
-          </div>
-
-          <div class="control slider-control">
-            <label for="waveform-speed-slider" class="control-label">SPEED <span
-                id="waveform-speed-display">0.7</span></label>
-            <input type="range" id="waveform-speed-slider" min="0" max="5" step="0.1" value="0.7" class="control-slider"
-              aria-label="Waveform Speed">
           </div>
 
           <div class="control control_row control_row-toggle">
@@ -358,15 +383,31 @@
             </div>
           </div>
 
-          <div class="control preview_section">
-            <div class="control_subheader">PREVIEW</div>
-            <div class="control_row control_row-preview">
-              <div class="control-label control_row-label">MOTION</div>
-              <div class="preview-controls">
-                <button id="waveform-motion-btn" class="preview-control-btn" data-preview-kind="motion"
-                  aria-label="Pause motion preview"></button>
-              </div>
+          <div class="runtime_section motion_section">
+            <div class="control-header">MOTION</div>
+            <div class="control control_row control_row-toggle">
+              <label for="waveform-motion-toggle" class="control-label control_row-label">LOOP</label>
+              <label class="switch">
+                <input type="checkbox" id="waveform-motion-toggle" checked>
+                <span class="slider round"></span>
+              </label>
             </div>
+            <div class="control control_row control_row-toggle">
+              <label for="waveform-reverse-toggle" class="control-label control_row-label">REVERSE</label>
+              <label class="switch">
+                <input type="checkbox" id="waveform-reverse-toggle">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="control slider-control runtime_speed-control">
+              <label for="waveform-speed-slider" class="control-label">SPEED <span
+                  id="waveform-speed-display">0.7</span></label>
+              <input type="range" id="waveform-speed-slider" min="0.2" max="5" step="0.1" value="0.7" class="control-slider"
+                aria-label="Waveform Motion Speed">
+            </div>
+          </div>
+          <div class="runtime_section audio_section">
+            <div class="control-header">AUDIO</div>
             <div class="control_row control_row-preview">
               <div class="control-label control_row-label">AUDIO</div>
               <div class="preview-controls">
@@ -401,13 +442,6 @@
                 id="circles-size-variation-display">0</span>%</label>
             <input type="range" id="circles-size-variation-slider" min="0" max="100" value="0" class="control-slider"
               aria-label="Size Variation">
-          </div>
-
-          <div class="control slider-control">
-            <label for="circles-overlap-slider" class="control-label">OVERLAP <span
-                id="circles-overlap-display">0</span>%</label>
-            <input type="range" id="circles-overlap-slider" min="0" max="100" value="0" class="control-slider"
-              aria-label="Overlap Amount">
           </div>
 
           <div class="control">
@@ -554,8 +588,8 @@
             </div>
             <div class="control-hint" style="margin-top: 8px;">Click keys to add notes (max 4 measures)</div>
           </div>
-          <div class="control preview_section">
-            <div class="control_subheader">PREVIEW</div>
+          <div class="runtime_section audio_section">
+            <div class="control-header">AUDIO</div>
             <div class="control_row control_row-preview">
               <div class="control-label control_row-label">AUDIO</div>
               <div class="preview-controls">
@@ -812,13 +846,13 @@
   <script src="js/utils/tickerDisplay.js"></script>
   <script src="js/utils/musicStyle.js"></script>
   <script src="js/utils/lunarBarAsset.js?v=20260419-lunar-color"></script>
-  <script src="js/utils/barPattern.js?v=20260420-lunar-color-ticker-ratio-limits"></script>
-  <script src="js/utils/loopingGif.js"></script>
+  <script src="js/utils/barPattern.js?v=20260423-circles-scatter-only"></script>
+  <script src="js/utils/loopingGif.js?v=20260423-motion-runtime-sync"></script>
   <script src="js/utils/themeMode.js?v=20260419-lunar-theme"></script>
   <script src="js/utils/previewControls.js?v=20260417-morse-randomize"></script>
   <script src="js/ui.js"></script>
-  <script src="js/main.js?v=20260421-responsive-preview-scale"></script>
-  <script src="js/drawing.js?v=20260420-lunar-color-ticker-ratio-limits"></script>
+  <script src="js/main.js?v=20260423-motion-runtime-sync"></script>
+  <script src="js/drawing.js?v=20260423-circles-scatter-only"></script>
 </body>
 
 </html>

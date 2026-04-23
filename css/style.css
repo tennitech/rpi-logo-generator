@@ -561,6 +561,7 @@ body {
 /* ─── Sliders ─── */
 
 .slider-control {
+  --slider-thumb-width: 10px;
   margin-bottom: 8px;
 }
 
@@ -609,6 +610,104 @@ body {
 
 .control-slider:focus::-webkit-slider-thumb {
   box-shadow: 0 0 0 2px var(--bg-sidebar), 0 0 0 4px var(--accent-color);
+}
+
+.slider_label-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: 0.8rem;
+}
+
+.slider_label-text {
+  min-width: 0;
+}
+
+.slider_value-group {
+  display: inline-flex;
+  align-items: baseline;
+  justify-self: end;
+  gap: 0.2rem;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.slider_value-group.is-editing {
+  gap: 0;
+}
+
+.slider_value-group.is-editing > :not(.slider_value-input) {
+  display: none;
+}
+
+.slider_value-group.is-editing .slider_value-affix {
+  display: none;
+}
+
+.slider_value-display {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 2ch;
+  padding: 0 0.14rem;
+  border-radius: 0.2rem;
+  cursor: text;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  transition: background var(--duration-fast) ease, box-shadow var(--duration-fast) ease, color var(--duration-fast) ease;
+}
+
+.slider_value-display:hover,
+.slider_value-display:focus-visible {
+  outline: none;
+  background: var(--control-surface-hover);
+  box-shadow: 0 0 0 1px var(--control-border);
+}
+
+.slider_value-input {
+  width: 4ch;
+  min-width: 2ch;
+  padding: 0.08rem 0.24rem;
+  border: 1px solid var(--control-border);
+  border-radius: 0.2rem;
+  background: var(--control-surface);
+  color: var(--text-primary);
+  font: inherit;
+  line-height: 1.2;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.slider_value-input:focus {
+  outline: none;
+  background: var(--input-focus-bg);
+  box-shadow: 0 0 0 2px var(--accent-color);
+}
+
+.slider-control.has-step-ticks .control-slider {
+  margin-bottom: 6px;
+}
+
+.slider_tick-row {
+  display: grid;
+  grid-template-columns: repeat(var(--slider-tick-count), minmax(0, 1fr));
+  align-items: end;
+  width: calc(100% - var(--slider-thumb-width, 10px));
+  min-height: 8px;
+  margin: 0 calc(var(--slider-thumb-width, 10px) / 2) 4px;
+  pointer-events: none;
+}
+
+.slider_tick {
+  width: 2px;
+  height: 8px;
+  border-radius: 1px;
+  justify-self: center;
+  background: color-mix(in srgb, var(--slider-thumb) 42%, var(--slider-track) 58%);
+  opacity: 0.9;
 }
 
 /* ────────────────────────────────────────
@@ -1545,15 +1644,6 @@ body {
   outline: none;
 }
 
-.control_subheader {
-  margin-bottom: 10px;
-  font-family: 'RPIGeistMono', monospace;
-  font-size: 10px;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
 .control_row {
   display: flex;
   align-items: center;
@@ -1571,10 +1661,25 @@ body {
   gap: 10px;
 }
 
-.preview_section {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border-color);
+.runtime_section {
+  margin-top: 10px;
+  margin-bottom: 16px;
+}
+
+.runtime_section:last-child {
+  margin-bottom: 0;
+}
+
+.runtime_section .control-header {
+  margin-bottom: 12px;
+}
+
+.runtime_section .control:last-child {
+  margin-bottom: 0;
+}
+
+.runtime_speed-control {
+  margin-bottom: 0;
 }
 
 .preview-controls,
@@ -2965,6 +3070,15 @@ body.theme-lunar .lunar_counter {
 
 .custom-option.is-hidden {
   display: none;
+}
+
+.custom-option.is-disabled,
+.custom-option.is-disabled:hover {
+  background: color-mix(in srgb, var(--menu-surface) 88%, var(--bg-app) 12%);
+  color: var(--text-secondary);
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.66;
 }
 
 .custom-option.selected,
