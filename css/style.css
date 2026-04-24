@@ -1644,12 +1644,17 @@ body.has-logo-animation {
   overflow: hidden;
 }
 
-.logo_animation_frame {
-  width: 100%;
-  height: 100%;
+.logo_animation_stage.inverted {
+  filter: invert(1);
+}
+
+.logo_animation_stage .runner-container {
+  transform-origin: center top;
+}
+
+.logo_animation_stage .runner-canvas {
   display: block;
-  border: 0;
-  background: #000000;
+  image-rendering: pixelated;
 }
 
 .app-layout {

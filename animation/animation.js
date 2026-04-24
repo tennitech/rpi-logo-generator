@@ -388,7 +388,7 @@ async function rebuildScene() {
     masks.push(finalizeMask(rawMask, index, def.motionAmplitude, def.motionSpeed));
   }
 
-  const titleRaw = rasterizeTextMask(TITLE_LINES, 0.84, 0.22, 'RPIGeistMono');
+  const titleRaw = rasterizeTextMask(TITLE_LINES, 0.84, 0.22, 'GeistPixelSquare');
   const finalLogoRaw = await rasterizeMask(FINAL_LOGO_PATH, 0.68, 0.34, 'contain');
 
   state.masks = masks;
@@ -653,6 +653,7 @@ function renderFrame(timestamp) {
 async function prepare() {
   if (document.fonts && document.fonts.load) {
     await document.fonts.load('32px RPIGeistMono');
+    await document.fonts.load('32px GeistPixelSquare');
     await document.fonts.ready;
   }
 

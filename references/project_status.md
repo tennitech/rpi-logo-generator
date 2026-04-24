@@ -25,9 +25,8 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 
 - **[2026-04-24] Header Logo Now Lazily Launches A Full-Screen Animation Overlay**:
     - Kept generator boot unchanged and avoided new startup-time runtime dependencies by wiring the existing header logo preview as an on-demand trigger inside `js/main.js`, rather than mounting animation code during initial page load.
-    - Restored the existing ASCII animation prototype under `animation/` from local history, kept its source SVG data intact, and trimmed the missing pixel-font dependency so the intro can run against the current repo assets without a broken font load.
-    - Added `js/utils/logoAnimationOverlay.js` to build a full-screen iframe overlay around `animation/index.html`, manage replay, close, and `Escape`, and keep the animation completely isolated from the main p5/WebGL generator boot path.
-    - Added overlay and trigger styling in `css/style.css` plus targeted Jest coverage for the lazy controller so the header interaction can evolve without reintroducing the earlier startup regression.
+    - Added `js/utils/logoAnimationOverlay.js` to build the full-screen overlay only after the first click or tap, lazy-load `third_party/t-rex-runner/runner.js`, inject the required sprite assets, and manage replay, close, `Escape`, and crash-restart behavior without interfering with the main p5/WebGL generator boot path.
+    - Added overlay and trigger styling in `css/style.css` plus targeted Jest coverage for the lazy controller so the header interaction can evolve without reintroducing the earlier black-screen startup failure.
 
 - **[2026-04-23] Workspace Controls Simplified To Zoom And Reset Only**:
     - Removed the dedicated pan button from the generator workspace controls so the preview toolbar stays aligned with the app’s primary job: adjusting and exporting a single fitted RPI logo bar rather than navigating a freeform canvas.
@@ -58,6 +57,10 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 *   [ ] **AI Exploration:** (Future) Event-specific background generation.
 
 ## 5. Recent Updates
+- **[2026-04-24] Live Motion Timing Reworked For High-Refresh Displays**:
+    - Removed the generator canvas's extra 60 fps gate and switched live motion timing onto a clamped high-resolution clock, so `RULER`, `TICKER`, and `WAVEFORM` animate with much smoother phase updates on 120 Hz displays instead of stepping through coarse frame-sized jumps.
+    - Set the live p5 render target to `120 fps`, which lets the generator actually use high-refresh panels while still keeping a hard upper bound instead of blindly chasing arbitrarily high refresh rates.
+    - Replaced the press-and-hold zoom button repeat timer with a `requestAnimationFrame` loop so zoom interactions now respond smoothly at the browser refresh rate rather than ticking forward in 50 ms chunks.
 - **[2026-04-24] Artemis II Color Variants Now Use The White-Source Bar Geometry**:
     - Replaced the embedded `ARTEMIS II` bar source with the provided white-version artwork so the generator now recolors the updated shadow treatment instead of tinting the older black-source design.
     - Updated the checked-in `assets/bars/bar-lunar.svg` asset to match that new source and refreshed the generator script cache key so browsers pull the replacement immediately.

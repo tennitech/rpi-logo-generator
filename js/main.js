@@ -382,6 +382,20 @@ const normalizeLoopSpeed = loopingGifUtils && typeof loopingGifUtils.normalizeLo
     }
     return Math.max(0.2, Math.min(5, numericValue));
   };
+const getPreferredLiveRenderFps = loopingGifUtils && typeof loopingGifUtils.getPreferredLiveRenderFps === 'function'
+  ? loopingGifUtils.getPreferredLiveRenderFps
+  : function fallbackGetPreferredLiveRenderFps() {
+    return 120;
+  };
+const clampLiveAnimationDeltaMs = loopingGifUtils && typeof loopingGifUtils.clampLiveAnimationDeltaMs === 'function'
+  ? loopingGifUtils.clampLiveAnimationDeltaMs
+  : function fallbackClampLiveAnimationDeltaMs(value) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue) || numericValue <= 0) {
+      return 0;
+    }
+    return Math.min(numericValue, 1000 / 20);
+  };
 
 let currentColorMode = DEFAULT_COLOR_MODE;
 let lastNonLunarColorMode = DEFAULT_COLOR_MODE;
@@ -653,7 +667,6 @@ let desktopSidebarWasCollapsed = false;
 let responsiveLayoutAnimationFrame = 0;
 let responsiveLayoutAnimationDeadline = 0;
 let renderedResponsiveLogoScale = null;
-let forceNextDrawFrame = false;
 let isPanDragging = false;
 let isPanningMode = false;
 let isCanvasPinching = false;
@@ -1258,7 +1271,7 @@ function setMotionEnabledForStyle(style, enabled, options = {}) {
 
   MOTION_ENABLED_BY_STYLE[normalizedStyle] = !!enabled;
   if (options.resetPhase !== false) {
-    window.animationTime = 0;
+    resetAnimationClock();
   }
 
   syncMotionToggleState();
@@ -2254,7 +2267,6 @@ function startResponsiveLayoutAnimation(duration = 460) {
     responsiveLayoutAnimationFrame = 0;
 
     if (!isMotionEnabledForStyle(getCurrentMotionStyle())) {
-      forceNextDrawFrame = true;
       redraw();
     }
 
@@ -2308,14 +2320,12 @@ function syncResponsiveWorkspaceSizing() {
         return;
       }
 
-      forceNextDrawFrame = true;
       resizeCanvas(nextWidth, nextHeight);
       lastCanvasSize = { width: nextWidth, height: nextHeight };
       clampPanOffset();
       startResponsiveLayoutAnimation(320);
       requestAnimationFrame(() => {
         clampPanOffset();
-        forceNextDrawFrame = true;
         renderPanOffsetChange();
       });
     }
@@ -2494,6 +2504,10 @@ async function setup() {
   lastCanvasSize = { width, height };
   setupResponsiveWorkspaceSizing();
 
+  if (typeof frameRate === 'function') {
+    frameRate(getPreferredLiveRenderFps());
+  }
+
   // Handle WebGL context loss to prevent crashes
   canvas.elt.addEventListener('webglcontextlost', (event) => {
     event.preventDefault();
@@ -2590,17 +2604,44 @@ async function setup() {
   zoomLevelDisplay = document.getElementById('zoom-level');
 
   // Setup Zoom Listeners and Input
-  let zoomInterval = null;
+  let zoomHoldFrame = 0;
+  let zoomHoldDirection = 0;
+  let zoomHoldLastTime = 0;
+  const ZOOM_HOLD_SPEED_PER_SECOND = 1;
+  const stepZoomHold = (timestamp) => {
+    if (!zoomHoldDirection) {
+      zoomHoldFrame = 0;
+      zoomHoldLastTime = 0;
+      return;
+    }
+
+    if (!zoomHoldLastTime) {
+      zoomHoldLastTime = timestamp;
+    } else {
+      const deltaSeconds = Math.min(0.05, Math.max(0, (timestamp - zoomHoldLastTime) / 1000));
+      zoomHoldLastTime = timestamp;
+      if (deltaSeconds > 0) {
+        zoomCanvas(zoomHoldDirection * ZOOM_HOLD_SPEED_PER_SECOND * deltaSeconds);
+      }
+    }
+
+    zoomHoldFrame = requestAnimationFrame(stepZoomHold);
+  };
   const startZoom = (amount) => {
     zoomCanvas(amount);
-    if (!zoomInterval) {
-      zoomInterval = setInterval(() => zoomCanvas(amount * 0.5), 50);
+    zoomHoldDirection = Math.sign(amount);
+    if (!zoomHoldDirection || zoomHoldFrame) {
+      return;
     }
+    zoomHoldLastTime = 0;
+    zoomHoldFrame = requestAnimationFrame(stepZoomHold);
   };
   const stopZoom = () => {
-    if (zoomInterval) {
-      clearInterval(zoomInterval);
-      zoomInterval = null;
+    zoomHoldDirection = 0;
+    zoomHoldLastTime = 0;
+    if (zoomHoldFrame) {
+      cancelAnimationFrame(zoomHoldFrame);
+      zoomHoldFrame = 0;
     }
   };
 
@@ -2610,6 +2651,7 @@ async function setup() {
     zoomInBtn.addEventListener('mouseup', stopZoom);
     zoomInBtn.addEventListener('mouseleave', stopZoom);
     zoomInBtn.addEventListener('touchend', stopZoom);
+    zoomInBtn.addEventListener('touchcancel', stopZoom);
   }
   if (zoomOutBtn) {
     zoomOutBtn.addEventListener('mousedown', () => startZoom(-0.1));
@@ -2617,6 +2659,7 @@ async function setup() {
     zoomOutBtn.addEventListener('mouseup', stopZoom);
     zoomOutBtn.addEventListener('mouseleave', stopZoom);
     zoomOutBtn.addEventListener('touchend', stopZoom);
+    zoomOutBtn.addEventListener('touchcancel', stopZoom);
   }
   if (zoomResetBtn) {
     zoomResetBtn.addEventListener('click', () => {
@@ -2787,7 +2830,7 @@ async function setup() {
   }
   if (rulerReverseToggle) {
     rulerReverseToggle.addEventListener('change', function () {
-      window.animationTime = 0;
+      resetAnimationClock();
       updateUrlParameters();
       requestUpdate();
     });
@@ -2833,7 +2876,7 @@ async function setup() {
   }
   if (tickerReverseToggle) {
     tickerReverseToggle.addEventListener('change', function () {
-      window.animationTime = 0;
+      resetAnimationClock();
       updateUrlParameters();
       requestUpdate();
     });
@@ -2865,7 +2908,7 @@ async function setup() {
   }
   if (waveformReverseToggle) {
     waveformReverseToggle.addEventListener('change', function () {
-      window.animationTime = 0;
+      resetAnimationClock();
       updateUrlParameters();
       requestUpdate();
     });
@@ -4444,7 +4487,7 @@ function buildHeaderPreviewSVG() {
     ? loopAnimationState.timeSeconds
     : (typeof window.animationTime !== 'undefined'
       ? window.animationTime
-      : (typeof millis === 'function' ? millis() / 1000.0 : 0));
+      : getAnimationNowMs() / 1000.0);
 
   let svgContent = `
 <svg viewBox="0 0 ${currentWidth} ${logoHeight}" xmlns="http://www.w3.org/2000/svg" role="presentation" focusable="false" aria-hidden="true" style="overflow: visible;">
@@ -4459,6 +4502,7 @@ function buildHeaderPreviewSVG() {
   } else if (typeof createBarPatternSVG === 'function') {
     svgContent += createBarPatternSVG({
       currentShader,
+      currentColorMode,
       barStartX,
       barY,
       exactBarWidth,
@@ -4536,7 +4580,7 @@ function updateHeaderBrandPreview(force = false) {
 
   headerLogoPreview.innerHTML = markup;
   lastHeaderPreviewMarkup = markup;
-  lastHeaderPreviewUpdateTime = typeof millis === 'function' ? millis() : Date.now();
+  lastHeaderPreviewUpdateTime = getAnimationNowMs();
 }
 
 function loadExternalScriptOnce(src) {
@@ -4626,7 +4670,7 @@ function setupHeaderLogoAnimationTrigger() {
   headerLogoPreview.classList.add('brand-mark-clickable');
   headerLogoPreview.setAttribute('role', 'button');
   headerLogoPreview.setAttribute('tabindex', '0');
-  headerLogoPreview.setAttribute('aria-label', 'Play full-screen ASCII animation');
+  headerLogoPreview.setAttribute('aria-label', 'Play full-screen animation');
   headerLogoPreview.setAttribute('aria-haspopup', 'dialog');
   headerLogoPreview.setAttribute('aria-expanded', 'false');
 
@@ -6687,11 +6731,26 @@ function windowResized() {
   requestResponsiveWorkspaceSizing();
 }
 
-// Frame rate limiting for performance
-let lastFrameTime = 0;
-const TARGET_FPS = 60;
-const FRAME_INTERVAL = 1000 / TARGET_FPS;
 let hasBoundViewportHeightSync = false;
+let lastAnimationFrameTimestamp = 0;
+
+function getAnimationNowMs() {
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+    return performance.now();
+  }
+
+  if (typeof millis === 'function') {
+    return millis();
+  }
+
+  return Date.now();
+}
+
+function resetAnimationClock(nextTimeSeconds = 0) {
+  const normalizedTime = Number(nextTimeSeconds);
+  window.animationTime = Number.isFinite(normalizedTime) ? Math.max(0, normalizedTime) : 0;
+  lastAnimationFrameTimestamp = 0;
+}
 
 function getViewportHeight() {
   const visualViewportHeight = window.visualViewport && Number.isFinite(window.visualViewport.height)
@@ -6741,20 +6800,22 @@ function setupViewportHeightSync() {
 }
 
 function draw() {
-  // Limit frame rate to prevent excessive computation
-  const currentTime = millis();
-  const deltaTime = currentTime - lastFrameTime;
-  if (!forceNextDrawFrame && deltaTime < FRAME_INTERVAL) {
-    return;
-  }
-  forceNextDrawFrame = false;
-  lastFrameTime = currentTime;
+  const currentTime = getAnimationNowMs();
+  const currentMotionStyle = getCurrentMotionStyle();
 
-  if (isMotionEnabledForStyle(getCurrentMotionStyle())) {
+  if (isMotionEnabledForStyle(currentMotionStyle)) {
     if (typeof window.animationTime === 'undefined') {
       window.animationTime = 0;
     }
-    window.animationTime += deltaTime / 1000.0;
+    if (!lastAnimationFrameTimestamp) {
+      lastAnimationFrameTimestamp = currentTime;
+    } else {
+      const deltaTime = clampLiveAnimationDeltaMs(currentTime - lastAnimationFrameTimestamp);
+      lastAnimationFrameTimestamp = currentTime;
+      window.animationTime += deltaTime / 1000.0;
+    }
+  } else {
+    lastAnimationFrameTimestamp = currentTime;
   }
 
   // Get current color scheme
@@ -6806,7 +6867,7 @@ function draw() {
   // Draw bottom bar
   drawBottomBar(currentWidth, responsiveLogoScale);
 
-  if (isAnimated && isMotionEnabledForStyle(getCurrentMotionStyle()) && currentTime - lastHeaderPreviewUpdateTime >= 120) {
+  if (isAnimated && isMotionEnabledForStyle(currentMotionStyle) && currentTime - lastHeaderPreviewUpdateTime >= 120) {
     updateHeaderBrandPreview(true);
   }
 }
@@ -7167,7 +7228,7 @@ function drawBottomBar(currentWidth, responsiveLogoScale = getRenderedResponsive
   } else if (currentShader === 24) {
     // Lunar pattern sourced from the Artemis bar asset.
     resetShader();
-    drawLunarBarPattern(null, barStartX, 0, exactBarWidth, rectHeight, colorScheme ? colorScheme.fg : '#000000');
+    drawLunarBarPattern(null, barStartX, 0, exactBarWidth, rectHeight, colorScheme ? colorScheme.fg : '#000000', currentColorMode);
   } else if (currentShader === 9) {
     // Truss / Geometric pattern
     resetShader();
