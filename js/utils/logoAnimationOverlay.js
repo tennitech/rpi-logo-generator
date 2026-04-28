@@ -14,6 +14,9 @@
   const STAGE_ID = 'logo-animation-stage';
   const CLOSE_ID = 'logo-animation-close';
   const REPLAY_ID = 'logo-animation-replay';
+  const READY_SCRIM_DELAY_MS = 140;
+  const OPEN_SCRIM_FALLBACK_MS = 1200;
+  const EXIT_TRANSITION_MS = 760;
 
   function appendChild(parent, child) {
     if (!parent || !child) {
@@ -60,7 +63,8 @@
     frameEl.style.height = '100vh';
     frameEl.style.border = '0';
     frameEl.style.display = 'block';
-    frameEl.style.background = '#000000';
+    frameEl.style.background = 'transparent';
+    frameEl.setAttribute('allowtransparency', 'true');
     frameEl.setAttribute('allowfullscreen', '');
     frameEl.src = src;
     return frameEl;
@@ -150,6 +154,37 @@
     let escapeHandler = null;
     let messageHandler = null;
     let activeStateKey = '';
+    let openTimer = 0;
+    let closeTimer = 0;
+    let activeOpenParts = null;
+
+    function schedule(callback, delay = 0) {
+      if (windowRef && typeof windowRef.setTimeout === 'function') {
+        return windowRef.setTimeout(callback, delay);
+      }
+
+      if (typeof setTimeout === 'function') {
+        return setTimeout(callback, delay);
+      }
+
+      callback();
+      return 0;
+    }
+
+    function cancelScheduled(timerId) {
+      if (!timerId) {
+        return;
+      }
+
+      if (windowRef && typeof windowRef.clearTimeout === 'function') {
+        windowRef.clearTimeout(timerId);
+        return;
+      }
+
+      if (typeof clearTimeout === 'function') {
+        clearTimeout(timerId);
+      }
+    }
 
     function clearAnimationState() {
       if (!activeStateKey || !windowRef || !windowRef.sessionStorage) {
@@ -198,6 +233,25 @@
       });
     }
 
+    function startScrimFade(delay = 0) {
+      if (!isOpen || !activeOpenParts) {
+        return;
+      }
+
+      cancelScheduled(openTimer);
+      openTimer = schedule(() => {
+        openTimer = 0;
+        if (!isOpen
+          || !activeOpenParts
+          || !activeOpenParts.overlayEl.classList
+          || typeof activeOpenParts.overlayEl.classList.add !== 'function') {
+          return;
+        }
+
+        activeOpenParts.overlayEl.classList.add('is-open');
+      }, delay);
+    }
+
     function ensureOverlayParts() {
       if (overlayParts) {
         return overlayParts;
@@ -226,6 +280,11 @@
         }
 
         const data = event ? event.data : null;
+        if (data && data.type === 'rpi-logo-animation-ready') {
+          startScrimFade(READY_SCRIM_DELAY_MS);
+          return;
+        }
+
         if (!data || data.type !== 'rpi-logo-animation-complete') {
           return;
         }
@@ -280,23 +339,39 @@
     function setOpenState(nextIsOpen) {
       const parts = ensureOverlayParts();
       isOpen = nextIsOpen;
-      parts.overlayEl.hidden = !nextIsOpen;
       parts.overlayEl.setAttribute('aria-hidden', String(!nextIsOpen));
       triggerEl.setAttribute('aria-expanded', String(nextIsOpen));
 
       if (parts.overlayEl.classList && typeof parts.overlayEl.classList.toggle === 'function') {
-        parts.overlayEl.classList.toggle('is-open', nextIsOpen);
+        parts.overlayEl.classList.toggle('is-closing', !nextIsOpen);
+        if (!nextIsOpen) {
+          parts.overlayEl.classList.remove('is-open');
+        }
       }
 
-      if (documentRef.body && documentRef.body.classList && typeof documentRef.body.classList.toggle === 'function') {
-        documentRef.body.classList.toggle('has-logo-animation', nextIsOpen);
+      if (nextIsOpen) {
+        parts.overlayEl.hidden = false;
+        if (documentRef.body && documentRef.body.classList && typeof documentRef.body.classList.add === 'function') {
+          documentRef.body.classList.add('has-logo-animation');
+        }
       }
     }
 
     function open() {
       const parts = ensureOverlayParts();
+      cancelScheduled(openTimer);
+      cancelScheduled(closeTimer);
+      openTimer = 0;
+      closeTimer = 0;
       mountFrame();
+      activeOpenParts = parts;
       setOpenState(true);
+
+      if (parts.overlayEl.classList && typeof parts.overlayEl.classList.remove === 'function') {
+        parts.overlayEl.classList.remove('is-closing');
+      }
+
+      startScrimFade(OPEN_SCRIM_FALLBACK_MS);
 
       if (typeof parts.closeEl.focus === 'function') {
         parts.closeEl.focus();
@@ -310,12 +385,33 @@
         return;
       }
 
+      const parts = ensureOverlayParts();
+      cancelScheduled(openTimer);
+      cancelScheduled(closeTimer);
+      openTimer = 0;
       setOpenState(false);
-      destroyFrame();
+      activeOpenParts = null;
 
       if (typeof triggerEl.focus === 'function') {
         triggerEl.focus();
       }
+
+      closeTimer = schedule(() => {
+        closeTimer = 0;
+        if (isOpen) {
+          return;
+        }
+
+        destroyFrame();
+        parts.overlayEl.hidden = true;
+        if (parts.overlayEl.classList && typeof parts.overlayEl.classList.remove === 'function') {
+          parts.overlayEl.classList.remove('is-closing');
+        }
+
+        if (documentRef.body && documentRef.body.classList && typeof documentRef.body.classList.remove === 'function') {
+          documentRef.body.classList.remove('has-logo-animation');
+        }
+      }, EXIT_TRANSITION_MS);
     }
 
     function replay() {
@@ -329,6 +425,11 @@
 
     function destroy() {
       close();
+      cancelScheduled(openTimer);
+      cancelScheduled(closeTimer);
+      openTimer = 0;
+      closeTimer = 0;
+      destroyFrame();
 
       if (escapeHandler) {
         documentRef.removeEventListener('keydown', escapeHandler);

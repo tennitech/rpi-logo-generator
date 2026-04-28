@@ -45,6 +45,10 @@ function readRuntimeConfig() {
 
 const runtimeConfig = readRuntimeConfig();
 
+if (runtimeConfig.isOverlay && document.body && document.body.classList) {
+  document.body.classList.add('is-overlay');
+}
+
 const TEXT_BLOCK = `
 /dream BUILDING THE NEW THROUGH PRECISE ITERATION AND CODE.
 /dream WHAT IF WE TRIED THIS AGAIN WITH MORE RIGOR.
@@ -72,6 +76,7 @@ const state = {
   finalMorphParticles: [],
   frameHandle: 0,
   startTime: 0,
+  hasAnnouncedReady: false,
   hasCompleted: false
 };
 
@@ -562,6 +567,17 @@ function renderSettle(progress) {
   return buffer.map((row) => row.join('')).join('\n');
 }
 
+function announceReady() {
+  if (state.hasAnnouncedReady) {
+    return;
+  }
+
+  state.hasAnnouncedReady = true;
+  if (runtimeConfig.isOverlay && window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'rpi-logo-animation-ready' }, window.location.origin);
+  }
+}
+
 function timelineState(elapsed) {
   let remaining = elapsed;
 
@@ -633,6 +649,7 @@ function renderFrame(timestamp) {
 
   if (stage.type === 'intro') {
     projection.textContent = renderParticleTransition(state.introParticles, stage.progress, elapsed, null, state.masks[0]);
+    announceReady();
     state.frameHandle = window.requestAnimationFrame(renderFrame);
     return;
   }
@@ -715,6 +732,7 @@ async function prepare() {
   window.cancelAnimationFrame(state.frameHandle);
   state.frameHandle = 0;
   state.startTime = 0;
+  state.hasAnnouncedReady = false;
   state.hasCompleted = false;
   state.frameHandle = window.requestAnimationFrame(renderFrame);
 }
@@ -723,6 +741,7 @@ window.addEventListener('resize', async () => {
   updateProjectionScale();
   await rebuildScene();
   state.startTime = 0;
+  state.hasAnnouncedReady = false;
   state.hasCompleted = false;
   window.cancelAnimationFrame(state.frameHandle);
   state.frameHandle = window.requestAnimationFrame(renderFrame);

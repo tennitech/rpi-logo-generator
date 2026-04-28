@@ -114,6 +114,8 @@ function createMockWindow() {
   const storage = new Map();
 
   return {
+    setTimeout,
+    clearTimeout,
     sessionStorage: {
       setItem: jest.fn((key, value) => {
         storage.set(key, value);
@@ -140,6 +142,19 @@ function createMockWindow() {
 }
 
 describe('logo animation overlay controller', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+  });
+
+  function finishCloseTransition() {
+    jest.advanceTimersByTime(760);
+  }
+
   function createController(options = {}) {
     const triggerEl = createMockElement();
     const overlayEl = createMockElement();
@@ -232,9 +247,13 @@ describe('logo animation overlay controller', () => {
     await controller.open();
     controller.close();
 
-    expect(overlayEl.hidden).toBe(true);
     expect(overlayEl.getAttribute('aria-hidden')).toBe('true');
     expect(triggerEl.getAttribute('aria-expanded')).toBe('false');
+    expect(overlayEl.hidden).toBe(false);
+
+    finishCloseTransition();
+
+    expect(overlayEl.hidden).toBe(true);
     expect(documentRef.body.classList.contains('has-logo-animation')).toBe(false);
     expect(stageEl.innerHTML).toBe('');
     expect(triggerEl.focus).toHaveBeenCalledTimes(1);
@@ -268,6 +287,9 @@ describe('logo animation overlay controller', () => {
       data: { type: 'rpi-logo-animation-complete' }
     });
 
+    expect(overlayEl.getAttribute('aria-hidden')).toBe('true');
+    finishCloseTransition();
+
     expect(overlayEl.hidden).toBe(true);
   });
 
@@ -283,6 +305,9 @@ describe('logo animation overlay controller', () => {
       key: 'Escape',
       preventDefault: jest.fn()
     });
+
+    expect(overlayEl.getAttribute('aria-hidden')).toBe('true');
+    finishCloseTransition();
 
     expect(overlayEl.hidden).toBe(true);
   });

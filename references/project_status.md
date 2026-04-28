@@ -27,6 +27,8 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
     - Reworked the generator header logo trigger so it passes the current bar-only SVG and full RPI lockup SVG into the existing full-screen ASCII animation overlay through same-origin session storage.
     - Simplified the ASCII animation sequence to use only the active selected bar as the opening ASCII art, transition to `THE BAR GENERATOR`, then resolve into the RPI mark with that same bar beneath it.
     - Added a completion message from the iframe back to the overlay controller so the animation dismisses itself without changing or navigating away from the generator page.
+    - Changed the overlay entrance and exit to transition smoothly, letting the ASCII animation begin over the live generator interface before the black scrim finishes fading in and fade back out before teardown.
+    - Tuned the motion so the opening black scrim fades more slowly with gentler easing while the closing black scrim and red ASCII layer fade out together, avoiding a lingering final ASCII frame.
 
 - **[2026-04-24] Header Logo Now Lazily Launches A Full-Screen Animation Overlay**:
     - Kept generator boot unchanged and avoided new startup-time runtime dependencies by wiring the existing header logo preview as an on-demand trigger inside `js/main.js`, rather than mounting animation code during initial page load.

@@ -20,6 +20,10 @@ body {
   font-family: 'RPIGeistMono', monospace;
 }
 
+body.is-overlay {
+  background: transparent;
+}
+
 .animation_page {
   width: 100%;
   height: 100%;

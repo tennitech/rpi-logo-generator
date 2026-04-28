@@ -4669,7 +4669,7 @@ async function ensureHeaderLogoAnimationController() {
   }
 
   headerLogoAnimationControllerPromise = (async () => {
-    await loadExternalScriptOnce('js/utils/logoAnimationOverlay.js?v=20260424-header-logo-lazy');
+    await loadExternalScriptOnce('js/utils/logoAnimationOverlay.js?v=20260428-header-logo-slower-fade');
 
     if (!window.LogoAnimationOverlay
       || typeof window.LogoAnimationOverlay.createLogoAnimationController !== 'function') {
