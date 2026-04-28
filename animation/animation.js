@@ -1,15 +1,8 @@
 const FINAL_LOGO_PATH = './data/rpi-logo-5.svg';
+const FALLBACK_BAR_PATH = './data/style-ruler-in.svg';
 const projection = document.getElementById('animation-projection');
 const DENSITY_RAMP = ' .,:-=+*#%@';
 const TITLE_LINES = ['THE BAR', 'GENERATOR'];
-
-const PATTERN_DEFS = [
-  { path: './data/style-circles-2.svg', widthRatio: 0.84, heightRatio: 0.72, fitMode: 'contain', motionAmplitude: 1.25, motionSpeed: 1.75 },
-  { path: './data/style-circles-gradient-1.svg', widthRatio: 0.84, heightRatio: 0.72, fitMode: 'contain', motionAmplitude: 1.3, motionSpeed: 1.62 },
-  { path: './data/style-fibonacci-sequence.svg', widthRatio: 0.84, heightRatio: 0.72, fitMode: 'contain', motionAmplitude: 1.15, motionSpeed: 1.42 },
-  { path: './data/style-ruler-in.svg', widthRatio: 0.88, heightRatio: 0.58, fitMode: 'contain', motionAmplitude: 0.95, motionSpeed: 1.92 },
-  { path: './data/style-ticker-sm.svg', widthRatio: 0.88, heightRatio: 0.44, fitMode: 'contain', motionAmplitude: 0.9, motionSpeed: 2.05 }
-];
 
 const TIMING = {
   intro: 2.2,
@@ -20,6 +13,37 @@ const TIMING = {
   finalMorph: 1.48,
   finalSettle: 0.96
 };
+
+function readRuntimeConfig() {
+  const params = new URLSearchParams(window.location.search);
+  const stateKey = params.get('stateKey');
+  const config = {
+    isOverlay: params.get('overlay') === '1',
+    barSvg: '',
+    finalLogoSvg: ''
+  };
+
+  if (!stateKey || !window.sessionStorage) {
+    return config;
+  }
+
+  try {
+    const rawState = window.sessionStorage.getItem(stateKey);
+    if (!rawState) {
+      return config;
+    }
+
+    const parsedState = JSON.parse(rawState);
+    config.barSvg = typeof parsedState.barSvg === 'string' ? parsedState.barSvg : '';
+    config.finalLogoSvg = typeof parsedState.finalLogoSvg === 'string' ? parsedState.finalLogoSvg : '';
+  } catch (error) {
+    return config;
+  }
+
+  return config;
+}
+
+const runtimeConfig = readRuntimeConfig();
 
 const TEXT_BLOCK = `
 /dream BUILDING THE NEW THROUGH PRECISE ITERATION AND CODE.
@@ -47,7 +71,8 @@ const state = {
   titleMorphParticles: [],
   finalMorphParticles: [],
   frameHandle: 0,
-  startTime: 0
+  startTime: 0,
+  hasCompleted: false
 };
 
 function clamp(value, min, max) {
@@ -145,64 +170,84 @@ function sampleDensity(data, width, left, right, top, bottom) {
   return samples > 0 ? coverage / samples : 0;
 }
 
-async function rasterizeMask(path, widthRatio, heightRatio, fitMode = 'contain') {
+function createRasterImageSource(source) {
+  if (source && typeof source.svgText === 'string' && source.svgText.trim()) {
+    return {
+      src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(source.svgText)}`,
+      revoke() {}
+    };
+  }
+
+  return {
+    src: typeof source === 'string' ? source : source.path,
+    revoke() {}
+  };
+}
+
+async function rasterizeMask(source, widthRatio, heightRatio, fitMode = 'contain') {
+  const imageSource = createRasterImageSource(source);
   const image = new Image();
-  image.src = path;
-  await image.decode();
+  image.src = imageSource.src;
 
-  const metrics = measureCellMetrics();
-  const oversample = 6;
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  canvas.width = Math.max(1, Math.round(state.cols * metrics.width * oversample));
-  canvas.height = Math.max(1, Math.round(state.rows * metrics.height * oversample));
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.imageSmoothingEnabled = true;
+  try {
+    await image.decode();
 
-  const imageWidth = image.naturalWidth || image.width;
-  const imageHeight = image.naturalHeight || image.height;
-  const aspect = imageWidth / imageHeight;
-  const maxWidth = canvas.width * widthRatio;
-  const maxHeight = canvas.height * heightRatio;
-  let drawWidth = maxWidth;
-  let drawHeight = drawWidth / aspect;
+    const metrics = measureCellMetrics();
+    const oversample = 6;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    canvas.width = Math.max(1, Math.round(state.cols * metrics.width * oversample));
+    canvas.height = Math.max(1, Math.round(state.rows * metrics.height * oversample));
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = true;
 
-  if (fitMode === 'cover') {
-    if (drawHeight < maxHeight) {
+    const imageWidth = image.naturalWidth || image.width;
+    const imageHeight = image.naturalHeight || image.height;
+    const aspect = imageWidth / imageHeight;
+    const maxWidth = canvas.width * widthRatio;
+    const maxHeight = canvas.height * heightRatio;
+    let drawWidth = maxWidth;
+    let drawHeight = drawWidth / aspect;
+
+    if (fitMode === 'cover') {
+      if (drawHeight < maxHeight) {
+        drawHeight = maxHeight;
+        drawWidth = drawHeight * aspect;
+      }
+    } else if (drawHeight > maxHeight) {
       drawHeight = maxHeight;
       drawWidth = drawHeight * aspect;
     }
-  } else if (drawHeight > maxHeight) {
-    drawHeight = maxHeight;
-    drawWidth = drawHeight * aspect;
-  }
 
-  const offsetX = (canvas.width - drawWidth) * 0.5;
-  const offsetY = (canvas.height - drawHeight) * 0.5;
-  ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
+    const offsetX = (canvas.width - drawWidth) * 0.5;
+    const offsetY = (canvas.height - drawHeight) * 0.5;
+    ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
 
-  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const cells = [];
-  const grid = Array.from({ length: state.rows }, () => Array(state.cols).fill(' '));
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const cells = [];
+    const grid = Array.from({ length: state.rows }, () => Array(state.cols).fill(' '));
 
-  for (let row = 0; row < state.rows; row += 1) {
-    for (let col = 0; col < state.cols; col += 1) {
-      const cellLeft = Math.floor((col / state.cols) * canvas.width);
-      const cellRight = Math.floor(((col + 1) / state.cols) * canvas.width);
-      const cellTop = Math.floor((row / state.rows) * canvas.height);
-      const cellBottom = Math.floor(((row + 1) / state.rows) * canvas.height);
-      const density = sampleDensity(data, canvas.width, cellLeft, cellRight, cellTop, cellBottom);
-      const char = densityToChar(density);
+    for (let row = 0; row < state.rows; row += 1) {
+      for (let col = 0; col < state.cols; col += 1) {
+        const cellLeft = Math.floor((col / state.cols) * canvas.width);
+        const cellRight = Math.floor(((col + 1) / state.cols) * canvas.width);
+        const cellTop = Math.floor((row / state.rows) * canvas.height);
+        const cellBottom = Math.floor(((row + 1) / state.rows) * canvas.height);
+        const density = sampleDensity(data, canvas.width, cellLeft, cellRight, cellTop, cellBottom);
+        const char = densityToChar(density);
 
-      grid[row][col] = char;
+        grid[row][col] = char;
 
-      if (char !== ' ') {
-        cells.push({ x: col, y: row, char });
+        if (char !== ' ') {
+          cells.push({ x: col, y: row, char });
+        }
       }
     }
-  }
 
-  return { cells, grid };
+    return { cells, grid };
+  } finally {
+    imageSource.revoke();
+  }
 }
 
 function rasterizeTextMask(lines, widthRatio, heightRatio, fontFamily) {
@@ -380,29 +425,28 @@ function buildParticleSet(sourceCells, targetCells, seed, startFromOffscreen = f
 }
 
 async function rebuildScene() {
-  const masks = [];
+  const barSource = runtimeConfig.barSvg
+    ? { svgText: runtimeConfig.barSvg }
+    : FALLBACK_BAR_PATH;
+  const finalLogoSource = runtimeConfig.finalLogoSvg
+    ? { svgText: runtimeConfig.finalLogoSvg }
+    : FINAL_LOGO_PATH;
+  const rawBarMask = await rasterizeMask(barSource, 0.84, 0.18, 'contain');
+  const barMask = finalizeMask(rawBarMask, 0, 1.05, 1.8);
 
-  for (let index = 0; index < PATTERN_DEFS.length; index += 1) {
-    const def = PATTERN_DEFS[index];
-    const rawMask = await rasterizeMask(def.path, def.widthRatio, def.heightRatio, def.fitMode);
-    masks.push(finalizeMask(rawMask, index, def.motionAmplitude, def.motionSpeed));
-  }
+  const titleRaw = rasterizeTextMask(TITLE_LINES, 0.84, 0.22, 'RPIGeistMono');
+  const finalLogoRaw = await rasterizeMask(finalLogoSource, 0.68, 0.34, 'contain');
 
-  const titleRaw = rasterizeTextMask(TITLE_LINES, 0.84, 0.22, 'GeistPixelSquare');
-  const finalLogoRaw = await rasterizeMask(FINAL_LOGO_PATH, 0.68, 0.34, 'contain');
-
-  state.masks = masks;
+  state.masks = [barMask];
   state.titleMask = finalizeMask(titleRaw, 91, 0.72, 1.18);
   state.finalMask = {
     cells: finalLogoRaw.cells,
     grid: finalLogoRaw.grid,
     text: finalLogoRaw.grid.map((row) => row.join('')).join('\n')
   };
-  state.introParticles = buildParticleSet([], masks[0].cells, 51, true);
-  state.morphSets = masks.slice(0, -1).map((mask, index) =>
-    buildParticleSet(mask.cells, masks[index + 1].cells, 71 + index, false)
-  );
-  state.titleMorphParticles = buildParticleSet(masks[masks.length - 1].cells, state.titleMask.cells, 161, false);
+  state.introParticles = buildParticleSet([], barMask.cells, 51, true);
+  state.morphSets = [];
+  state.titleMorphParticles = buildParticleSet(barMask.cells, state.titleMask.cells, 161, false);
   state.finalMorphParticles = buildParticleSet(state.titleMask.cells, state.finalMask.cells, 191, false);
 }
 
@@ -648,13 +692,21 @@ function renderFrame(timestamp) {
   }
 
   projection.textContent = state.finalMask.text;
+
+  if (!state.hasCompleted) {
+    state.hasCompleted = true;
+    if (runtimeConfig.isOverlay && window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'rpi-logo-animation-complete' }, window.location.origin);
+    }
+  }
 }
 
 async function prepare() {
   if (document.fonts && document.fonts.load) {
-    await document.fonts.load('32px RPIGeistMono');
-    await document.fonts.load('32px GeistPixelSquare');
-    await document.fonts.ready;
+    await Promise.allSettled([
+      document.fonts.load('32px RPIGeistMono'),
+      document.fonts.ready
+    ]);
   }
 
   updateProjectionScale();
@@ -663,6 +715,7 @@ async function prepare() {
   window.cancelAnimationFrame(state.frameHandle);
   state.frameHandle = 0;
   state.startTime = 0;
+  state.hasCompleted = false;
   state.frameHandle = window.requestAnimationFrame(renderFrame);
 }
 
@@ -670,6 +723,7 @@ window.addEventListener('resize', async () => {
   updateProjectionScale();
   await rebuildScene();
   state.startTime = 0;
+  state.hasCompleted = false;
   window.cancelAnimationFrame(state.frameHandle);
   state.frameHandle = window.requestAnimationFrame(renderFrame);
 });

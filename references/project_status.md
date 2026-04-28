@@ -1,6 +1,6 @@
 # RPI Logo Generator - Project Status & Master Documentation
 
-**Last Updated:** 2026-04-24
+**Last Updated:** 2026-04-28
 **Current Phase:** Phase 3 (Advanced Features & Refinement)
 
 ## 1. Project Overview
@@ -22,6 +22,11 @@ A web-based **Design Tool** integrated with RPI's central Brand Hub. It allows s
 *   `references/` - Documentation and guidelines.
 
 ## 3. Completed Milestones
+
+- **[2026-04-28] Header Logo Animation Now Uses The Active Bar Design In An Overlay**:
+    - Reworked the generator header logo trigger so it passes the current bar-only SVG and full RPI lockup SVG into the existing full-screen ASCII animation overlay through same-origin session storage.
+    - Simplified the ASCII animation sequence to use only the active selected bar as the opening ASCII art, transition to `THE BAR GENERATOR`, then resolve into the RPI mark with that same bar beneath it.
+    - Added a completion message from the iframe back to the overlay controller so the animation dismisses itself without changing or navigating away from the generator page.
 
 - **[2026-04-24] Header Logo Now Lazily Launches A Full-Screen Animation Overlay**:
     - Kept generator boot unchanged and avoided new startup-time runtime dependencies by wiring the existing header logo preview as an on-demand trigger inside `js/main.js`, rather than mounting animation code during initial page load.

@@ -54,6 +54,13 @@
     frameEl.title = 'RPI ASCII animation';
     frameEl.loading = 'eager';
     frameEl.referrerPolicy = 'same-origin';
+    frameEl.style.position = 'absolute';
+    frameEl.style.inset = '0';
+    frameEl.style.width = '100vw';
+    frameEl.style.height = '100vh';
+    frameEl.style.border = '0';
+    frameEl.style.display = 'block';
+    frameEl.style.background = '#000000';
     frameEl.setAttribute('allowfullscreen', '');
     frameEl.src = src;
     return frameEl;
@@ -99,15 +106,39 @@
     };
   }
 
+  function appendQueryParams(src, params) {
+    const entries = Object.entries(params || {})
+      .filter(([, value]) => value !== null && typeof value !== 'undefined' && value !== '');
+
+    if (!entries.length) {
+      return src;
+    }
+
+    const separator = String(src).includes('?') ? '&' : '?';
+    const query = entries
+      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+      .join('&');
+
+    return `${src}${separator}${query}`;
+  }
+
   function createLogoAnimationController(options) {
     const triggerEl = options && options.triggerEl ? options.triggerEl : null;
     const documentRef = options && options.documentRef ? options.documentRef : document;
+    const windowRef = options && options.windowRef
+      ? options.windowRef
+      : (documentRef && documentRef.defaultView
+        ? documentRef.defaultView
+        : (typeof window !== 'undefined' ? window : null));
     const ensureOverlay = options && typeof options.ensureOverlay === 'function'
       ? options.ensureOverlay
       : () => createOverlayElements(documentRef);
     const animationSrc = options && options.animationSrc
       ? options.animationSrc
       : 'animation/index.html';
+    const getAnimationState = options && typeof options.getAnimationState === 'function'
+      ? options.getAnimationState
+      : null;
 
     if (!triggerEl) {
       return null;
@@ -117,6 +148,55 @@
     let frameEl = null;
     let isOpen = false;
     let escapeHandler = null;
+    let messageHandler = null;
+    let activeStateKey = '';
+
+    function clearAnimationState() {
+      if (!activeStateKey || !windowRef || !windowRef.sessionStorage) {
+        activeStateKey = '';
+        return;
+      }
+
+      try {
+        windowRef.sessionStorage.removeItem(activeStateKey);
+      } catch (error) {
+        // Storage cleanup is best-effort; animation playback should not depend on it.
+      }
+
+      activeStateKey = '';
+    }
+
+    function getFrameSrc() {
+      if (!getAnimationState || !windowRef || !windowRef.sessionStorage) {
+        return animationSrc;
+      }
+
+      let animationState = null;
+      try {
+        animationState = getAnimationState();
+      } catch (error) {
+        return animationSrc;
+      }
+
+      if (!animationState) {
+        return animationSrc;
+      }
+
+      clearAnimationState();
+      activeStateKey = `rpi-logo-animation-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+      try {
+        windowRef.sessionStorage.setItem(activeStateKey, JSON.stringify(animationState));
+      } catch (error) {
+        activeStateKey = '';
+        return animationSrc;
+      }
+
+      return appendQueryParams(animationSrc, {
+        overlay: '1',
+        stateKey: activeStateKey
+      });
+    }
 
     function ensureOverlayParts() {
       if (overlayParts) {
@@ -131,6 +211,31 @@
 
       overlayParts.closeEl.addEventListener('click', close);
       overlayParts.replayEl.addEventListener('click', replay);
+
+      messageHandler = (event) => {
+        if (!isOpen || !frameEl) {
+          return;
+        }
+
+        if (event
+          && event.origin
+          && windowRef
+          && windowRef.location
+          && event.origin !== windowRef.location.origin) {
+          return;
+        }
+
+        const data = event ? event.data : null;
+        if (!data || data.type !== 'rpi-logo-animation-complete') {
+          return;
+        }
+
+        close();
+      };
+
+      if (windowRef && typeof windowRef.addEventListener === 'function') {
+        windowRef.addEventListener('message', messageHandler);
+      }
 
       escapeHandler = (event) => {
         if (!isOpen || event.key !== 'Escape') {
@@ -157,6 +262,7 @@
       }
 
       frameEl = null;
+      clearAnimationState();
 
       if (overlayParts && overlayParts.stageEl) {
         overlayParts.stageEl.innerHTML = '';
@@ -166,7 +272,7 @@
     function mountFrame() {
       const parts = ensureOverlayParts();
       destroyFrame();
-      frameEl = createAnimationFrame(documentRef, animationSrc);
+      frameEl = createAnimationFrame(documentRef, getFrameSrc());
       appendChild(parts.stageEl, frameEl);
       return frameEl;
     }
@@ -227,6 +333,11 @@
       if (escapeHandler) {
         documentRef.removeEventListener('keydown', escapeHandler);
         escapeHandler = null;
+      }
+
+      if (messageHandler && windowRef && typeof windowRef.removeEventListener === 'function') {
+        windowRef.removeEventListener('message', messageHandler);
+        messageHandler = null;
       }
     }
 
