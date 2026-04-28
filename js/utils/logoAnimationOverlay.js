@@ -14,6 +14,9 @@
   const STAGE_ID = 'logo-animation-stage';
   const CLOSE_ID = 'logo-animation-close';
   const REPLAY_ID = 'logo-animation-replay';
+  const READY_SCRIM_DELAY_MS = 140;
+  const OPEN_SCRIM_FALLBACK_MS = 1200;
+  const EXIT_TRANSITION_MS = 760;
 
   function appendChild(parent, child) {
     if (!parent || !child) {
@@ -54,6 +57,14 @@
     frameEl.title = 'RPI ASCII animation';
     frameEl.loading = 'eager';
     frameEl.referrerPolicy = 'same-origin';
+    frameEl.style.position = 'absolute';
+    frameEl.style.inset = '0';
+    frameEl.style.width = '100vw';
+    frameEl.style.height = '100vh';
+    frameEl.style.border = '0';
+    frameEl.style.display = 'block';
+    frameEl.style.background = 'transparent';
+    frameEl.setAttribute('allowtransparency', 'true');
     frameEl.setAttribute('allowfullscreen', '');
     frameEl.src = src;
     return frameEl;
@@ -99,15 +110,39 @@
     };
   }
 
+  function appendQueryParams(src, params) {
+    const entries = Object.entries(params || {})
+      .filter(([, value]) => value !== null && typeof value !== 'undefined' && value !== '');
+
+    if (!entries.length) {
+      return src;
+    }
+
+    const separator = String(src).includes('?') ? '&' : '?';
+    const query = entries
+      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+      .join('&');
+
+    return `${src}${separator}${query}`;
+  }
+
   function createLogoAnimationController(options) {
     const triggerEl = options && options.triggerEl ? options.triggerEl : null;
     const documentRef = options && options.documentRef ? options.documentRef : document;
+    const windowRef = options && options.windowRef
+      ? options.windowRef
+      : (documentRef && documentRef.defaultView
+        ? documentRef.defaultView
+        : (typeof window !== 'undefined' ? window : null));
     const ensureOverlay = options && typeof options.ensureOverlay === 'function'
       ? options.ensureOverlay
       : () => createOverlayElements(documentRef);
     const animationSrc = options && options.animationSrc
       ? options.animationSrc
       : 'animation/index.html';
+    const getAnimationState = options && typeof options.getAnimationState === 'function'
+      ? options.getAnimationState
+      : null;
 
     if (!triggerEl) {
       return null;
@@ -117,6 +152,105 @@
     let frameEl = null;
     let isOpen = false;
     let escapeHandler = null;
+    let messageHandler = null;
+    let activeStateKey = '';
+    let openTimer = 0;
+    let closeTimer = 0;
+    let activeOpenParts = null;
+
+    function schedule(callback, delay = 0) {
+      if (windowRef && typeof windowRef.setTimeout === 'function') {
+        return windowRef.setTimeout(callback, delay);
+      }
+
+      if (typeof setTimeout === 'function') {
+        return setTimeout(callback, delay);
+      }
+
+      callback();
+      return 0;
+    }
+
+    function cancelScheduled(timerId) {
+      if (!timerId) {
+        return;
+      }
+
+      if (windowRef && typeof windowRef.clearTimeout === 'function') {
+        windowRef.clearTimeout(timerId);
+        return;
+      }
+
+      if (typeof clearTimeout === 'function') {
+        clearTimeout(timerId);
+      }
+    }
+
+    function clearAnimationState() {
+      if (!activeStateKey || !windowRef || !windowRef.sessionStorage) {
+        activeStateKey = '';
+        return;
+      }
+
+      try {
+        windowRef.sessionStorage.removeItem(activeStateKey);
+      } catch (error) {
+        // Storage cleanup is best-effort; animation playback should not depend on it.
+      }
+
+      activeStateKey = '';
+    }
+
+    function getFrameSrc() {
+      if (!getAnimationState || !windowRef || !windowRef.sessionStorage) {
+        return animationSrc;
+      }
+
+      let animationState = null;
+      try {
+        animationState = getAnimationState();
+      } catch (error) {
+        return animationSrc;
+      }
+
+      if (!animationState) {
+        return animationSrc;
+      }
+
+      clearAnimationState();
+      activeStateKey = `rpi-logo-animation-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+      try {
+        windowRef.sessionStorage.setItem(activeStateKey, JSON.stringify(animationState));
+      } catch (error) {
+        activeStateKey = '';
+        return animationSrc;
+      }
+
+      return appendQueryParams(animationSrc, {
+        overlay: '1',
+        stateKey: activeStateKey
+      });
+    }
+
+    function startScrimFade(delay = 0) {
+      if (!isOpen || !activeOpenParts) {
+        return;
+      }
+
+      cancelScheduled(openTimer);
+      openTimer = schedule(() => {
+        openTimer = 0;
+        if (!isOpen
+          || !activeOpenParts
+          || !activeOpenParts.overlayEl.classList
+          || typeof activeOpenParts.overlayEl.classList.add !== 'function') {
+          return;
+        }
+
+        activeOpenParts.overlayEl.classList.add('is-open');
+      }, delay);
+    }
 
     function ensureOverlayParts() {
       if (overlayParts) {
@@ -131,6 +265,36 @@
 
       overlayParts.closeEl.addEventListener('click', close);
       overlayParts.replayEl.addEventListener('click', replay);
+
+      messageHandler = (event) => {
+        if (!isOpen || !frameEl) {
+          return;
+        }
+
+        if (event
+          && event.origin
+          && windowRef
+          && windowRef.location
+          && event.origin !== windowRef.location.origin) {
+          return;
+        }
+
+        const data = event ? event.data : null;
+        if (data && data.type === 'rpi-logo-animation-ready') {
+          startScrimFade(READY_SCRIM_DELAY_MS);
+          return;
+        }
+
+        if (!data || data.type !== 'rpi-logo-animation-complete') {
+          return;
+        }
+
+        close();
+      };
+
+      if (windowRef && typeof windowRef.addEventListener === 'function') {
+        windowRef.addEventListener('message', messageHandler);
+      }
 
       escapeHandler = (event) => {
         if (!isOpen || event.key !== 'Escape') {
@@ -157,6 +321,7 @@
       }
 
       frameEl = null;
+      clearAnimationState();
 
       if (overlayParts && overlayParts.stageEl) {
         overlayParts.stageEl.innerHTML = '';
@@ -166,7 +331,7 @@
     function mountFrame() {
       const parts = ensureOverlayParts();
       destroyFrame();
-      frameEl = createAnimationFrame(documentRef, animationSrc);
+      frameEl = createAnimationFrame(documentRef, getFrameSrc());
       appendChild(parts.stageEl, frameEl);
       return frameEl;
     }
@@ -174,23 +339,39 @@
     function setOpenState(nextIsOpen) {
       const parts = ensureOverlayParts();
       isOpen = nextIsOpen;
-      parts.overlayEl.hidden = !nextIsOpen;
       parts.overlayEl.setAttribute('aria-hidden', String(!nextIsOpen));
       triggerEl.setAttribute('aria-expanded', String(nextIsOpen));
 
       if (parts.overlayEl.classList && typeof parts.overlayEl.classList.toggle === 'function') {
-        parts.overlayEl.classList.toggle('is-open', nextIsOpen);
+        parts.overlayEl.classList.toggle('is-closing', !nextIsOpen);
+        if (!nextIsOpen) {
+          parts.overlayEl.classList.remove('is-open');
+        }
       }
 
-      if (documentRef.body && documentRef.body.classList && typeof documentRef.body.classList.toggle === 'function') {
-        documentRef.body.classList.toggle('has-logo-animation', nextIsOpen);
+      if (nextIsOpen) {
+        parts.overlayEl.hidden = false;
+        if (documentRef.body && documentRef.body.classList && typeof documentRef.body.classList.add === 'function') {
+          documentRef.body.classList.add('has-logo-animation');
+        }
       }
     }
 
     function open() {
       const parts = ensureOverlayParts();
+      cancelScheduled(openTimer);
+      cancelScheduled(closeTimer);
+      openTimer = 0;
+      closeTimer = 0;
       mountFrame();
+      activeOpenParts = parts;
       setOpenState(true);
+
+      if (parts.overlayEl.classList && typeof parts.overlayEl.classList.remove === 'function') {
+        parts.overlayEl.classList.remove('is-closing');
+      }
+
+      startScrimFade(OPEN_SCRIM_FALLBACK_MS);
 
       if (typeof parts.closeEl.focus === 'function') {
         parts.closeEl.focus();
@@ -204,12 +385,33 @@
         return;
       }
 
+      const parts = ensureOverlayParts();
+      cancelScheduled(openTimer);
+      cancelScheduled(closeTimer);
+      openTimer = 0;
       setOpenState(false);
-      destroyFrame();
+      activeOpenParts = null;
 
       if (typeof triggerEl.focus === 'function') {
         triggerEl.focus();
       }
+
+      closeTimer = schedule(() => {
+        closeTimer = 0;
+        if (isOpen) {
+          return;
+        }
+
+        destroyFrame();
+        parts.overlayEl.hidden = true;
+        if (parts.overlayEl.classList && typeof parts.overlayEl.classList.remove === 'function') {
+          parts.overlayEl.classList.remove('is-closing');
+        }
+
+        if (documentRef.body && documentRef.body.classList && typeof documentRef.body.classList.remove === 'function') {
+          documentRef.body.classList.remove('has-logo-animation');
+        }
+      }, EXIT_TRANSITION_MS);
     }
 
     function replay() {
@@ -223,10 +425,20 @@
 
     function destroy() {
       close();
+      cancelScheduled(openTimer);
+      cancelScheduled(closeTimer);
+      openTimer = 0;
+      closeTimer = 0;
+      destroyFrame();
 
       if (escapeHandler) {
         documentRef.removeEventListener('keydown', escapeHandler);
         escapeHandler = null;
+      }
+
+      if (messageHandler && windowRef && typeof windowRef.removeEventListener === 'function') {
+        windowRef.removeEventListener('message', messageHandler);
+        messageHandler = null;
       }
     }
 

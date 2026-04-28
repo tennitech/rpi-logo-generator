@@ -4474,6 +4474,120 @@ function applyColorMode(colorMode) {
   requestUpdate();
 }
 
+function getCurrentBarPatternValues(exactBarWidth) {
+  const loopAnimationState = getCurrentLoopAnimationState(exactBarWidth);
+  const timeSeconds = loopAnimationState
+    ? loopAnimationState.timeSeconds
+    : (typeof window.animationTime !== 'undefined'
+      ? window.animationTime
+      : getAnimationNowMs() / 1000.0);
+
+  return {
+    rulerRepeats: rulerRepeatsSlider ? rulerRepeatsSlider.value : 10,
+    rulerUnits: rulerUnitsSlider ? rulerUnitsSlider.value : 4,
+    tickerRepeats: tickerSlider ? tickerSlider.value : 34,
+    tickerRatio: tickerRatioSlider ? tickerRatioSlider.value : 2,
+    tickerWidthRatio: tickerWidthRatioSlider ? tickerWidthRatioSlider.value : 2,
+    loopOffsetX: loopAnimationState ? loopAnimationState.loopOffsetX : 0,
+    binaryText: binaryInput ? (binaryInput.value || 'RPI') : 'RPI',
+    waveformType: waveformTypeSlider ? waveformTypeSlider.value : 0,
+    waveformFrequency: waveformFrequencySlider ? waveformFrequencySlider.value : 24,
+    waveformSpeed: waveformSpeedSlider ? waveformSpeedSlider.value : 0.7,
+    waveformEnvelope: waveformEnvelopeToggle ? waveformEnvelopeToggle.checked : false,
+    waveformEnvelopeType: waveformEnvelopeType ? waveformEnvelopeType.value : 'sine',
+    waveformEnvelopeWaves: waveformEnvelopeWavesSlider
+      ? (typeof normalizeWaveformEnvelopeWaves === 'function'
+        ? normalizeWaveformEnvelopeWaves(waveformEnvelopeWavesSlider.value)
+        : Math.max(1, Math.min(10, Math.round(parseFloat(waveformEnvelopeWavesSlider.value)) || 1)))
+      : 1,
+    waveformEnvelopeCenter: waveformEnvelopeCenterSlider ? waveformEnvelopeCenterSlider.value : 0,
+    waveformEnvelopeBipolar: waveformEnvelopeBipolarToggle ? waveformEnvelopeBipolarToggle.checked : false,
+    timeSeconds,
+    circlesFill: circlesFillSelect ? circlesFillSelect.value : 'stroke',
+    circlesDensity: circlesDensitySlider ? circlesDensitySlider.value : 50,
+    circlesSizeVariation: circlesSizeVariationSlider ? circlesSizeVariationSlider.value : 0,
+    numericValue: numericInput ? numericInput.value : '',
+    numericMode: numericModeSelect ? numericModeSelect.value : 'dotmatrix',
+    circlesGradientVariant: circlesGradientVariantSlider ? circlesGradientVariantSlider.value : 1,
+    gradientVariant: gradientVariantSlider ? gradientVariantSlider.value : 1,
+    gridVariant: gridVariantSlider ? gridVariantSlider.value : 1,
+    linesVariant: linesVariantSlider ? linesVariantSlider.value : 2,
+    pointConnectVariant: pointConnectVariantSlider ? pointConnectVariantSlider.value : 1,
+    neuralNetworkHiddenLayers: neuralNetworkHiddenLayersSlider ? neuralNetworkHiddenLayersSlider.value : 1,
+    triangleGridVariant: triangleGridVariantSlider ? triangleGridVariantSlider.value : 2,
+    trianglesVariant: trianglesVariantSlider ? trianglesVariantSlider.value : 1,
+    morseText: morseInput ? morseInput.value : 'RPI',
+    trussFamily: trussFamilySelect ? trussFamilySelect.value : 'flat',
+    trussSegments: trussSegmentsSlider ? trussSegmentsSlider.value : 15,
+    trussThickness: trussThicknessSlider ? trussThicknessSlider.value : 2,
+    staffText: 'RPI',
+    staffThickness: 1,
+    staffNotes: typeof currentStaffNotes !== 'undefined' ? currentStaffNotes : [],
+    staffNoteShape: typeof getSelectedMusicNoteShape === 'function' ? getSelectedMusicNoteShape() : 'circle',
+    pulseText: pulseInput ? pulseInput.value : 'RPI',
+    pulseIntensity: pulseIntensitySlider ? pulseIntensitySlider.value : 5,
+    graphText: graphInput ? graphInput.value : 'RPI',
+    graphText2: graphInput2 ? graphInput2.value : '',
+    graphText3: graphInput3 ? graphInput3.value : '',
+    graphText4: graphInput4 ? graphInput4.value : '',
+    graphText5: graphInput5 ? graphInput5.value : '',
+    graphMulti: graphMultiToggle ? graphMultiToggle.checked : false,
+    graphScale: graphScaleSlider ? graphScaleSlider.value : 10
+  };
+}
+
+function buildCurrentBarPatternSVGFragment({
+  barStartX = 0,
+  barY = REFERENCE_BAR_Y,
+  exactBarWidth = REFERENCE_WIDTH,
+  barHeight = REFERENCE_BAR_HEIGHT,
+  fgColor = 'currentColor'
+} = {}) {
+  if (currentShader === 0) {
+    const cornerSize = 1.5;
+    const pathData = `M ${barStartX + cornerSize} ${barY} L ${barStartX + exactBarWidth - cornerSize} ${barY} L ${barStartX + exactBarWidth} ${barY + cornerSize} L ${barStartX + exactBarWidth} ${barY + barHeight - cornerSize} L ${barStartX + exactBarWidth - cornerSize} ${barY + barHeight} L ${barStartX + cornerSize} ${barY + barHeight} L ${barStartX} ${barY + barHeight - cornerSize} L ${barStartX} ${barY + cornerSize} Z`;
+    return `\n  <path d="${pathData}" fill="${fgColor}"/>`;
+  }
+
+  if (typeof createBarPatternSVG !== 'function') {
+    return '';
+  }
+
+  return createBarPatternSVG({
+    currentShader,
+    currentColorMode,
+    barStartX,
+    barY,
+    exactBarWidth,
+    barHeight,
+    fgColor,
+    textToBinary,
+    textToMorse,
+    parseNumericString,
+    generateGridCircles,
+    generateStaticPackedCircles,
+    values: getCurrentBarPatternValues(exactBarWidth)
+  });
+}
+
+function buildCurrentBarOnlySVG() {
+  const fgColor = 'currentColor';
+  const barWidth = REFERENCE_WIDTH;
+  const barHeight = REFERENCE_BAR_HEIGHT;
+  const barMarkup = buildCurrentBarPatternSVGFragment({
+    barStartX: 0,
+    barY: 0,
+    exactBarWidth: barWidth,
+    barHeight,
+    fgColor
+  });
+
+  return `
+<svg viewBox="0 0 ${barWidth} ${barHeight}" xmlns="http://www.w3.org/2000/svg" role="presentation" focusable="false" aria-hidden="true" style="color: #000000; overflow: visible;">
+  ${barMarkup}
+</svg>`.trim();
+}
+
 function buildHeaderPreviewSVG() {
   const currentWidth = REFERENCE_WIDTH;
   const logoHeight = REFERENCE_TOTAL_HEIGHT;
@@ -4482,12 +4596,6 @@ function buildHeaderPreviewSVG() {
   const barHeight = REFERENCE_BAR_HEIGHT;
   const exactBarWidth = REFERENCE_WIDTH;
   const barStartX = 0;
-  const loopAnimationState = getCurrentLoopAnimationState(exactBarWidth);
-  const timeSeconds = loopAnimationState
-    ? loopAnimationState.timeSeconds
-    : (typeof window.animationTime !== 'undefined'
-      ? window.animationTime
-      : getAnimationNowMs() / 1000.0);
 
   let svgContent = `
 <svg viewBox="0 0 ${currentWidth} ${logoHeight}" xmlns="http://www.w3.org/2000/svg" role="presentation" focusable="false" aria-hidden="true" style="overflow: visible;">
@@ -4495,81 +4603,25 @@ function buildHeaderPreviewSVG() {
   <path d="${paths.p}" fill="${fgColor}"/>
   <path d="${paths.i}" fill="${fgColor}"/>`;
 
-  if (currentShader === 0) {
-    const cornerSize = 1.5;
-    const pathData = `M ${barStartX + cornerSize} ${barY} L ${barStartX + exactBarWidth - cornerSize} ${barY} L ${barStartX + exactBarWidth} ${barY + cornerSize} L ${barStartX + exactBarWidth} ${barY + barHeight - cornerSize} L ${barStartX + exactBarWidth - cornerSize} ${barY + barHeight} L ${barStartX + cornerSize} ${barY + barHeight} L ${barStartX} ${barY + barHeight - cornerSize} L ${barStartX} ${barY + cornerSize} Z`;
-    svgContent += `\n  <path d="${pathData}" fill="${fgColor}"/>`;
-  } else if (typeof createBarPatternSVG === 'function') {
-    svgContent += createBarPatternSVG({
-      currentShader,
-      currentColorMode,
-      barStartX,
-      barY,
-      exactBarWidth,
-      barHeight,
-      fgColor,
-      textToBinary,
-      textToMorse,
-      parseNumericString,
-      generateGridCircles,
-      generateStaticPackedCircles,
-      values: {
-        rulerRepeats: rulerRepeatsSlider ? rulerRepeatsSlider.value : 10,
-        rulerUnits: rulerUnitsSlider ? rulerUnitsSlider.value : 4,
-        tickerRepeats: tickerSlider ? tickerSlider.value : 34,
-        tickerRatio: tickerRatioSlider ? tickerRatioSlider.value : 2,
-        tickerWidthRatio: tickerWidthRatioSlider ? tickerWidthRatioSlider.value : 2,
-        loopOffsetX: loopAnimationState ? loopAnimationState.loopOffsetX : 0,
-        binaryText: binaryInput ? (binaryInput.value || 'RPI') : 'RPI',
-        waveformType: waveformTypeSlider ? waveformTypeSlider.value : 0,
-        waveformFrequency: waveformFrequencySlider ? waveformFrequencySlider.value : 24,
-        waveformSpeed: waveformSpeedSlider ? waveformSpeedSlider.value : 0.7,
-        waveformEnvelope: waveformEnvelopeToggle ? waveformEnvelopeToggle.checked : false,
-        waveformEnvelopeType: waveformEnvelopeType ? waveformEnvelopeType.value : 'sine',
-        waveformEnvelopeWaves: waveformEnvelopeWavesSlider
-          ? (typeof normalizeWaveformEnvelopeWaves === 'function'
-            ? normalizeWaveformEnvelopeWaves(waveformEnvelopeWavesSlider.value)
-            : Math.max(1, Math.min(10, Math.round(parseFloat(waveformEnvelopeWavesSlider.value)) || 1)))
-          : 1,
-        waveformEnvelopeCenter: waveformEnvelopeCenterSlider ? waveformEnvelopeCenterSlider.value : 0,
-        waveformEnvelopeBipolar: waveformEnvelopeBipolarToggle ? waveformEnvelopeBipolarToggle.checked : false,
-        timeSeconds,
-        circlesFill: circlesFillSelect ? circlesFillSelect.value : 'stroke',
-        circlesDensity: circlesDensitySlider ? circlesDensitySlider.value : 50,
-        circlesSizeVariation: circlesSizeVariationSlider ? circlesSizeVariationSlider.value : 0,
-        numericValue: numericInput ? numericInput.value : '',
-        numericMode: numericModeSelect ? numericModeSelect.value : 'dotmatrix',
-        circlesGradientVariant: circlesGradientVariantSlider ? circlesGradientVariantSlider.value : 1,
-        gradientVariant: gradientVariantSlider ? gradientVariantSlider.value : 1,
-        gridVariant: gridVariantSlider ? gridVariantSlider.value : 1,
-        linesVariant: linesVariantSlider ? linesVariantSlider.value : 2,
-        pointConnectVariant: pointConnectVariantSlider ? pointConnectVariantSlider.value : 1,
-        neuralNetworkHiddenLayers: neuralNetworkHiddenLayersSlider ? neuralNetworkHiddenLayersSlider.value : 1,
-        triangleGridVariant: triangleGridVariantSlider ? triangleGridVariantSlider.value : 2,
-        trianglesVariant: trianglesVariantSlider ? trianglesVariantSlider.value : 1,
-        morseText: morseInput ? morseInput.value : 'RPI',
-        trussFamily: trussFamilySelect ? trussFamilySelect.value : 'flat',
-        trussSegments: trussSegmentsSlider ? trussSegmentsSlider.value : 15,
-        trussThickness: trussThicknessSlider ? trussThicknessSlider.value : 2,
-        staffText: 'RPI',
-        staffThickness: 1,
-        staffNotes: typeof currentStaffNotes !== 'undefined' ? currentStaffNotes : [],
-        staffNoteShape: typeof getSelectedMusicNoteShape === 'function' ? getSelectedMusicNoteShape() : 'circle',
-        pulseText: pulseInput ? pulseInput.value : 'RPI',
-        pulseIntensity: pulseIntensitySlider ? pulseIntensitySlider.value : 5,
-        graphText: graphInput ? graphInput.value : 'RPI',
-        graphText2: graphInput2 ? graphInput2.value : '',
-        graphText3: graphInput3 ? graphInput3.value : '',
-        graphText4: graphInput4 ? graphInput4.value : '',
-        graphText5: graphInput5 ? graphInput5.value : '',
-        graphMulti: graphMultiToggle ? graphMultiToggle.checked : false,
-        graphScale: graphScaleSlider ? graphScaleSlider.value : 10
-      }
-    });
-  }
+  svgContent += buildCurrentBarPatternSVGFragment({
+    barStartX,
+    barY,
+    exactBarWidth,
+    barHeight,
+    fgColor
+  });
 
   svgContent += `\n</svg>`;
   return svgContent.trim();
+}
+
+function buildHeaderLogoAnimationState() {
+  return {
+    barSvg: buildCurrentBarOnlySVG(),
+    finalLogoSvg: buildHeaderPreviewSVG(),
+    style: normalizeStyleValue(styleSelect ? styleSelect.value : 'solid'),
+    colorMode: currentColorMode
+  };
 }
 
 function updateHeaderBrandPreview(force = false) {
@@ -4617,7 +4669,7 @@ async function ensureHeaderLogoAnimationController() {
   }
 
   headerLogoAnimationControllerPromise = (async () => {
-    await loadExternalScriptOnce('js/utils/logoAnimationOverlay.js?v=20260424-header-logo-lazy');
+    await loadExternalScriptOnce('js/utils/logoAnimationOverlay.js?v=20260428-header-logo-slower-fade');
 
     if (!window.LogoAnimationOverlay
       || typeof window.LogoAnimationOverlay.createLogoAnimationController !== 'function') {
@@ -4628,7 +4680,8 @@ async function ensureHeaderLogoAnimationController() {
       triggerEl: headerLogoPreview,
       documentRef: document,
       windowRef: window,
-      loadScript: loadExternalScriptOnce
+      loadScript: loadExternalScriptOnce,
+      getAnimationState: buildHeaderLogoAnimationState
     });
   })();
 
@@ -4670,6 +4723,11 @@ function setupHeaderLogoAnimationTrigger() {
   headerLogoPreview.classList.add('brand-mark-clickable');
   headerLogoPreview.setAttribute('role', 'button');
   headerLogoPreview.setAttribute('tabindex', '0');
+  if (typeof headerLogoPreview.removeAttribute === 'function') {
+    headerLogoPreview.removeAttribute('aria-hidden');
+  } else {
+    headerLogoPreview.setAttribute('aria-hidden', 'false');
+  }
   headerLogoPreview.setAttribute('aria-label', 'Play full-screen animation');
   headerLogoPreview.setAttribute('aria-haspopup', 'dialog');
   headerLogoPreview.setAttribute('aria-expanded', 'false');

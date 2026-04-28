@@ -6,14 +6,6 @@
   font-display: swap;
 }
 
-@font-face {
-  font-family: 'GeistPixelSquare';
-  src: url('../assets/fonts/GeistPixel-Square.otf') format('opentype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
 html,
 body {
   width: 100%;
@@ -26,6 +18,10 @@ body {
   background: #000000;
   color: #d6001c;
   font-family: 'RPIGeistMono', monospace;
+}
+
+body.is-overlay {
+  background: transparent;
 }
 
 .animation_page {

@@ -1591,8 +1591,19 @@ body.has-logo-animation {
   position: fixed;
   inset: 0;
   z-index: 160;
-  background: rgba(0, 0, 0, 0.96);
+  background: rgba(0, 0, 0, 0);
   display: block;
+  transition: background-color 2.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.logo_animation_overlay.is-open {
+  background: rgba(0, 0, 0, 0.96);
+}
+
+.logo_animation_overlay.is-closing {
+  background: rgba(0, 0, 0, 0);
+  transition-duration: 0.72s;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .logo_animation_overlay[hidden] {
@@ -1607,6 +1618,12 @@ body.has-logo-animation {
   display: flex;
   align-items: center;
   gap: 0.625rem;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+
+.logo_animation_overlay.is-open .logo_animation_chrome {
+  opacity: 1;
 }
 
 .logo_animation_button {
@@ -1642,10 +1659,24 @@ body.has-logo-animation {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.72s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.logo_animation_overlay.is-closing .logo_animation_stage {
+  opacity: 0;
 }
 
 .logo_animation_stage.inverted {
   filter: invert(1);
+}
+
+.logo_animation_frame {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: 0;
+  background: transparent;
 }
 
 .logo_animation_stage .runner-container {
